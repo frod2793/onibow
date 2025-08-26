@@ -27,13 +27,17 @@ public class PlayerControl : MonoBehaviour
     [SerializeField] private Ease decelerationEase = Ease.InCubic;
 
     [Header("Attack Settings")]
-    [Tooltip("발사할 포탄 프리팹")]
-    [SerializeField] private GameObject CanonBallPrefb;
+    [Tooltip("발사할 화살 프리팹")]
+    [SerializeField] private GameObject arrowPrefab;
+    [Tooltip("화살이 발사될 위치. 지정하지 않으면 플레이어의 위치에서 발사됩니다.")]
+    [SerializeField] private Transform firePoint;
+    [Tooltip("화살이 날아가는 고정 거리")]
+    [SerializeField] private float fireDistance = 7f;
     [Tooltip("포물선 발사의 최고 높이")]
     [SerializeField] private float fireArcHeight = 3f;
-    [Tooltip("포탄이 목표에 도달하는 시간")]
-    [SerializeField] private float fireDuration = 1.5f;
-    [Tooltip("포물선 운동의 속도 변화를 제어하는 커브. 정점에서 속도가 0에 가까워지도록 설정되었습니다.")]
+    [Tooltip("화살이 목표 지점까지 도달하는 시간")]
+    [SerializeField] private float fireDuration = 1f;
+    [Tooltip("포물선 운동의 속도 변화를 제어하는 커브")]
     [SerializeField] private AnimationCurve fireEaseCurve = new AnimationCurve(new Keyframe(0, 0, 0, 2f), new Keyframe(0.5f, 0.5f, 0, 0), new Keyframe(1, 1, 2f, 0));
     [Tooltip("정지 후 반복 발사 간격")]
     [SerializeField] private float fireInterval = 2f;
@@ -115,42 +119,59 @@ public class PlayerControl : MonoBehaviour
 
     private void FireAtNearestEnemy()
     {
-        if (CanonBallPrefb == null) return;
+        if (arrowPrefab == null) return;
 
         GameObject nearestEnemy = FindNearestEnemy();
         if (nearestEnemy != null)
         {
-            Vector3 startPos = transform.position;
-            Vector3 endPos = nearestEnemy.transform.position;
+            // 화살의 출발점을 firePoint로 설정합니다. firePoint가 없으면 플레이어의 위치를 사용합니다.
+            Vector3 startPos = firePoint != null ? firePoint.position : transform.position;
+            
+            // 적의 위치는 방향을 결정하는 데만 사용합니다.
+            Vector2 direction = (nearestEnemy.transform.position - startPos).normalized;
+            // 최종 목표 지점은 출발점에서 고정된 거리만큼 떨어진 곳입니다.
+            Vector3 endPos = startPos + (Vector3)direction * fireDistance;
 
             // 포물선의 정점과 베지어 제어점 계산
             Vector3 apex = (startPos + endPos) / 2f + Vector3.up * fireArcHeight;
             Vector3 controlPoint = 2 * apex - (startPos + endPos) / 2f;
 
-            GameObject cannonball = Instantiate(CanonBallPrefb, startPos, Quaternion.identity);
-            if (cannonball == null) return;
+            GameObject arrow = Instantiate(arrowPrefab, startPos, Quaternion.identity);
+            if (arrow == null) return;
 
             float t = 0f; // 0에서 1까지 보간될 값
+            Vector3 previousPos = startPos;
 
             DOGetter<float> getter = () => t;
             DOSetter<float> setter = (x) =>
             {
                 t = x;
-                if (cannonball == null) return;
+                if (arrow == null) return;
+
+                // 2차 베지어 곡선 공식으로 위치 계산
                 float oneMinusT = 1f - t;
-                // 2차 베지어 곡선 공식
-                cannonball.transform.position = oneMinusT * oneMinusT * startPos +
-                                                2f * oneMinusT * t * controlPoint +
-                                                t * t * endPos;
+                Vector3 newPos = oneMinusT * oneMinusT * startPos +
+                                 2f * oneMinusT * t * controlPoint +
+                                 t * t * endPos;
+                arrow.transform.position = newPos;
+
+                // 이동 방향으로 화살 회전
+                if (newPos != previousPos)
+                {
+                    Vector2 dir = (newPos - previousPos).normalized;
+                    float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
+                    arrow.transform.rotation = Quaternion.Euler(0, 0, angle);
+                }
+                previousPos = newPos;
             };
 
             // 단일 트윈과 AnimationCurve를 사용하여 부드러운 움직임 구현
             DOTween.To(getter, setter, 1f, fireDuration)
-                    .SetEase(fireEaseCurve)
-                    .OnComplete(() =>
-                    {
-                        if (cannonball != null) Destroy(cannonball);
-                    });
+                .SetEase(fireEaseCurve)
+                .OnComplete(() =>
+                {
+                    if (arrow != null) Destroy(arrow);
+                });
         }
     }
 
