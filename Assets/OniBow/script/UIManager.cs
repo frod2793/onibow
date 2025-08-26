@@ -10,9 +10,9 @@ public class UIManager : MonoBehaviour
 
     private PlayerControl _playerControl;
 
-    private void Awake()
+    private void Start()
     {
-        _playerControl = FindObjectOfType<PlayerControl>();
+        _playerControl = FindAnyObjectByType<PlayerControl>();
 
         // 오른쪽 버튼에 이벤트 트리거 설정
         if (rButton != null)
