@@ -28,8 +28,6 @@ public class PlayerControl : MonoBehaviour
 
     [Header("Attack Settings")]
     [Tooltip("발사할 화살 프리팹")]
-    [SerializeField] private GameObject arrowPrefab;
-    [Tooltip("화살이 발사될 위치. 지정하지 않으면 플레이어의 위치에서 발사됩니다.")]
     [SerializeField] private Transform firePoint;
     [Tooltip("화살이 날아가는 고정 거리")]
     [SerializeField] private float fireDistance = 7f;
@@ -53,6 +51,9 @@ public class PlayerControl : MonoBehaviour
     private CancellationTokenSource _moveCts;
     private CancellationTokenSource _fireCts;
     private float _lastFireTime = -999f; // 마지막 발사 시간을 기록
+    private SPUM_Prefabs _spumPrefabs; // 애니메이션 제어를 위한 참조
+    private PlayerState _currentState; // 현재 플레이어 상태
+    private bool _isAction; // 액션 애니메이션 재생 중인지 확인하는 플래그
 
     #endregion
 
@@ -61,8 +62,39 @@ public class PlayerControl : MonoBehaviour
     private void Awake()
     {
         _rigidbody2D = GetComponent<Rigidbody2D>();
+        _spumPrefabs = GetComponentInChildren<SPUM_Prefabs>();
+
+        // SPUM 애니메이션 시스템 초기화
+        if (_spumPrefabs != null)
+        {
+            if(!_spumPrefabs.allListsHaveItemsExist()){
+                _spumPrefabs.PopulateAnimationLists();
+            }
+            _spumPrefabs.OverrideControllerInit();
+            if (_spumPrefabs._anim == null)
+            {
+                Debug.LogError("SPUM_Prefabs has a null Animator reference!");
+            }
+        }
+        else
+        {
+            Debug.LogError("SPUM_Prefabs component not found in children. Animations will not work.");
+        }
+
         _rigidbody2D.gravityScale = 1;
         _rigidbody2D.constraints = RigidbodyConstraints2D.FreezeRotation;
+        _currentState = PlayerState.IDLE; // 초기 상태를 IDLE로 설정
+    }
+
+    private void Update()
+    {
+        if (_isAction) return; // 액션 중에는 상태 애니메이션 갱신 안함
+
+        // IDLE, MOVE 같은 지속적인 상태는 Update에서 계속 애니메이션을 갱신해줍니다.
+        if (_spumPrefabs != null)
+        {
+            _spumPrefabs.PlayAnimation(_currentState, 0);
+        }
     }
 
     private void OnDestroy()
@@ -81,6 +113,15 @@ public class PlayerControl : MonoBehaviour
 
     public void StartMoving(float direction)
     {
+        _isAction = false;
+        _currentState = PlayerState.MOVE;
+
+        // 캐릭터 방향 전환
+        if (_spumPrefabs != null)
+        {
+            _spumPrefabs.transform.rotation = Quaternion.Euler(0f, direction > 0 ? 180f : 0f, 0f);
+        }
+
         // 반복 발사 루프를 안전하게 중단하고 정리합니다.
         _fireCts?.Cancel();
         _fireCts?.Dispose();
@@ -111,6 +152,9 @@ public class PlayerControl : MonoBehaviour
 
     private void StartRepeatingFire()
     {
+        _isAction = false;
+        _currentState = PlayerState.IDLE;
+
         _fireCts?.Cancel();
         _fireCts?.Dispose();
         _fireCts = new CancellationTokenSource();
@@ -119,11 +163,26 @@ public class PlayerControl : MonoBehaviour
 
     private void FireAtNearestEnemy()
     {
-        if (arrowPrefab == null) return;
+        // [최적화] 오브젝트 풀이 없으면 공격을 실행하지 않습니다.
+        if (ArrowPool.Instance == null)
+        {
+            Debug.LogError("ArrowPool.Instance가 씬에 존재하지 않습니다.");
+            return;
+        }
 
         GameObject nearestEnemy = FindNearestEnemy();
         if (nearestEnemy != null)
         {
+            // 공격 전, 가장 가까운 적의 방향으로 캐릭터를 회전시킵니다.
+            if (_spumPrefabs != null)
+            {
+                float directionToEnemyX = nearestEnemy.transform.position.x - transform.position.x;
+                // directionToEnemyX > 0 이면 오른쪽(180도), 아니면 왼쪽(0도)을 보도록 설정합니다.
+                _spumPrefabs.transform.rotation = Quaternion.Euler(0f, directionToEnemyX > 0 ? 180f : 0f, 0f);
+            }
+
+            PlayAttackAnimationAsync().Forget();
+
             // 화살의 출발점을 firePoint로 설정합니다. firePoint가 없으면 플레이어의 위치를 사용합니다.
             Vector3 startPos = firePoint != null ? firePoint.position : transform.position;
             
@@ -136,42 +195,23 @@ public class PlayerControl : MonoBehaviour
             Vector3 apex = (startPos + endPos) / 2f + Vector3.up * fireArcHeight;
             Vector3 controlPoint = 2 * apex - (startPos + endPos) / 2f;
 
-            GameObject arrow = Instantiate(arrowPrefab, startPos, Quaternion.identity);
-            if (arrow == null) return;
+            // [최적화] Instantiate 대신 오브젝트 풀에서 화살을 가져옵니다.
+            GameObject arrowObject = ArrowPool.Instance.Get();
+            if (arrowObject == null) return;
+            arrowObject.transform.position = startPos;
+            arrowObject.transform.rotation = Quaternion.identity;
 
-            float t = 0f; // 0에서 1까지 보간될 값
-            Vector3 previousPos = startPos;
-
-            DOGetter<float> getter = () => t;
-            DOSetter<float> setter = (x) =>
+            // ArrowController를 통해 발사 로직을 위임하여 메모리 최적화
+            ArrowController arrowController = arrowObject.GetComponent<ArrowController>();
+            if (arrowController != null)
             {
-                t = x;
-                if (arrow == null) return;
-
-                // 2차 베지어 곡선 공식으로 위치 계산
-                float oneMinusT = 1f - t;
-                Vector3 newPos = oneMinusT * oneMinusT * startPos +
-                                 2f * oneMinusT * t * controlPoint +
-                                 t * t * endPos;
-                arrow.transform.position = newPos;
-
-                // 이동 방향으로 화살 회전
-                if (newPos != previousPos)
-                {
-                    Vector2 dir = (newPos - previousPos).normalized;
-                    float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
-                    arrow.transform.rotation = Quaternion.Euler(0, 0, angle);
-                }
-                previousPos = newPos;
-            };
-
-            // 단일 트윈과 AnimationCurve를 사용하여 부드러운 움직임 구현
-            DOTween.To(getter, setter, 1f, fireDuration)
-                .SetEase(fireEaseCurve)
-                .OnComplete(() =>
-                {
-                    if (arrow != null) Destroy(arrow);
-                });
+                arrowController.Launch(startPos, controlPoint, endPos, fireDuration, fireEaseCurve);
+            }
+            else
+            {
+                Debug.LogError("Arrow Prefab에 ArrowController 컴포넌트가 없습니다! 오브젝트를 풀에 즉시 반환합니다.");
+                ArrowPool.Instance.Return(arrowObject); // 컨트롤러가 없으면 즉시 반환
+            }
         }
     }
 
@@ -208,6 +248,30 @@ public class PlayerControl : MonoBehaviour
     #endregion
 
     #region 코루틴 및 비동기 메서드
+
+    private async UniTaskVoid PlayAttackAnimationAsync()
+    {
+        if (_spumPrefabs == null) return;
+
+        _isAction = true;
+        // [최적화] Rebind()는 매우 무거운 연산이며, 매 공격마다 호출할 필요가 없습니다.
+        // 애니메이션 상태 전환은 Animator Controller가 담당하므로 이 코드를 제거하여 성능을 향상시킵니다.
+        // _spumPrefabs._anim.Rebind();
+        _spumPrefabs.PlayAnimation(PlayerState.ATTACK, 0);
+
+        var attackClips = _spumPrefabs.StateAnimationPairs[PlayerState.ATTACK.ToString()];
+        if (attackClips != null && attackClips.Count > 0)
+        {
+            var clip = attackClips[0];
+            if (clip != null)
+            {
+                await UniTask.Delay((int)(clip.length * 1000), cancellationToken: this.GetCancellationTokenOnDestroy());
+            }
+        }
+
+        _isAction = false;
+        _currentState = PlayerState.IDLE; // 공격 후 IDLE 상태로 복귀
+    }
 
     private async UniTaskVoid RepeatingFireLoopAsync(CancellationToken token)
     {
