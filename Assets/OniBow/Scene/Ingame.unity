@@ -450,6 +450,28 @@ MonoBehaviour:
   fireInterval: 1
   minXPosition: -4
   maxXPosition: 4
+  groundLayer:
+    serializedVersion: 2
+    m_Bits: 64
+  dashSpeed: 3
+  dashDuration: 0.2
+  dashCooldown: 1
+--- !u!114 &259783689
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 259783681}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b64a98d5334841aa92c90ba9b2e0bed9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AfterimageEffect
+  _sourceVisualsRoot: {fileID: 0}
+  _afterimageColor: {r: 0.5, g: 0.8, b: 1, a: 1}
+  _spawnInterval: 0.05
+  _fadeDuration: 0.5
 --- !u!1 &263525997
 GameObject:
   m_ObjectHideFlags: 0
@@ -624,6 +646,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 5413471331214899891, guid: 50daa6f369c7f494398b6b49d760ce93, type: 3}
       insertIndex: -1
       addedObject: {fileID: 320094556}
+    - targetCorrespondingSourceObject: {fileID: 5413471331214899891, guid: 50daa6f369c7f494398b6b49d760ce93, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 320094560}
   m_SourcePrefab: {fileID: 100100000, guid: 50daa6f369c7f494398b6b49d760ce93, type: 3}
 --- !u!224 &320094554 stripped
 RectTransform:
@@ -647,7 +672,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 185e0c4505358414b9dcb9fe274dde61, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Enemy
-  maxHp: 50
+  maxHp: 150
   tempHpDecreaseDelay: 1.5
   tempHpCatchUpSpeed: 50
   currentState: 0
@@ -763,6 +788,22 @@ Rigidbody2D:
   m_SleepingMode: 1
   m_CollisionDetection: 0
   m_Constraints: 4
+--- !u!114 &320094560
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 320094555}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b64a98d5334841aa92c90ba9b2e0bed9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AfterimageEffect
+  _sourceVisualsRoot: {fileID: 0}
+  _afterimageColor: {r: 0.5, g: 0.8, b: 1, a: 1}
+  _spawnInterval: 0.05
+  _fadeDuration: 0.5
 --- !u!1 &354094714
 GameObject:
   m_ObjectHideFlags: 0
@@ -2852,7 +2893,56 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 2506316787288808240, guid: 2e7e3e2ed842e4891863422b591a343f, type: 3}
       insertIndex: -1
       addedObject: {fileID: 259783687}
+    - targetCorrespondingSourceObject: {fileID: 2506316787288808240, guid: 2e7e3e2ed842e4891863422b591a343f, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 259783689}
   m_SourcePrefab: {fileID: 100100000, guid: 2e7e3e2ed842e4891863422b591a343f, type: 3}
+--- !u!1 &1009441663
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1009441664}
+  - component: {fileID: 1009441665}
+  m_Layer: 0
+  m_Name: '[ - AfterimagePool - ]'
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1009441664
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1009441663}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1096982691}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1009441665
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1009441663}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7baf7dc3d5584c6a9b3e096f7bb511db, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AfterimagePool
+  afterimagePrefab: {fileID: 6608624498905167473, guid: 2f616c83af5f64b8cbbbf5174b0b5cb8, type: 3}
+  initialPoolSize: 15
 --- !u!1 &1079098690
 GameObject:
   m_ObjectHideFlags: 0
@@ -3161,6 +3251,7 @@ Transform:
   - {fileID: 263525998}
   - {fileID: 665154088}
   - {fileID: 639961935}
+  - {fileID: 1009441664}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1246073761

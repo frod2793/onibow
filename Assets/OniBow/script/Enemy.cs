@@ -314,9 +314,10 @@ public class Enemy : MonoBehaviour
             }
 
             _rigidbody2D.linearVelocity = new Vector2(targetXVelocity, _rigidbody2D.linearVelocity.y);
-            ClampPosition();
 
             await UniTask.Yield(PlayerLoopTiming.FixedUpdate, token);
+            // 물리 업데이트 이후에 위치를 보정하여 경계를 벗어나지 않도록 합니다.
+            ClampPosition();
         }
 
         _rigidbody2D.linearVelocity = new Vector2(0, _rigidbody2D.linearVelocity.y);

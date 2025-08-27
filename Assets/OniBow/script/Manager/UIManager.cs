@@ -38,6 +38,10 @@ public class UIManager : MonoBehaviour
     private TextMeshProUGUI _skill4CooldownText;
     private TextMeshProUGUI _healSkillCooldownText;
 
+    private float _leftButtonClickTime = -1f;
+    private float _rightButtonClickTime = -1f;
+    private const float DOUBLE_CLICK_TIME = 0.3f;
+
     private void Start()
     {
         if (playerControl == null) Debug.LogError("PlayerControl 참조가 UIManager에 할당되지 않았습니다!", this);
@@ -116,11 +120,11 @@ public class UIManager : MonoBehaviour
     {
         if (rightMoveButton != null && playerControl != null)
         {
-            AddEventTrigger(rightMoveButton.gameObject, () => playerControl.StartMoving(1f), playerControl.StopMoving);
+            AddEventTrigger(rightMoveButton.gameObject, OnRightButtonDown, playerControl.StopMoving);
         }
         if (leftMoveButton != null && playerControl != null)
         {
-            AddEventTrigger(leftMoveButton.gameObject, () => playerControl.StartMoving(-1f), playerControl.StopMoving);
+            AddEventTrigger(leftMoveButton.gameObject, OnLeftButtonDown, playerControl.StopMoving);
         }
 
         if (skillManager != null)
@@ -130,6 +134,34 @@ public class UIManager : MonoBehaviour
             skill3Button?.onClick.AddListener(skillManager.UseSkill3);
             skill4Button?.onClick.AddListener(skillManager.UseSkill4);
             healSkillButton?.onClick.AddListener(skillManager.UseHealSkill);
+        }
+    }
+
+    private void OnLeftButtonDown()
+    {
+        if (Time.time - _leftButtonClickTime < DOUBLE_CLICK_TIME)
+        {
+            playerControl.Dash(-1f);
+            _leftButtonClickTime = -1f; // 더블 클릭 후 타이머 초기화
+        }
+        else
+        {
+            playerControl.StartMoving(-1f);
+            _leftButtonClickTime = Time.time;
+        }
+    }
+
+    private void OnRightButtonDown()
+    {
+        if (Time.time - _rightButtonClickTime < DOUBLE_CLICK_TIME)
+        {
+            playerControl.Dash(1f);
+            _rightButtonClickTime = -1f; // 더블 클릭 후 타이머 초기화
+        }
+        else
+        {
+            playerControl.StartMoving(1f);
+            _rightButtonClickTime = Time.time;
         }
     }
 

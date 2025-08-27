@@ -58,15 +58,32 @@ public class PlayerControl : MonoBehaviour
     [Tooltip("이동 가능한 최대 X 좌표")]
     [SerializeField] private float maxXPosition = 4.0f;
 
+    [Header("Collision Settings")]
+    [Tooltip("대쉬 시 충돌을 감지할 지면 및 벽 레이어")]
+    [SerializeField] private LayerMask groundLayer;
+
+    [Header("Dash Settings")]
+    [Tooltip("대쉬 속도")]
+    [SerializeField] private float dashSpeed = 20f;
+    [Tooltip("대쉬 지속 시간 (초)")]
+    [SerializeField] private float dashDuration = 0.2f;
+    [Tooltip("대쉬 쿨다운 (초)")]
+    [SerializeField] private float dashCooldown = 1f;
+
     private Rigidbody2D _rigidbody2D;
+    private Collider2D _collider;
     private Tween _movementTween;
     private CancellationTokenSource _moveCts;
     private CancellationTokenSource _fireCts;
+    private CancellationTokenSource _dashCts;
     private float _lastFireTime = -999f; // 마지막 발사 시간을 기록
+    private float _lastDashTime = -999f; // 마지막 대쉬 시간을 기록
     private SPUM_Prefabs _spumPrefabs; // 애니메이션 제어를 위한 참조
+    private AfterimageEffect _afterimageEffect; // 잔상 효과 참조
     private PlayerState _currentState; // 현재 플레이어 상태
     private bool _isAction; // 액션(공격, 피격) 애니메이션 재생 중인지 확인하는 플래그
     private bool _isDead = false; // 사망 상태 플래그
+    private bool _isDashing = false; // 대쉬 중인지 확인하는 플래그
 
     #endregion
 
@@ -75,7 +92,13 @@ public class PlayerControl : MonoBehaviour
     private void Awake()
     {
         _rigidbody2D = GetComponent<Rigidbody2D>();
+        _collider = GetComponent<Collider2D>();
         _spumPrefabs = GetComponentInChildren<SPUM_Prefabs>();
+        _afterimageEffect = GetComponent<AfterimageEffect>();
+        if (_afterimageEffect == null)
+        {
+            Debug.LogWarning("Player에 AfterimageEffect 컴포넌트가 없습니다. 대쉬 잔상 효과가 동작하지 않습니다.");
+        }
 
         _currentHp = maxHp;
         _tempHp = maxHp;
@@ -159,6 +182,8 @@ public class PlayerControl : MonoBehaviour
         _moveCts?.Dispose();
         _fireCts?.Cancel();
         _fireCts?.Dispose();
+        _dashCts?.Cancel();
+        _dashCts?.Dispose();
         _movementTween?.Kill();
     }
 
@@ -177,6 +202,7 @@ public class PlayerControl : MonoBehaviour
         if (_isDead) return; 
 
         _moveCts?.Cancel();
+        _dashCts?.Cancel();
         _fireCts?.Cancel();
         _movementTween?.Kill();
         _rigidbody2D.linearVelocity = Vector2.zero;
@@ -229,7 +255,7 @@ public class PlayerControl : MonoBehaviour
     public void StartMoving(float direction)
     {
         // [우선권 2순위: 이동] - 공격 행동을 중단시킴
-        if (_isDead) return;
+        if (_isDead || _isDashing) return;
 
         _isAction = false; // 공격 애니메이션 중이었다면, 이를 해제
         _fireCts?.Cancel(); // 공격 루프 중단
@@ -259,7 +285,7 @@ public class PlayerControl : MonoBehaviour
 
     public void FireStraightArrow()
     {
-        if (_isDead || _isAction || ArrowPool.Instance == null) return;
+        if (_isDead || _isAction || _isDashing || ArrowPool.Instance == null) return;
 
         GameObject nearestEnemy = FindNearestEnemy();
         if (nearestEnemy != null)
@@ -311,6 +337,85 @@ public class PlayerControl : MonoBehaviour
         return nearestEnemy;
     }
 
+    /// <summary>
+    /// 지정된 방향으로 대쉬합니다.
+    /// </summary>
+    /// <param name="direction">대쉬 방향 (-1 for left, 1 for right)</param>
+    public void Dash(float direction)
+    {
+        if (_isDead || _isAction || _isDashing || Time.time < _lastDashTime + dashCooldown) return;
+
+        // 1. 대쉬는 지상에 있을 때만 가능하도록, 먼저 발밑의 땅을 확인합니다.
+        RaycastHit2D groundCheck = Physics2D.Raycast(
+            (Vector2)transform.position + _collider.offset,
+            Vector2.down,
+            _collider.bounds.extents.y + 0.5f,
+            groundLayer
+        );
+        if (groundCheck.collider == null)
+        {
+            return; // 공중에서는 대쉬를 실행하지 않습니다.
+        }
+
+        _lastDashTime = Time.time;
+        float currentX = _rigidbody2D.position.x;
+        float maxDashDistance = dashSpeed * dashDuration;
+
+        // 2. 벽에 의해 제한되는 최대 대쉬 거리를 계산합니다.
+        float wallLimitedDistance = maxDashDistance;
+        RaycastHit2D wallHit = Physics2D.BoxCast(
+            (Vector2)transform.position + _collider.offset,
+            new Vector2(_collider.bounds.size.x, _collider.bounds.size.y * 0.9f),
+            0f,
+            new Vector2(direction, 0),
+            maxDashDistance,
+            groundLayer
+        );
+        if (wallHit.collider != null)
+        {
+            wallLimitedDistance = wallHit.distance;
+        }
+
+        // 3. 절벽을 감지하여 실제 이동 가능한 거리를 찾습니다.
+        // 대쉬 경로를 따라가며 발밑에 땅이 있는지 반복적으로 확인합니다.
+        float finalDashDistance = 0f;
+        int steps = 15; // 정밀도를 높이기 위해 확인 횟수를 늘립니다.
+        float stepDistance = wallLimitedDistance / steps;
+
+        for (int i = 1; i <= steps; i++)
+        {
+            float checkDistance = i * stepDistance;
+            Vector2 checkPos = new Vector2(currentX + direction * checkDistance, _rigidbody2D.position.y);
+
+            // 예상 위치 아래에 땅이 있는지 확인합니다.
+            RaycastHit2D groundUnderneath = Physics2D.BoxCast(
+                checkPos,
+                new Vector2(_collider.bounds.size.x * 0.5f, 0.1f), // 폭을 약간 좁게 하여 더 안정적으로 감지
+                0f, Vector2.down, _collider.bounds.extents.y + 0.5f, groundLayer
+            );
+
+            if (groundUnderneath.collider == null)
+            {
+                // 땅이 없으면, 이전 단계까지가 안전한 거리입니다.
+                finalDashDistance = (i - 1) * stepDistance;
+                goto FoundSafeDistance; // 루프 탈출
+            }
+        }
+        // 루프가 중단 없이 끝났다면, 벽까지의 거리가 최종 거리입니다.
+        finalDashDistance = wallLimitedDistance;
+
+    FoundSafeDistance:
+        // 벽이나 절벽에 너무 가깝게 붙지 않도록 약간의 여유를 줍니다.
+        finalDashDistance = Mathf.Max(0, finalDashDistance - 0.1f);
+
+        float finalTargetX = currentX + direction * finalDashDistance;
+
+        // 4. 실제 이동 거리에 따른 대쉬 시간을 계산하고 실행합니다.
+        float actualDuration = finalDashDistance / dashSpeed;
+        if (actualDuration < Time.fixedDeltaTime) return; // 이동 거리가 매우 짧으면 실행하지 않음
+
+        DashAsync(finalTargetX, actualDuration).Forget();
+    }
     #endregion
 
     #region 내부 로직
@@ -333,6 +438,8 @@ public class PlayerControl : MonoBehaviour
 
         _moveCts?.Cancel();
         _fireCts?.Cancel();
+        _dashCts?.Cancel();
+
         _rigidbody2D.linearVelocity = Vector2.zero;
 
         // 체력을 0으로 설정하고 UI를 업데이트합니다.
@@ -359,7 +466,7 @@ public class PlayerControl : MonoBehaviour
 
     public void FireAtNearestEnemy()
     {
-        if (_isDead || _isAction || ArrowPool.Instance == null) return;
+        if (_isDead || _isAction || _isDashing || ArrowPool.Instance == null) return;
 
         GameObject nearestEnemy = FindNearestEnemy();
         if (nearestEnemy != null)
@@ -409,7 +516,7 @@ public class PlayerControl : MonoBehaviour
 
     private async UniTaskVoid PlayAttackAnimationAsync()
     {
-        if (_isDead || _spumPrefabs == null) return;
+        if (_isDead || _isDashing || _spumPrefabs == null) return;
 
         _isAction = true;
         _spumPrefabs.PlayAnimation(PlayerState.ATTACK, 0);
@@ -429,7 +536,7 @@ public class PlayerControl : MonoBehaviour
 
     private async UniTaskVoid PlayDamagedAnimationAsync()
     {
-        if (_isDead || _spumPrefabs == null) return;
+        if (_isDead || _isDashing || _spumPrefabs == null) return;
 
         _isAction = true;
         _spumPrefabs.PlayAnimation(PlayerState.DAMAGED, 0);
@@ -445,6 +552,12 @@ public class PlayerControl : MonoBehaviour
         }
 
         _isAction = false;
+
+        // 피격 애니메이션이 끝난 후, 사망 상태가 아니라면 다시 자동 공격을 시작합니다.
+        if (!_isDead)
+        {
+            StartRepeatingFire();
+        }
     }
 
     private async UniTaskVoid RepeatingFireLoopAsync(CancellationToken token)
@@ -492,6 +605,73 @@ public class PlayerControl : MonoBehaviour
             }
         }
         catch (OperationCanceledException){}
+    }
+
+    private async UniTaskVoid DashAsync(float targetX, float duration)
+    {
+        _isAction = true;
+        _isDashing = true;
+
+        // 다른 행동 중단
+        _moveCts?.Cancel();
+        _fireCts?.Cancel();
+        _movementTween?.Kill();
+
+        float startY = _rigidbody2D.position.y;
+        // 대쉬 방향으로 캐릭터 회전
+        float direction = Mathf.Sign(targetX - _rigidbody2D.position.x);
+        if (_spumPrefabs != null)
+        {
+            _spumPrefabs.transform.rotation = Quaternion.Euler(0f, direction > 0 ? 180f : 0f, 0f);
+        }
+
+        // 잔상 효과 시작
+        _afterimageEffect?.StartEffect(duration);
+
+        // 대쉬 움직임
+        float originalGravity = _rigidbody2D.gravityScale;
+        _rigidbody2D.gravityScale = 0; // 대쉬 중에는 중력 무시
+        _rigidbody2D.linearVelocity = new Vector2(direction * dashSpeed, 0);
+
+        // 대쉬 취소를 위한 토큰 설정
+        _dashCts = new CancellationTokenSource();
+        var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_dashCts.Token, this.GetCancellationTokenOnDestroy());
+
+        try
+        {
+            float elapsedTime = 0f;
+            while (elapsedTime < duration)
+            {
+                // 다음 FixedUpdate까지 대기하여 물리 엔진이 캐릭터를 움직이게 합니다.
+                await UniTask.Yield(PlayerLoopTiming.FixedUpdate, linkedCts.Token);
+                elapsedTime += Time.fixedDeltaTime;
+
+                // 대쉬 중 Y축 위치를 고정하여 수평 이동을 보장합니다.
+                _rigidbody2D.position = new Vector2(_rigidbody2D.position.x, startY);
+
+                // 목표 지점을 지나쳤는지 확인 (물리 오차 감안)
+                if ((direction > 0 && _rigidbody2D.position.x >= targetX) ||
+                    (direction < 0 && _rigidbody2D.position.x <= targetX))
+                {
+                    break;
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // TakeDamage 등에 의해 대쉬가 취소됨
+        }
+        finally
+        {
+            _rigidbody2D.gravityScale = originalGravity;
+            _rigidbody2D.linearVelocity = Vector2.zero;
+            // 대쉬가 끝난 후 정확한 위치에 있도록 보정
+            _rigidbody2D.position = new Vector2(targetX, startY);
+            _isDashing = false;
+            _isAction = false;
+
+            if (!_isDead) StartRepeatingFire(); // 대쉬 후 다시 자동 공격 상태로 전환
+        }
     }
 
     #endregion
