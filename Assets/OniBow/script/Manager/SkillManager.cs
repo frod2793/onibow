@@ -24,8 +24,10 @@ public class SkillManager : MonoBehaviour
 
     [Header("플레이어 스킬 설정")]
     [SerializeField] private float playerSkill1_FireInterval = 0.2f; // 5연발 발사 간격
-    [SerializeField] private GameObject homingArrowPrefab; // 추적탄 프리팹
+    [SerializeField] private GameObject homingMissilePrefab; // 추적 미사일 프리팹
     [SerializeField] private GameObject explosiveArrowPrefab; // 폭발탄 프리팹
+    [SerializeField] private int homingMissileCount = 5; // 추적 미사일 발사 개수
+    [SerializeField] private float homingMissileSpawnInterval = 0.1f; // 추적 미사일 발사 간격
 
     [Header("플레이어 참조 컴포넌트")]
     [SerializeField] private PlayerControl playerControl; // 플레이어 컨트롤러
@@ -130,21 +132,19 @@ public class SkillManager : MonoBehaviour
     /// </summary>
     public void UseSkill3()
     {
-        if (Skill3_RemainingCooldown > 0) return; // 쿨타임 체크
-        if (playerControl == null || homingArrowPrefab == null) return;
+        if (Skill3_RemainingCooldown > 0) return;
+        if (playerControl == null || homingMissilePrefab == null || playerHand == null) return;
 
         GameObject target = playerControl.FindNearestEnemy();
         if (target == null)
         {
             Debug.Log("추적할 대상이 없습니다.");
-            return; // 추적할 대상이 없음
+            return;
         }
 
         _lastSkill3_Time = Time.time;
-        Debug.Log("스킬 3: 추적탄 사용!");
-
-        GameObject arrow = Instantiate(homingArrowPrefab, playerFirePoint.position, playerFirePoint.rotation);
-        arrow.GetComponent<HomingArrow>()?.Launch(target.transform);
+        Debug.Log("스킬 3: 추적 미사일 사용!");
+        PlayerSkill3_HomingMissilesAsync(target.transform, this.GetCancellationTokenOnDestroy()).Forget();
     }
 
     /// <summary>
@@ -200,6 +200,34 @@ public class SkillManager : MonoBehaviour
 
                 playerControl.FireAtNearestEnemy();
                 await UniTask.Delay(TimeSpan.FromSeconds(playerSkill1_FireInterval), cancellationToken: token);
+            }
+        }
+        finally
+        {
+            playerControl.SetSkillUsageState(false); // 스킬 사용 종료
+        }
+    }
+
+    /// <summary>
+    /// 플레이어 스킬 3: 추적 미사일을 비동기적으로 발사합니다.
+    /// </summary>
+    private async UniTaskVoid PlayerSkill3_HomingMissilesAsync(Transform target, CancellationToken token)
+    {
+        if (playerControl == null) return;
+        playerControl.SetSkillUsageState(true); // 스킬 사용 시작
+        try
+        {
+            for (int i = 0; i < homingMissileCount; i++)
+            {
+                if (token.IsCancellationRequested || target == null) break;
+
+                // 약간의 랜덤한 위치에서 발사하여 겹치지 않게 함
+                Vector3 spawnPosition = playerHand.transform.position + (Vector3)UnityEngine.Random.insideUnitCircle * 0.05f;
+
+                GameObject missile = Instantiate(homingMissilePrefab, spawnPosition, playerHand.transform.rotation);
+                missile.GetComponent<HomingMissile>()?.Launch(target);
+
+                await UniTask.Delay(TimeSpan.FromSeconds(homingMissileSpawnInterval), cancellationToken: token);
             }
         }
         finally

@@ -15,7 +15,8 @@ public class EffectManager : MonoBehaviour
     [Header("이펙트 프리팹")]
     [SerializeField] private GameObject rocketExplosionEffectPrefab;
     [SerializeField] private GameObject damageTextPrefab;
-
+    [SerializeField] private GameObject HomingMissileExplosionEffectPrefab;
+    
     [Header("오브젝트 풀 설정")]
     [SerializeField] private int damageTextPoolSize = 20;
 
@@ -148,6 +149,16 @@ public class EffectManager : MonoBehaviour
     public void PlayExplosionEffect(Vector3 position)
     {
         PlayEffect(rocketExplosionEffectPrefab, position, Quaternion.identity, 1.5f, 30);
+    }
+
+    /// <summary>
+    /// 지정된 위치에 호밍 미사일 폭발 이펙트를 재생합니다.
+    /// </summary>
+    /// <param name="position">폭발이 일어날 월드 위치</param>
+    public void PlayHomingMissileExplosion(Vector3 position)
+    {
+        // 호밍 미사일은 작은 폭발이므로 기본 스케일과 렌더링 순서를 사용합니다.
+        PlayEffect(HomingMissileExplosionEffectPrefab, position, Quaternion.identity);
     }
 
     /// <summary>

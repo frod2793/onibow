@@ -17,6 +17,9 @@ public class AfterimageEffect : MonoBehaviour
     [SerializeField] private Color _afterimageColor = new Color(0.5f, 0.8f, 1f, 1f);
     [SerializeField] private float _spawnInterval = 0.05f; // 잔상 생성 간격 (초)
     [SerializeField] private float _fadeDuration = 0.5f;  // 잔상이 사라지는 시간 (초)
+    [Tooltip("이 값을 true로 설정하면, 잔상의 Sorting Order를 아래 값으로 덮어씁니다.")]
+    [SerializeField] private bool _overrideSortingOrder = false;
+    [SerializeField] private int _sortingOrderOverrideValue = 20;
 
     private CancellationTokenSource _effectCts;
     private readonly List<SpriteRenderer> _sourceRenderers = new List<SpriteRenderer>();
@@ -122,7 +125,14 @@ public class AfterimageEffect : MonoBehaviour
             partCopyRenderer.sprite = sourceRenderer.sprite;
             partCopyRenderer.color = _afterimageColor;
             partCopyRenderer.sortingLayerID = sourceRenderer.sortingLayerID;
-            partCopyRenderer.sortingOrder = sourceRenderer.sortingOrder - 1;
+            if (_overrideSortingOrder)
+            {
+                partCopyRenderer.sortingOrder = _sortingOrderOverrideValue;
+            }
+            else
+            {
+                partCopyRenderer.sortingOrder = sourceRenderer.sortingOrder - 1;
+            }
 
             partCopyRenderer.transform.position = sourceRenderer.transform.position;
             partCopyRenderer.transform.rotation = sourceRenderer.transform.rotation;

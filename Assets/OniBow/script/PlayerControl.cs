@@ -111,12 +111,12 @@ public class PlayerControl : MonoBehaviour
             _spumPrefabs.OverrideControllerInit();
             if (_spumPrefabs._anim == null)
             {
-                Debug.LogError("SPUM_Prefabs has a null Animator reference!");
+                Debug.LogError("SPUM_Prefabs의 Animator 참조가 null입니다!");
             }
         }
         else
         {
-            Debug.LogError("SPUM_Prefabs component not found in children. Animations will not work.");
+            Debug.LogError("자식 오브젝트에서 SPUM_Prefabs 컴포넌트를 찾을 수 없습니다. 애니메이션이 작동하지 않습니다.");
         }
 
         _rigidbody2D.gravityScale = 1;
@@ -183,11 +183,7 @@ public class PlayerControl : MonoBehaviour
         // [우선권 1순위: 피격] - 다른 모든 행동을 중단시킴
         if (_currentState == PlayerState.DEATH) return; 
 
-        _moveCts?.Cancel();
-        _dashCts?.Cancel();
-        _fireCts?.Cancel();
-        _movementTween?.Kill();
-        _rigidbody2D.linearVelocity = Vector2.zero;
+        CancelAllActions();
         SetState(PlayerState.DAMAGED);
 
         int oldHp = _currentHp;
@@ -326,7 +322,6 @@ public class PlayerControl : MonoBehaviour
 
     public GameObject FindNearestEnemy()
     {
-        // [최적화] 적이 하나뿐인 상황에 맞춰 FindGameObjectWithTag 사용
         GameObject enemyObject = GameObject.FindGameObjectWithTag("Enemy");
         if (enemyObject == null) return null;
 
@@ -441,13 +436,7 @@ public class PlayerControl : MonoBehaviour
     private void Die()
     {
         SetState(PlayerState.DEATH); // 상태를 사망으로 변경
-        Debug.Log("플레이어가 사망했습니다.");
-
-        _moveCts?.Cancel();
-        _fireCts?.Cancel();
-        _dashCts?.Cancel();
-
-        _rigidbody2D.linearVelocity = Vector2.zero;
+        CancelAllActions();
 
         // 체력을 0으로 설정하고 UI를 업데이트합니다.
         _currentHp = 0;
@@ -455,7 +444,16 @@ public class PlayerControl : MonoBehaviour
         OnHealthUpdated?.Invoke(_currentHp, _tempHp, maxHp);
         OnPlayerDied?.Invoke();
 
-        // SetState에서 애니메이션을 처리하므로 직접 호출할 필요 없음
+        Debug.Log("플레이어가 사망했습니다.");
+    }
+
+    private void CancelAllActions()
+    {
+        _moveCts?.Cancel();
+        _fireCts?.Cancel();
+        _dashCts?.Cancel();
+        _movementTween?.Kill();
+        _rigidbody2D.linearVelocity = Vector2.zero;
     }
 
     private void StartRepeatingFire()
@@ -598,19 +596,20 @@ public class PlayerControl : MonoBehaviour
         {
             while (!token.IsCancellationRequested)
             {
-                // 공격을 시도하기 전에 먼저 유효한 적이 있는지 확인합니다.
-                if (FindNearestEnemy() == null)
-                {
-                    // 공격할 대상이 없으므로 공격 루프를 중단합니다.
-                    break;
-                }
-
                 float timeUntilReady = (_lastFireTime + fireInterval) - Time.time;
                 if (timeUntilReady > 0)
                 {
                     await UniTask.Delay(TimeSpan.FromSeconds(timeUntilReady), cancellationToken: token);
                 }
                 if (token.IsCancellationRequested) break;
+
+                // 공격을 실행하기 직전에 적이 여전히 유효한지 다시 확인합니다.
+                // 이렇게 하면 대기 시간 동안 적이 사망하는 경우를 처리할 수 있습니다.
+                if (FindNearestEnemy() == null)
+                {
+                    // 공격할 대상이 없으므로 공격 루프를 중단합니다.
+                    break;
+                }
 
                 FireAtNearestEnemy();
                 _lastFireTime = Time.time;

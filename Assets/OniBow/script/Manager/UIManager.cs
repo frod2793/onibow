@@ -16,7 +16,7 @@ public class UIManager : MonoBehaviour
     [SerializeField] private SkillManager skillManager;
     [Tooltip("UI가 추적할 적. 인스펙터에서 할당합니다.")]
     [SerializeField] private Enemy enemy;
-
+    
     [Header("UI 요소")]
     [SerializeField] private Slider PlayerHpbar;//본체력 
     [SerializeField] private Slider PlayerTempHpbar;// 예비 체력 
@@ -61,11 +61,18 @@ public class UIManager : MonoBehaviour
     private void OnDestroy()
     {
         // 메모리 누수 방지를 위해 이벤트 구독 해지
-        if (playerControl != null) {
+        if (playerControl != null)
+        {
             playerControl.OnHealthUpdated -= UpdatePlayerHpUI;
-            playerControl.OnPlayerDied -= HandlePlayerDeath;
         }
         if (enemy != null) enemy.OnHpChanged -= UpdateEnemyHpUI;
+
+        // GameManager는 DontDestroyOnLoad일 수 있으므로, 인스턴스가 살아있는지 확인
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.OnGameOver -= HandleGameOver;
+            GameManager.Instance.OnGameClear -= HandleGameClear;
+        }
     }
 
     private void Update()
@@ -81,7 +88,6 @@ public class UIManager : MonoBehaviour
         if (playerControl != null)
         {
             playerControl.OnHealthUpdated += UpdatePlayerHpUI;
-            playerControl.OnPlayerDied += HandlePlayerDeath;
             playerControl.ForceUpdateHpUI(); // 초기값 설정
         }
         if (enemy != null)
@@ -89,18 +95,35 @@ public class UIManager : MonoBehaviour
             enemy.OnHpChanged += UpdateEnemyHpUI;
             enemy.ForceUpdateHpUI(); // 초기값 설정
         }
+
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.OnGameOver += HandleGameOver;
+            GameManager.Instance.OnGameClear += HandleGameClear;
+        }
     }
 
-    private void HandlePlayerDeath()
+    private void HandleGameOver()
     {
         // 모든 스킬 및 이동 버튼 비활성화
-        skill1Button.interactable = false;
-        skill2Button.interactable = false;
-        skill3Button.interactable = false;
-        skill4Button.interactable = false;
-        healSkillButton.interactable = false;
-        rightMoveButton.interactable = false;
-        leftMoveButton.interactable = false;
+        SetAllButtonsInteractable(false);
+    }
+
+    private void HandleGameClear()
+    {
+        // 게임 클리어 시에도 모든 버튼 비활성화
+        SetAllButtonsInteractable(false);
+    }
+
+    private void SetAllButtonsInteractable(bool isInteractable)
+    {
+        skill1Button.interactable = isInteractable;
+        skill2Button.interactable = isInteractable;
+        skill3Button.interactable = isInteractable;
+        skill4Button.interactable = isInteractable;
+        healSkillButton.interactable = isInteractable;
+        rightMoveButton.interactable = isInteractable;
+        leftMoveButton.interactable = isInteractable;
     }
 
     private void UpdatePlayerHpUI(int currentHp, int tempHp, int maxHp)

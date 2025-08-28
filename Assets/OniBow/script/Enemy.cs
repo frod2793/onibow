@@ -513,6 +513,23 @@ public class Enemy : MonoBehaviour
             float moveDirection = (horizontalDistanceToPlayer > fireDistance) ? 1f : -1f;
             float targetXVelocity = xDirection * moveSpeed * moveDirection;
 
+            // --- 절벽 감지 로직 추가 ---
+            float moveSign = Mathf.Sign(targetXVelocity);
+            if (moveSign != 0)
+            {
+                // 캐릭터의 앞쪽, 발밑을 확인하기 위한 위치. 캐릭터의 전방 가장자리 바로 아래를 확인합니다.
+                Vector2 groundCheckOrigin = (Vector2)_collider.bounds.center + new Vector2(moveSign * _collider.bounds.extents.x, -_collider.bounds.extents.y - 0.05f);
+                
+                // 아래 방향으로 짧은 Raycast를 실행하여 발밑에 땅이 있는지 확인
+                RaycastHit2D groundHit = Physics2D.Raycast(groundCheckOrigin, Vector2.down, 0.2f, groundLayer);
+
+                if (groundHit.collider == null)
+                {
+                    // 앞에 땅이 없으면 멈춤
+                    targetXVelocity = 0;
+                }
+            }
+
             FlipSprite(targetXVelocity);
 
             if ((transform.position.x <= _minXPosition && targetXVelocity < 0) || (transform.position.x >= _maxXPosition && targetXVelocity > 0))
@@ -606,31 +623,30 @@ public class Enemy : MonoBehaviour
         }
 
         // 3. 절벽을 감지하여 실제 이동 가능한 거리를 찾습니다.
-        float finalDashDistance = 0f;
+        float finalDashDistance = wallLimitedDistance; // 벽이 없다면 최대 대쉬 거리로 초기화
         int steps = 10;
         float stepDistance = wallLimitedDistance / steps;
 
         for (int i = 1; i <= steps; i++)
         {
             float checkDistance = i * stepDistance;
-            Vector2 checkPos = new Vector2(currentX + direction * checkDistance, _rigidbody2D.position.y);
+            // 캐릭터의 중심이 이동할 위치를 기준으로 BoxCast를 수행합니다.
+            Vector2 checkPos = new Vector2(currentX + direction * checkDistance, _collider.bounds.center.y);
 
             RaycastHit2D groundUnderneath = Physics2D.BoxCast(
                 checkPos,
-                new Vector2(_collider.bounds.size.x * 0.5f, 0.1f),
-                0f, Vector2.down, _collider.bounds.extents.y + 0.5f, groundLayer
+                new Vector2(_collider.bounds.size.x * 0.9f, 0.1f), // 약간의 여유를 둔 너비로 체크
+                0f, Vector2.down, _collider.bounds.extents.y + 0.5f, groundLayer // 발밑으로 충분한 거리 체크
             );
 
             if (groundUnderneath.collider == null)
             {
-                finalDashDistance = (i - 1) * stepDistance;
-                goto FoundSafeDistance;
+                finalDashDistance = (i - 1) * stepDistance; // 땅이 없는 지점 직전까지의 거리
+                break; // 안전한 거리를 찾았으므로 루프 종료
             }
         }
-        finalDashDistance = wallLimitedDistance;
 
-    FoundSafeDistance:
-        finalDashDistance = Mathf.Max(0, finalDashDistance - 0.1f); // 여유 공간
+        finalDashDistance = Mathf.Max(0, finalDashDistance - _collider.bounds.extents.x); // 여유 공간 (캐릭터 너비의 절반만큼)
 
         float finalTargetX = currentX + direction * finalDashDistance;
         float actualDuration = finalDashDistance / evadeDashSpeed;
