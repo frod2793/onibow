@@ -149,7 +149,6 @@ public class Enemy : MonoBehaviour
         if (!_isDead && (other.CompareTag("Arrow") || other.CompareTag("PlayerArrow")))
         {
             TakeDamage(10);
-            Destroy(other.gameObject);
         }
     }
 
@@ -248,7 +247,7 @@ public class Enemy : MonoBehaviour
 
     private async UniTaskVoid AI_LoopAsync(CancellationToken token)
     {
-        while (!token.IsCancellationRequested)
+        while (!token.IsCancellationRequested && !_isDead)
         {
             switch (currentState)
             {
@@ -457,6 +456,8 @@ public class Enemy : MonoBehaviour
 
     private async UniTask OnIdleStateAsync(CancellationToken token)
     {
+        if (_isDead) return;
+
         _enemyAnimation.PlayAnimation(PlayerState.IDLE, 0);
         _rigidbody2D.linearVelocity = Vector2.zero;
 
@@ -486,9 +487,11 @@ public class Enemy : MonoBehaviour
 
     private async UniTask OnMovingStateAsync(CancellationToken token)
     {
+        if (_isDead) return;
+
         _enemyAnimation.PlayAnimation(PlayerState.MOVE, 0);
 
-        while (!token.IsCancellationRequested)
+        while (!token.IsCancellationRequested && !_isDead)
         {
             if (player == null)
             {
@@ -522,6 +525,8 @@ public class Enemy : MonoBehaviour
 
     private async UniTask OnAttackingStateAsync(CancellationToken token)
     {
+        if (_isDead) return;
+
         // 공격 방향으로 몸 돌리기
         if (player != null)
         {
@@ -544,6 +549,8 @@ public class Enemy : MonoBehaviour
 
     private async UniTask OnHealingStateAsync(CancellationToken token)
     {
+        if (_isDead) return;
+
         Debug.Log("적이 회복을 시전합니다.");
         _lastHealTime = Time.time;
 
@@ -644,12 +651,12 @@ public class Enemy : MonoBehaviour
         float startY = _rigidbody2D.position.y;
         float originalGravity = _rigidbody2D.gravityScale;
         _rigidbody2D.gravityScale = 0;
-        _rigidbody2D.velocity = new Vector2(direction * evadeDashSpeed, 0);
+        _rigidbody2D.linearVelocity = new Vector2(direction * evadeDashSpeed, 0);
 
         await UniTask.Delay(TimeSpan.FromSeconds(actualDuration));
 
         _rigidbody2D.gravityScale = originalGravity;
-        _rigidbody2D.velocity = Vector2.zero;
+        _rigidbody2D.linearVelocity = Vector2.zero;
         _rigidbody2D.position = new Vector2(finalTargetX, startY);
         currentState = EnemyState.Idle;
 

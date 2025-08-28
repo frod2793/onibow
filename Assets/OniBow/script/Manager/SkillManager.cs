@@ -1,5 +1,7 @@
+using System;
 using UnityEngine;
 using Cysharp.Threading.Tasks;
+using DG.Tweening;
 using System.Threading;
 
 /// <summary>
@@ -29,6 +31,15 @@ public class SkillManager : MonoBehaviour
     [SerializeField] private PlayerControl playerControl; // 플레이어 컨트롤러
     [SerializeField] private Transform playerFirePoint;   // 플레이어 발사 위치
 
+    [Header("스킬무기 가 장착될 위치")] [SerializeField]
+    private GameObject playerHand;
+    [SerializeField] private GameObject EnemyHand;
+    
+    [Header("스킬 무기")] [SerializeField] private GameObject BazookaPrefab;
+    
+    
+    
+    
     // 각 스킬의 마지막 사용 시간
     private float _lastSkill1_Time = -999f;
     private float _lastSkill2_Time = -999f;
@@ -52,6 +63,25 @@ public class SkillManager : MonoBehaviour
     [SerializeField] private GameObject enemyMultiShotArrowPrefab;
     [SerializeField] private int enemyMultiShot_Count = 3; // 3연발
     [SerializeField] private float enemyMultiShot_Interval = 0.3f; // 발사 간격
+
+    #endregion
+
+    #region 적 스킬 실행 (외부 호출용)
+
+    /// <summary>
+    /// 적 스킬: 지정된 대상을 향해 다발 사격을 가합니다.
+    /// 이 메서드는 쿨타임을 관리하지 않으므로, 호출하는 쪽(Enemy.cs)에서 관리해야 합니다.
+    /// </summary>
+    public void ExecuteEnemyMultiShot(Transform firePoint, Transform target)
+    {
+        if (enemyMultiShotArrowPrefab == null || firePoint == null || target == null)
+        {
+            Debug.LogWarning("적 다발 사격 스킬의 설정이 올바르지 않습니다.");
+            return;
+        }
+
+        EnemyMultiShotAsync(firePoint, target, this.GetCancellationTokenOnDestroy()).Forget();
+    }
 
     #endregion
 
@@ -122,8 +152,8 @@ public class SkillManager : MonoBehaviour
     /// </summary>
     public void UseSkill4()
     {
-        if (Skill4_RemainingCooldown > 0) return; // 쿨타임 체크
-        if (playerControl == null || explosiveArrowPrefab == null) return;
+        if (Skill4_RemainingCooldown > 0) return;
+        if (playerControl == null || explosiveArrowPrefab == null || BazookaPrefab == null || playerHand == null) return;
 
         GameObject target = playerControl.FindNearestEnemy();
         if (target == null)
@@ -133,11 +163,9 @@ public class SkillManager : MonoBehaviour
         }
 
         _lastSkill4_Time = Time.time;
-        Debug.Log("스킬 4: 폭발탄 사용!");
+        Debug.Log("스킬 4: 폭발탄(바주카) 사용!");
 
-        Vector2 direction = (target.transform.position - playerFirePoint.position).normalized;
-        GameObject arrow = Instantiate(explosiveArrowPrefab, playerFirePoint.position, Quaternion.identity);
-        arrow.GetComponent<ExplosiveArrow>()?.Launch(direction);
+        ExecuteBazookaSkillAsync(playerFirePoint, playerHand, target.transform, this.GetCancellationTokenOnDestroy()).Forget();
     }
 
     /// <summary>
@@ -162,28 +190,22 @@ public class SkillManager : MonoBehaviour
     /// </summary>
     private async UniTaskVoid PlayerSkill1_FiveShotBarrageAsync(CancellationToken token)
     {
-        for (int i = 0; i < 5; i++)
+        if (playerControl == null) return;
+        playerControl.SetSkillUsageState(true); // 스킬 사용 시작
+        try
         {
-            if (token.IsCancellationRequested || playerControl == null) break;
+            for (int i = 0; i < 5; i++)
+            {
+                if (token.IsCancellationRequested) break;
 
-            playerControl.FireAtNearestEnemy();
-            await UniTask.Delay((int)(playerSkill1_FireInterval * 1000), cancellationToken: token);
+                playerControl.FireAtNearestEnemy();
+                await UniTask.Delay(TimeSpan.FromSeconds(playerSkill1_FireInterval), cancellationToken: token);
+            }
         }
-    }
-
-    /// <summary>
-    /// 적 스킬: 지정된 대상을 향해 다발 사격을 가합니다.
-    /// 이 메서드는 쿨타임을 관리하지 않으므로, 호출하는 쪽(Enemy.cs)에서 관리해야 합니다.
-    /// </summary>
-    public void ExecuteEnemyMultiShot(Transform firePoint, Transform target)
-    {
-        if (enemyMultiShotArrowPrefab == null || firePoint == null || target == null)
+        finally
         {
-            Debug.LogWarning("적 다발 사격 스킬의 설정이 올바르지 않습니다.");
-            return;
+            playerControl.SetSkillUsageState(false); // 스킬 사용 종료
         }
-
-        EnemyMultiShotAsync(firePoint, target, this.GetCancellationTokenOnDestroy()).Forget();
     }
 
     private async UniTaskVoid EnemyMultiShotAsync(Transform firePoint, Transform target, CancellationToken token)
@@ -207,5 +229,99 @@ public class SkillManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 바주카 스킬을 실행하는 공용 비동기 메서드.
+    /// 바주카를 손에 들고, 발사 애니메이션을 재생한 후 폭발탄을 발사합니다.
+    /// </summary>
+    /// <param name="firePoint">발사 위치</param>
+    /// <param name="hand">무기가 장착될 손</param>
+    /// <param name="target">조준 대상</param>
+    /// <param name="token">취소 토큰</param>
+    private async UniTaskVoid ExecuteBazookaSkillAsync(Transform firePoint, GameObject hand, Transform target, CancellationToken token)
+    {
+        if (hand == null || BazookaPrefab == null || playerControl == null) return;
+
+        playerControl.SetSkillUsageState(true); // 스킬 사용 시작
+
+        GameObject bazookaInstance = Instantiate(BazookaPrefab, hand.transform);
+        // 캐릭터의 방향에 따라 초기 각도가 달라질 수 있으므로 localRotation을 사용합니다.
+        bazookaInstance.transform.localRotation = Quaternion.Euler(0, 0, -90f);
+        
+        Animator bazookaAnimator = bazookaInstance.GetComponent<Animator>();
+        if (bazookaAnimator == null)
+        {
+            Debug.LogError("바주카 프리팹에 Animator 컴포넌트가 없습니다.");
+            Destroy(bazookaInstance);
+            return;
+        }
+
+        // 바주카 프리팹에서 발사 위치를 찾습니다.
+        Transform bazookaFirePoint = bazookaInstance.transform.Find("FirePoint");
+        if (bazookaFirePoint == null)
+        {
+            Debug.LogError("바주카 프리팹에 'FirePoint' 자식 오브젝트가 없습니다.");
+            Destroy(bazookaInstance);
+            return;
+        }
+
+        // 애니메이션 및 회전 시간 설정
+        float shoulderAnimDuration = 0.3f; // 어깨에 얹는 회전 시간
+        float fireDelay = 0.2f; // 발사 애니메이션 시작 후 실제 발사까지의 딜레이
+        float totalFireAnimDuration = 1.2f; // Fire 애니메이션의 총 길이 (발사 딜레이 포함)
+
+        try
+        {
+            // 2. 바주카가 대상을 향하도록 회전 (어깨에 얹는 동작)
+            // 월드 공간에서의 목표 방향을 계산합니다.
+            Vector2 directionToTarget = (target.position - hand.transform.position).normalized;
+            
+            // 월드 방향을 부모(손)의 로컬 공간으로 변환합니다.
+            Vector3 localDirection = hand.transform.InverseTransformDirection(directionToTarget);
+
+            // 로컬 방향으로부터 최종 로컬 Z축 각도를 계산합니다.
+            float finalLocalAngle = Mathf.Atan2(localDirection.y, localDirection.x) * Mathf.Rad2Deg;
+
+            // X, Y축은 고정한 채 Z축만 애니메이션하기 위해 DOTween.To를 사용합니다.
+            // 이렇게 하면 회전 중 Y축이 변하는 현상을 방지할 수 있습니다.
+            float currentZ = -90f;
+            DOTween.To(() => currentZ, z => { currentZ = z; bazookaInstance.transform.localEulerAngles = new Vector3(0, 0, z); }, finalLocalAngle, shoulderAnimDuration)
+                .SetEase(Ease.OutQuad);
+
+            // 회전 애니메이션이 끝날 때까지 대기합니다.
+            await UniTask.Delay(TimeSpan.FromSeconds(shoulderAnimDuration), cancellationToken: token);
+
+            // 3. 애니메이터 활성화 및 발사 애니메이션 재생
+            bazookaAnimator.enabled = true;
+            bazookaAnimator.SetTrigger("Fire");
+
+            // 4. 발사 타이밍까지 대기
+            await UniTask.Delay(TimeSpan.FromSeconds(fireDelay), cancellationToken: token);
+
+            // 5. 폭발탄 발사
+            if (explosiveArrowPrefab != null)
+            {
+                // 발사 시점의 타겟 방향을 다시 계산하여 정확도 향상
+                Vector2 direction = (target.position - bazookaFirePoint.position).normalized;
+                GameObject arrow = Instantiate(explosiveArrowPrefab, bazookaFirePoint.position, Quaternion.identity);
+                arrow.GetComponent<Roket>()?.Launch(direction);
+            }
+
+            // 6. 남은 애니메이션 시간만큼 대기
+            await UniTask.Delay(TimeSpan.FromSeconds(totalFireAnimDuration - fireDelay), cancellationToken: token);
+        }
+        catch (OperationCanceledException)
+        {
+            // Task was cancelled
+        }
+        finally
+        {
+            // 7. 바주카 파괴
+            if (bazookaInstance != null)
+            {
+                Destroy(bazookaInstance);
+            }
+            playerControl.SetSkillUsageState(false); // 스킬 사용 종료
+        }
+    }
     #endregion
 }

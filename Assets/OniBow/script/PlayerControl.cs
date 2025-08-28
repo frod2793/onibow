@@ -24,6 +24,7 @@ public class PlayerControl : MonoBehaviour
     private int _currentHp;
     private int _tempHp; // 예비 체력 (UI의 상단 바에 해당)
     private float _lastDamageTime; // 마지막 피격 시간
+    public event Action OnPlayerDied; // 플레이어 사망 시 발생하는 이벤트
     public event Action<int, int, int> OnHealthUpdated; // 체력 변경 시 발생하는 이벤트 (현재, 예비, 최대)
 
     [Header("Movement Settings")]
@@ -80,10 +81,9 @@ public class PlayerControl : MonoBehaviour
     private float _lastDashTime = -999f; // 마지막 대쉬 시간을 기록
     private SPUM_Prefabs _spumPrefabs; // 애니메이션 제어를 위한 참조
     private AfterimageEffect _afterimageEffect; // 잔상 효과 참조
-    private PlayerState _currentState; // 현재 플레이어 상태
-    private bool _isAction; // 액션(공격, 피격) 애니메이션 재생 중인지 확인하는 플래그
-    private bool _isDead = false; // 사망 상태 플래그
+    private PlayerState _currentState = PlayerState.IDLE; // 현재 플레이어 상태
     private bool _isDashing = false; // 대쉬 중인지 확인하는 플래그
+    private bool _isUsingSkill = false; // 스킬 사용 중인지 확인하는 플래그
 
     #endregion
 
@@ -121,7 +121,6 @@ public class PlayerControl : MonoBehaviour
 
         _rigidbody2D.gravityScale = 1;
         _rigidbody2D.constraints = RigidbodyConstraints2D.FreezeRotation;
-        _currentState = PlayerState.IDLE;
     }
 
     private void OnEnable()
@@ -141,26 +140,9 @@ public class PlayerControl : MonoBehaviour
 
     private void Update()
     {
-        // [우선권 4순위: 대기/이동] 다른 액션 중이 아닐 때만 상태 갱신
-        if (_isAction || _isDead) return;
-
-        if (Mathf.Abs(_rigidbody2D.linearVelocity.x) > 0.1f)
-        {
-            _currentState = PlayerState.MOVE;
-        }
-        else
-        {
-            _currentState = PlayerState.IDLE;
-        }
-
-        if (_spumPrefabs != null)
-        {
-            _spumPrefabs.PlayAnimation(_currentState, 0);
-        }
-
         // 예비 체력(Temp HP)이 현재 체력보다 높고, 마지막 피격 후 일정 시간이 지났다면
         // 예비 체력을 서서히 감소시켜 현재 체력과 맞춥니다.
-        if (!_isDead && _tempHp > _currentHp && Time.time >= _lastDamageTime + tempHpDecreaseDelay)
+        if (_currentState != PlayerState.DEATH && _tempHp > _currentHp && Time.time >= _lastDamageTime + tempHpDecreaseDelay)
         {
             int decreaseAmount = (int)Mathf.Ceil(tempHpCatchUpSpeed * Time.deltaTime);
             _tempHp = Mathf.Max(_currentHp, _tempHp - decreaseAmount);
@@ -170,7 +152,7 @@ public class PlayerControl : MonoBehaviour
 
     private void OnTriggerEnter2D(Collider2D other)
     {
-        if (!_isDead && other.CompareTag("EnemyArrow"))
+        if (_currentState != PlayerState.DEATH && other.CompareTag("EnemyArrow"))
         {
             TakeDamage(10);
         }
@@ -199,13 +181,14 @@ public class PlayerControl : MonoBehaviour
     public void TakeDamage(int damage)
     {
         // [우선권 1순위: 피격] - 다른 모든 행동을 중단시킴
-        if (_isDead) return; 
+        if (_currentState == PlayerState.DEATH) return; 
 
         _moveCts?.Cancel();
         _dashCts?.Cancel();
         _fireCts?.Cancel();
         _movementTween?.Kill();
         _rigidbody2D.linearVelocity = Vector2.zero;
+        SetState(PlayerState.DAMAGED);
 
         int oldHp = _currentHp;
         _currentHp -= damage;
@@ -242,7 +225,7 @@ public class PlayerControl : MonoBehaviour
     /// </summary>
     public void HealWithTempHp()
     {
-        if (_isDead) return;
+        if (_currentState == PlayerState.DEATH) return;
         int recoveryAmount = _tempHp - _currentHp;
         if (recoveryAmount > 0)
         {
@@ -252,18 +235,41 @@ public class PlayerControl : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 스킬 사용 상태를 설정하고, 공격 로직을 제어합니다.
+    /// SkillManager에서 호출합니다.
+    /// </summary>
+    /// <param name="isUsing">스킬을 사용 중이면 true, 아니면 false.</param>
+    public void SetSkillUsageState(bool isUsing)
+    {
+        _isUsingSkill = isUsing;
+        if (isUsing)
+        {
+            // 스킬 사용 시작 시, 자동 공격 중단
+            _fireCts?.Cancel();
+        }
+        else
+        {
+            // 스킬 사용 종료 시, IDLE 상태라면 다시 자동 공격 시작
+            if (_currentState == PlayerState.IDLE)
+            {
+                StartRepeatingFire();
+            }
+        }
+    }
+
     public void StartMoving(float direction)
     {
         // [우선권 2순위: 이동] - 공격 행동을 중단시킴
-        if (_isDead || _isDashing) return;
+        if (_currentState == PlayerState.DEATH || _isDashing || _currentState == PlayerState.DAMAGED || _isUsingSkill) return;
 
-        _isAction = false; // 공격 애니메이션 중이었다면, 이를 해제
         _fireCts?.Cancel(); // 공격 루프 중단
 
         if (_spumPrefabs != null)
         {
             _spumPrefabs.transform.rotation = Quaternion.Euler(0f, direction > 0 ? 180f : 0f, 0f);
         }
+        SetState(PlayerState.MOVE);
 
         _moveCts?.Cancel();
         _moveCts?.Dispose();
@@ -273,19 +279,23 @@ public class PlayerControl : MonoBehaviour
 
     public void StopMoving()
     {
-        if (_isDead) return;
+        if (_currentState == PlayerState.DEATH) return;
         _moveCts?.Cancel();
         _movementTween?.Kill();
 
         _movementTween = _rigidbody2D.DOVector(new Vector2(0, _rigidbody2D.linearVelocity.y), decelerationTime)
             .SetEase(decelerationEase)
             .SetUpdate(UpdateType.Fixed)
-            .OnComplete(StartRepeatingFire);
+            .OnComplete(() =>
+            {
+                SetState(PlayerState.IDLE);
+                StartRepeatingFire();
+            });
     }
 
     public void FireStraightArrow()
     {
-        if (_isDead || _isAction || _isDashing || ArrowPool.Instance == null) return;
+        if (!IsActionableState() || ArrowPool.Instance == null) return;
 
         GameObject nearestEnemy = FindNearestEnemy();
         if (nearestEnemy != null)
@@ -312,29 +322,19 @@ public class PlayerControl : MonoBehaviour
 
     public GameObject FindNearestEnemy()
     {
-        GameObject[] enemies = GameObject.FindGameObjectsWithTag("Enemy");
-        if (enemies.Length == 0) return null;
+        // [최적화] 적이 하나뿐인 상황에 맞춰 FindGameObjectWithTag 사용
+        GameObject enemyObject = GameObject.FindGameObjectWithTag("Enemy");
+        if (enemyObject == null) return null;
 
-        GameObject nearestEnemy = null;
-        float minDistanceSqr = float.MaxValue;
+        Enemy enemyComponent = enemyObject.GetComponent<Enemy>();
 
-        foreach (GameObject enemyObject in enemies)
+        // 살아있는 적만 반환
+        if (enemyComponent != null && enemyComponent.currentState != Enemy.EnemyState.Dead)
         {
-            // [수정] 적 컴포넌트를 가져와서 살아있는지 확인합니다.
-            Enemy enemyComponent = enemyObject.GetComponent<Enemy>();
-
-            // 살아있는 적만 대상으로 거리를 계산합니다.
-            if (enemyComponent != null && !enemyComponent.IsDead)
-            {
-                float distanceSqr = (enemyObject.transform.position - transform.position).sqrMagnitude;
-                if (distanceSqr < minDistanceSqr)
-                {
-                    minDistanceSqr = distanceSqr;
-                    nearestEnemy = enemyObject;
-                }
-            }
+            return enemyObject;
         }
-        return nearestEnemy;
+
+        return null;
     }
 
     /// <summary>
@@ -343,7 +343,7 @@ public class PlayerControl : MonoBehaviour
     /// <param name="direction">대쉬 방향 (-1 for left, 1 for right)</param>
     public void Dash(float direction)
     {
-        if (_isDead || _isAction || _isDashing || Time.time < _lastDashTime + dashCooldown) return;
+        if (!IsActionableState() || Time.time < _lastDashTime + dashCooldown) return;
 
         // 1. 대쉬는 지상에 있을 때만 가능하도록, 먼저 발밑의 땅을 확인합니다.
         RaycastHit2D groundCheck = Physics2D.Raycast(
@@ -379,6 +379,7 @@ public class PlayerControl : MonoBehaviour
         // 3. 절벽을 감지하여 실제 이동 가능한 거리를 찾습니다.
         // 대쉬 경로를 따라가며 발밑에 땅이 있는지 반복적으로 확인합니다.
         float finalDashDistance = 0f;
+        bool cliffFound = false;
         int steps = 15; // 정밀도를 높이기 위해 확인 횟수를 늘립니다.
         float stepDistance = wallLimitedDistance / steps;
 
@@ -398,13 +399,16 @@ public class PlayerControl : MonoBehaviour
             {
                 // 땅이 없으면, 이전 단계까지가 안전한 거리입니다.
                 finalDashDistance = (i - 1) * stepDistance;
-                goto FoundSafeDistance; // 루프 탈출
+                cliffFound = true;
+                break; // 루프 탈출
             }
         }
-        // 루프가 중단 없이 끝났다면, 벽까지의 거리가 최종 거리입니다.
-        finalDashDistance = wallLimitedDistance;
+        if (!cliffFound)
+        {
+            // 루프가 중단 없이 끝났다면, 벽까지의 거리가 최종 거리입니다.
+            finalDashDistance = wallLimitedDistance;
+        }
 
-    FoundSafeDistance:
         // 벽이나 절벽에 너무 가깝게 붙지 않도록 약간의 여유를 줍니다.
         finalDashDistance = Mathf.Max(0, finalDashDistance - 0.1f);
 
@@ -432,8 +436,7 @@ public class PlayerControl : MonoBehaviour
 
     private void Die()
     {
-        _isDead = true;
-        _currentState = PlayerState.DEATH;
+        SetState(PlayerState.DEATH); // 상태를 사망으로 변경
         Debug.Log("플레이어가 사망했습니다.");
 
         _moveCts?.Cancel();
@@ -446,17 +449,15 @@ public class PlayerControl : MonoBehaviour
         _currentHp = 0;
         _tempHp = 0;
         OnHealthUpdated?.Invoke(_currentHp, _tempHp, maxHp);
+        OnPlayerDied?.Invoke();
 
-        if (_spumPrefabs != null)
-        {
-            _spumPrefabs.PlayAnimation(PlayerState.DEATH, 0);
-        }
+        // SetState에서 애니메이션을 처리하므로 직접 호출할 필요 없음
     }
 
     private void StartRepeatingFire()
     {
         // [우선권 3순위: 공격] - 다른 액션 중이 아닐 때만 시작
-        if (_isDead || _isAction) return;
+        if (!IsActionableState()) return;
 
         _fireCts?.Cancel();
         _fireCts?.Dispose();
@@ -466,7 +467,7 @@ public class PlayerControl : MonoBehaviour
 
     public void FireAtNearestEnemy()
     {
-        if (_isDead || _isAction || _isDashing || ArrowPool.Instance == null) return;
+        if (!IsActionableState() || ArrowPool.Instance == null) return;
 
         GameObject nearestEnemy = FindNearestEnemy();
         if (nearestEnemy != null)
@@ -510,52 +511,79 @@ public class PlayerControl : MonoBehaviour
         _rigidbody2D.position = clampedPosition;
     }
 
+    /// <summary>
+    /// 이동, 공격, 대쉬 등 새로운 행동을 시작할 수 있는 상태인지 확인합니다.
+    /// </summary>
+    /// <returns>행동 가능 여부</returns>
+    private bool IsActionableState()
+    {
+        // 스킬 사용 중이거나 대쉬 중에는 다른 행동 불가
+        if (_isUsingSkill || _isDashing) return false;
+
+        return _currentState == PlayerState.IDLE || _currentState == PlayerState.MOVE;
+    }
+
+    /// <summary>
+    /// 플레이어의 상태를 변경하고, 상태에 맞는 애니메이션을 재생합니다.
+    /// </summary>
+    /// <param name="newState">변경할 새로운 상태</param>
+    private void SetState(PlayerState newState)
+    {
+        if (_currentState == newState) return;
+
+        _currentState = newState;
+        if (_spumPrefabs != null)
+        {
+            _spumPrefabs.PlayAnimation(_currentState, 0);
+        }
+    }
     #endregion
 
     #region 코루틴 및 비동기 메서드
 
     private async UniTaskVoid PlayAttackAnimationAsync()
     {
-        if (_isDead || _isDashing || _spumPrefabs == null) return;
+        if (!IsActionableState()) return;
 
-        _isAction = true;
-        _spumPrefabs.PlayAnimation(PlayerState.ATTACK, 0);
+        SetState(PlayerState.ATTACK);
 
         var attackClips = _spumPrefabs.StateAnimationPairs[PlayerState.ATTACK.ToString()];
-        if (attackClips != null && attackClips.Count > 0)
+        if (attackClips != null && attackClips.Count > 0 && attackClips[0] != null)
         {
-            var clip = attackClips[0];
-            if (clip != null)
+            try
             {
-                await UniTask.Delay((int)(clip.length * 1000), cancellationToken: this.GetCancellationTokenOnDestroy());
+                await UniTask.Delay(TimeSpan.FromSeconds(attackClips[0].length), cancellationToken: this.GetCancellationTokenOnDestroy());
             }
+            catch (OperationCanceledException) { return; } // 애니메이션 중 취소되면(피격, 이동 등) 즉시 복귀
         }
 
-        _isAction = false;
+        // 다른 상태로 변경되지 않았다면 IDLE로 복귀
+        if (_currentState == PlayerState.ATTACK)
+        {
+            SetState(PlayerState.IDLE);
+        }
     }
 
     private async UniTaskVoid PlayDamagedAnimationAsync()
     {
-        if (_isDead || _isDashing || _spumPrefabs == null) return;
-
-        _isAction = true;
-        _spumPrefabs.PlayAnimation(PlayerState.DAMAGED, 0);
+        // SetState는 이미 TakeDamage에서 호출되었으므로, 여기서는 애니메이션 재생을 기다리기만 합니다.
+        if (_currentState != PlayerState.DAMAGED) return;
 
         var damagedClips = _spumPrefabs.StateAnimationPairs[PlayerState.DAMAGED.ToString()];
-        if (damagedClips != null && damagedClips.Count > 0)
+        if (damagedClips != null && damagedClips.Count > 0 && damagedClips[0] != null)
         {
-            var clip = damagedClips[0];
-            if (clip != null)
+            try
             {
-                await UniTask.Delay((int)(clip.length * 1000), cancellationToken: this.GetCancellationTokenOnDestroy());
+                await UniTask.Delay(TimeSpan.FromSeconds(damagedClips[0].length), cancellationToken: this.GetCancellationTokenOnDestroy());
             }
+            catch (OperationCanceledException) { return; } // 애니메이션 중 다른 피격 등으로 취소되면 즉시 복귀
         }
 
-        _isAction = false;
-
         // 피격 애니메이션이 끝난 후, 사망 상태가 아니라면 다시 자동 공격을 시작합니다.
-        if (!_isDead)
+        if (_currentState != PlayerState.DEATH)
         {
+            // TakeDamage에서 다른 행동이 취소되었으므로, IDLE 상태로 전환하고 공격을 다시 시작합니다.
+            SetState(PlayerState.IDLE);
             StartRepeatingFire();
         }
     }
@@ -609,8 +637,8 @@ public class PlayerControl : MonoBehaviour
 
     private async UniTaskVoid DashAsync(float targetX, float duration)
     {
-        _isAction = true;
         _isDashing = true;
+        SetState(PlayerState.MOVE); // 대쉬 중에는 이동 애니메이션을 재생합니다.
 
         // 다른 행동 중단
         _moveCts?.Cancel();
@@ -668,9 +696,9 @@ public class PlayerControl : MonoBehaviour
             // 대쉬가 끝난 후 정확한 위치에 있도록 보정
             _rigidbody2D.position = new Vector2(targetX, startY);
             _isDashing = false;
-            _isAction = false;
+            SetState(PlayerState.IDLE);
 
-            if (!_isDead) StartRepeatingFire(); // 대쉬 후 다시 자동 공격 상태로 전환
+            if (_currentState != PlayerState.DEATH) StartRepeatingFire(); // 대쉬 후 다시 자동 공격 상태로 전환
         }
     }
 

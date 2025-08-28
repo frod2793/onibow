@@ -61,7 +61,10 @@ public class UIManager : MonoBehaviour
     private void OnDestroy()
     {
         // 메모리 누수 방지를 위해 이벤트 구독 해지
-        if (playerControl != null) playerControl.OnHealthUpdated -= UpdatePlayerHpUI;
+        if (playerControl != null) {
+            playerControl.OnHealthUpdated -= UpdatePlayerHpUI;
+            playerControl.OnPlayerDied -= HandlePlayerDeath;
+        }
         if (enemy != null) enemy.OnHpChanged -= UpdateEnemyHpUI;
     }
 
@@ -78,6 +81,7 @@ public class UIManager : MonoBehaviour
         if (playerControl != null)
         {
             playerControl.OnHealthUpdated += UpdatePlayerHpUI;
+            playerControl.OnPlayerDied += HandlePlayerDeath;
             playerControl.ForceUpdateHpUI(); // 초기값 설정
         }
         if (enemy != null)
@@ -85,6 +89,18 @@ public class UIManager : MonoBehaviour
             enemy.OnHpChanged += UpdateEnemyHpUI;
             enemy.ForceUpdateHpUI(); // 초기값 설정
         }
+    }
+
+    private void HandlePlayerDeath()
+    {
+        // 모든 스킬 및 이동 버튼 비활성화
+        skill1Button.interactable = false;
+        skill2Button.interactable = false;
+        skill3Button.interactable = false;
+        skill4Button.interactable = false;
+        healSkillButton.interactable = false;
+        rightMoveButton.interactable = false;
+        leftMoveButton.interactable = false;
     }
 
     private void UpdatePlayerHpUI(int currentHp, int tempHp, int maxHp)
@@ -192,7 +208,11 @@ public class UIManager : MonoBehaviour
 
     private void AddEventTrigger(GameObject target, System.Action onPointerDown, System.Action onPointerUp)
     {
-        EventTrigger trigger = target.GetComponent<EventTrigger>() ?? target.AddComponent<EventTrigger>();
+        EventTrigger trigger = target.GetComponent<EventTrigger>();
+        if (trigger == null)
+        {
+            trigger = target.AddComponent<EventTrigger>();
+        }
         trigger.triggers.Clear();
 
         var pointerDownEntry = new EventTrigger.Entry { eventID = EventTriggerType.PointerDown };
