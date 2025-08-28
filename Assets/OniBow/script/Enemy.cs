@@ -192,6 +192,9 @@ public class Enemy : MonoBehaviour
 
         OnHpChanged?.Invoke(_currentHp, _tempHp, maxHp);
 
+        // 데미지 텍스트 표시 (캐릭터 머리 위)
+        EffectManager.Instance.ShowDamageText(gameObject, damage);
+
         if (_currentHp <= 0)
         {
             // _currentHp is already clamped to 0

@@ -212,6 +212,10 @@ public class PlayerControl : MonoBehaviour
 
         Debug.Log($"플레이어가 {damage}의 데미지를 입었습니다. 현재 체력: {_currentHp}");
         OnHealthUpdated?.Invoke(_currentHp, _tempHp, maxHp);
+
+        // 데미지 텍스트 표시 (캐릭터 머리 위)
+        EffectManager.Instance.ShowDamageText(gameObject, damage);
+
         PlayDamagedAnimationAsync().Forget();
 
         if (_currentHp <= 0)
@@ -594,10 +598,17 @@ public class PlayerControl : MonoBehaviour
         {
             while (!token.IsCancellationRequested)
             {
+                // 공격을 시도하기 전에 먼저 유효한 적이 있는지 확인합니다.
+                if (FindNearestEnemy() == null)
+                {
+                    // 공격할 대상이 없으므로 공격 루프를 중단합니다.
+                    break;
+                }
+
                 float timeUntilReady = (_lastFireTime + fireInterval) - Time.time;
                 if (timeUntilReady > 0)
                 {
-                    await UniTask.Delay((int)(timeUntilReady * 1000), cancellationToken: token);
+                    await UniTask.Delay(TimeSpan.FromSeconds(timeUntilReady), cancellationToken: token);
                 }
                 if (token.IsCancellationRequested) break;
 

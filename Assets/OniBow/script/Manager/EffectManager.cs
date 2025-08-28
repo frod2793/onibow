@@ -1,6 +1,8 @@
 using UnityEngine;
 using Cysharp.Threading.Tasks;
 using System;
+using System.Collections.Generic;
+using UnityEngine.Pool;
 
 /// <summary>
 /// 게임 내 모든 시각 효과(VFX)를 중앙에서 관리하는 싱글턴 클래스입니다.
@@ -12,17 +14,76 @@ public class EffectManager : MonoBehaviour
 
     [Header("이펙트 프리팹")]
     [SerializeField] private GameObject rocketExplosionEffectPrefab;
+    [SerializeField] private GameObject damageTextPrefab;
 
+    [Header("오브젝트 풀 설정")]
+    [SerializeField] private int damageTextPoolSize = 20;
+
+    [Header("대미지 텍스트용 캔버스 ")] [SerializeField]
+    private Canvas DamagedTextCanvas;
+
+    [Header("데미지 텍스트 위치 오프셋")]
+    [Tooltip("캐릭터 머리 위로 텍스트가 표시될 추가 높이입니다.")]
+    [SerializeField] private float damageTextYOffset = 0.1f;
+    [Tooltip("데미지 텍스트의 X축 위치에 적용될 랜덤 범위입니다. (예: 10이면 -10 ~ +10)")]
+    [SerializeField] private float damageTextXRandomRange = 20f;
+
+    [Header("데미지 텍스트 스타일")]
+    [Tooltip("일반 데미지 텍스트의 스케일입니다.")]
+    [SerializeField] private float normalDamageScale = 1f;
+    [Tooltip("크리티컬 데미지 텍스트의 스케일입니다.")]
+    [SerializeField] private float criticalDamageScale = 1.5f;
+    [Tooltip("이 값 이상의 데미지를 크리티컬로 간주합니다.")]
+    [SerializeField] private int criticalDamageThreshold = 50;
+    [SerializeField] private Color normalDamageColor = Color.white;
+    [SerializeField] private Color criticalDamageColor = Color.yellow;
+    private IObjectPool<GameObject> _damageTextPool;
     private void Awake()
     {
         if (Instance == null)
         {
             Instance = this;
+            InitializePool();
         }
         else
         {
             Destroy(gameObject);
         }
+    }
+
+    private void InitializePool()
+    {
+        _damageTextPool = new ObjectPool<GameObject>(
+            createFunc: () => {
+                // 새로 생성될 때의 로직
+                return Instantiate(damageTextPrefab);
+            },
+            actionOnGet: (obj) => {
+                // 풀에서 가져올 때의 로직
+                obj.transform.SetParent(DamagedTextCanvas.transform, false);
+                obj.SetActive(true);
+            },
+            actionOnRelease: (obj) => {
+                // 풀로 반환할 때의 로직
+                obj.transform.SetParent(transform, false);
+                obj.SetActive(false);
+            },
+            actionOnDestroy: (obj) => {
+                // 풀이 파괴될 때의 로직
+                Destroy(obj);
+            },
+            collectionCheck: true,  // 이미 풀에 반환된 오브젝트를 다시 반환하려 할 때 오류 발생
+            defaultCapacity: damageTextPoolSize,
+            maxSize: damageTextPoolSize * 2 // 풀의 최대 크기
+        );
+
+        // 오브젝트 풀을 미리 채워둡니다 (Pre-warming).
+        var prewarmList = new List<GameObject>();
+        for(int i = 0; i < damageTextPoolSize; i++)
+        {
+            prewarmList.Add(_damageTextPool.Get());
+        }
+        foreach(var item in prewarmList) _damageTextPool.Release(item);
     }
 
     /// <summary>
@@ -87,5 +148,75 @@ public class EffectManager : MonoBehaviour
     public void PlayExplosionEffect(Vector3 position)
     {
         PlayEffect(rocketExplosionEffectPrefab, position, Quaternion.identity, 1.5f, 30);
+    }
+
+    /// <summary>
+    /// 지정된 위치에 데미지 텍스트를 표시합니다.
+    /// </summary>
+    /// <param name="target">데미지 텍스트가 표시될 대상 게임 오브젝트</param>
+    /// <param name="damage">표시할 데미지 수치</param>
+    public void ShowDamageText(GameObject target, int damage)
+    {
+        if (damageTextPrefab == null)
+        {
+            Debug.LogWarning("데미지 텍스트 프리팹이 EffectManager에 할당되지 않았습니다.");
+            return;
+        }
+        if (DamagedTextCanvas == null)
+        {
+            Debug.LogWarning("데미지 텍스트용 캔버스가 EffectManager에 할당되지 않았습니다.");
+            return;
+        }
+
+        if (target == null)
+        {
+            Debug.LogWarning("데미지 텍스트를 표시할 대상(target)이 null입니다.");
+            return;
+        }
+
+        // 대상의 머리 위 위치를 계산합니다.
+        Collider2D targetCollider = target.GetComponent<Collider2D>();
+        if (targetCollider == null)
+        {
+            Debug.LogWarning($"데미지 텍스트를 표시할 대상 '{target.name}'에 Collider2D가 없습니다.");
+            return;
+        }
+        Vector3 position = targetCollider.bounds.center + Vector3.up * (targetCollider.bounds.extents.y + damageTextYOffset);
+
+        // Instantiate the damage text prefab as a child of the Canvas
+        GameObject textInstance = _damageTextPool.Get();
+
+        // Get the RectTransform of the instantiated text
+        RectTransform textRectTransform = textInstance.GetComponent<RectTransform>();
+        if (textRectTransform == null)
+        {
+            Debug.LogError($"데미지 텍스트 프리팹 '{damageTextPrefab.name}'에 RectTransform 컴포넌트가 없습니다. UI 요소여야 합니다.");
+            Destroy(textInstance);
+            return;
+        }
+
+        // Screen Space - Overlay 캔버스에서는 UI 요소의 position을 스크린 좌표로 직접 설정할 수 있습니다.
+        // 이 방식이 RectTransformUtility를 사용하는 것보다 더 간단하고 직관적입니다.
+        Vector2 screenPosition = Camera.main.WorldToScreenPoint(position);
+        screenPosition.x += UnityEngine.Random.Range(-damageTextXRandomRange, damageTextXRandomRange);
+        textRectTransform.position = screenPosition;
+
+        // DamageText 스크립트를 찾아 데미지 값을 설정합니다.
+        var damageTextComponent = textInstance.GetComponent<DamageText>();
+        if (damageTextComponent != null)
+        {
+            damageTextComponent.SetAppearance(damage, normalDamageScale, criticalDamageScale, normalDamageColor, criticalDamageColor, criticalDamageThreshold);
+            // 위치와 텍스트가 설정된 후 애니메이션을 재생합니다.
+            damageTextComponent.PlayAnimation();
+        }
+    }
+
+    /// <summary>
+    /// 사용이 끝난 데미지 텍스트 오브젝트를 풀로 반환합니다.
+    /// </summary>
+    /// <param name="textObject">반환할 게임 오브젝트</param>
+    public void ReturnDamageTextToPool(GameObject textObject)
+    {
+        _damageTextPool.Release(textObject);
     }
 }
