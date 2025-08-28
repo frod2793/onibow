@@ -209,7 +209,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &104247251
 RectTransform:
   m_ObjectHideFlags: 0
@@ -309,52 +309,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 114964795}
   m_CullTransparentMesh: 1
---- !u!1 &171977385
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 171977386}
-  - component: {fileID: 171977387}
-  m_Layer: 0
-  m_Name: '[ - ArrowPool - ]'
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &171977386
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 171977385}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1096982691}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &171977387
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 171977385}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c7d37844470d438b9ccfc09c0f2b14df, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ArrowPool
-  arrowPrefab: {fileID: 3648454559990431099, guid: 0ca035243b9f54f4da332d968017382e, type: 3}
-  initialPoolSize: 20
 --- !u!1 &259783681 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 2506316787288808240, guid: 2e7e3e2ed842e4891863422b591a343f, type: 3}
@@ -449,6 +403,7 @@ MonoBehaviour:
   decelerationTime: 0.1
   accelerationEase: 9
   decelerationEase: 8
+  arrowPrefab: {fileID: 3648454559990431099, guid: 0ca035243b9f54f4da332d968017382e, type: 3}
   firePoint: {fileID: 566010277}
   fireDistance: 1.5
   fireArcHeight: 1
@@ -487,8 +442,6 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   fireInterval: 1
-  minXPosition: -4
-  maxXPosition: 4
   groundLayer:
     serializedVersion: 2
     m_Bits: 64
@@ -507,58 +460,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b64a98d5334841aa92c90ba9b2e0bed9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AfterimageEffect
+  afterimagePrefab: {fileID: 6608624498905167473, guid: 2f616c83af5f64b8cbbbf5174b0b5cb8, type: 3}
   _sourceVisualsRoot: {fileID: 0}
   _afterimageColor: {r: 0.5, g: 0.8, b: 1, a: 1}
   _spawnInterval: 0.05
   _fadeDuration: 0.5
-  _overrideSortingOrder: 0
+  _overrideSortingOrder: 1
   _sortingOrderOverrideValue: 20
---- !u!1 &263525997
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 263525998}
-  - component: {fileID: 263525999}
-  m_Layer: 0
-  m_Name: '[ - Enemy ArrowPool - ] '
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &263525998
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 263525997}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1096982691}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &263525999
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 263525997}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fb8348d3cc9384de1aaf184a757a593d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::EnemyArrowPool
-  arrowPrefab: {fileID: 3648454559990431099, guid: 271a3f3ff35f84149904bb762893c0a5, type: 3}
-  initialPoolSize: 20
 --- !u!1001 &320094553
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -730,6 +638,7 @@ MonoBehaviour:
   groundLayer:
     serializedVersion: 2
     m_Bits: 64
+  arrowPrefab: {fileID: 3648454559990431099, guid: 271a3f3ff35f84149904bb762893c0a5, type: 3}
   firePoint: {fileID: 982385855}
   fireDistance: 1.5
   fireArcHeight: 1
@@ -770,6 +679,7 @@ MonoBehaviour:
   attackCooldown: 0.5
   skillCooldown: 10
   skillChance: 0.3
+  skillHandPoint: {fileID: 584370943}
   healSkillCooldown: 20
   healHealthThreshold: 0.4
   evadeChance: 0.3
@@ -851,11 +761,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b64a98d5334841aa92c90ba9b2e0bed9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AfterimageEffect
+  afterimagePrefab: {fileID: 6608624498905167473, guid: 2f616c83af5f64b8cbbbf5174b0b5cb8, type: 3}
   _sourceVisualsRoot: {fileID: 0}
   _afterimageColor: {r: 0.5, g: 0.8, b: 1, a: 1}
   _spawnInterval: 0.05
   _fadeDuration: 0.5
-  _overrideSortingOrder: 0
+  _overrideSortingOrder: 1
   _sortingOrderOverrideValue: 20
 --- !u!1 &354094714
 GameObject:
@@ -1423,6 +1334,50 @@ RectTransform:
   m_AnchoredPosition: {x: -0.545, y: 0.306}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!1 &568046445
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 568046446}
+  - component: {fileID: 568046447}
+  m_Layer: 0
+  m_Name: '[ - ObjectPoolManager - ]'
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &568046446
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 568046445}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 32.69245, y: -80.98184, z: 2.05422}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1096982691}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &568046447
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 568046445}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 50d237fb9098477ca3ad5b311cc33a84, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ObjectPoolManager
 --- !u!1 &581836499
 GameObject:
   m_ObjectHideFlags: 0
@@ -1523,8 +1478,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 584370942}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: 0.008726557, z: -0, w: -0.9999619}
-  m_LocalPosition: {x: -6.1731043, y: -0.034300014, z: -0.04792979}
+  m_LocalRotation: {x: 0, y: 1, z: 0, w: 0}
+  m_LocalPosition: {x: 0, y: 0.288, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1832,11 +1787,12 @@ MonoBehaviour:
   playerControl: {fileID: 259783687}
   playerFirePoint: {fileID: 566010277}
   playerHand: {fileID: 1490588748}
-  EnemyHand: {fileID: 584370942}
   BazookaPrefab: {fileID: 5558704956040872018, guid: 8c406574624fd46969b9c213dba241b1, type: 3}
-  enemyMultiShotArrowPrefab: {fileID: 3648454559990431099, guid: 271a3f3ff35f84149904bb762893c0a5, type: 3}
+  AK47: {fileID: 2001271411453773655, guid: fb3b108b4925c4903851d7a265662caa, type: 3}
+  akBulletPrefab: {fileID: 3648454559990431099, guid: 723691a484eda49e4800ddc27b3c445f, type: 3}
   enemyMultiShot_Count: 3
   enemyMultiShot_Interval: 0.3
+  akBulletSpeed: 5
 --- !u!1 &716095769
 GameObject:
   m_ObjectHideFlags: 0
@@ -2223,6 +2179,8 @@ GameObject:
   - component: {fileID: 845231290}
   - component: {fileID: 845231289}
   - component: {fileID: 845231288}
+  - component: {fileID: 845231292}
+  - component: {fileID: 845231293}
   m_Layer: 6
   m_Name: Tilemap
   m_TagString: Untagged
@@ -2912,6 +2870,98 @@ Tilemap:
     e31: 0
     e32: 0
     e33: 1
+--- !u!61 &845231292
+BoxCollider2D:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 845231286}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Density: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ForceSendLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ForceReceiveLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ContactCaptureLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_CallbackLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_IsTrigger: 0
+  m_UsedByEffector: 0
+  m_CompositeOperation: 0
+  m_CompositeOrder: 0
+  m_Offset: {x: -17.810179, y: 0.6047964}
+  m_SpriteTilingProperty:
+    border: {x: 0, y: 0, z: 0, w: 0}
+    pivot: {x: 0, y: 0}
+    oldSize: {x: 0, y: 0}
+    newSize: {x: 0, y: 0}
+    adaptiveTilingThreshold: 0
+    drawMode: 0
+    adaptiveTiling: 0
+  m_AutoTiling: 0
+  m_Size: {x: 3.52734, y: 5.3404846}
+  m_EdgeRadius: 0
+--- !u!61 &845231293
+BoxCollider2D:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 845231286}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Density: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ForceSendLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ForceReceiveLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ContactCaptureLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_CallbackLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_IsTrigger: 0
+  m_UsedByEffector: 0
+  m_CompositeOperation: 0
+  m_CompositeOrder: 0
+  m_Offset: {x: -3.3743067, y: 0.62693155}
+  m_SpriteTilingProperty:
+    border: {x: 0, y: 0, z: 0, w: 0}
+    pivot: {x: 0, y: 0}
+    oldSize: {x: 0, y: 0}
+    newSize: {x: 0, y: 0}
+    adaptiveTilingThreshold: 0
+    drawMode: 0
+    adaptiveTiling: 0
+  m_AutoTiling: 0
+  m_Size: {x: 0.9059696, y: 5.384755}
+  m_EdgeRadius: 0
 --- !u!1 &907125135
 GameObject:
   m_ObjectHideFlags: 0
@@ -3478,52 +3528,6 @@ PrefabInstance:
       insertIndex: -1
       addedObject: {fileID: 259783689}
   m_SourcePrefab: {fileID: 100100000, guid: 2e7e3e2ed842e4891863422b591a343f, type: 3}
---- !u!1 &1009441663
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1009441664}
-  - component: {fileID: 1009441665}
-  m_Layer: 0
-  m_Name: '[ - AfterimagePool - ]'
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1009441664
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1009441663}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1096982691}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1009441665
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1009441663}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7baf7dc3d5584c6a9b3e096f7bb511db, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::AfterimagePool
-  afterimagePrefab: {fileID: 6608624498905167473, guid: 2f616c83af5f64b8cbbbf5174b0b5cb8, type: 3}
-  initialPoolSize: 15
 --- !u!1 &1079098690
 GameObject:
   m_ObjectHideFlags: 0
@@ -3826,13 +3830,11 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
+  - {fileID: 568046446}
   - {fileID: 790451008}
   - {fileID: 359000436}
-  - {fileID: 171977386}
-  - {fileID: 263525998}
   - {fileID: 665154088}
   - {fileID: 639961935}
-  - {fileID: 1009441664}
   - {fileID: 651444264}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -4743,8 +4745,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4294967295
-  m_fontColor: {r: 1, g: 1, b: 1, a: 1}
+    rgba: 4278190080
+  m_fontColor: {r: 0, g: 0, b: 0, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -7048,6 +7050,67 @@ Transform:
   m_Children: []
   m_Father: {fileID: 515030456}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1001 &4315464712172295329
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 2001271411453773655, guid: fb3b108b4925c4903851d7a265662caa, type: 3}
+      propertyPath: m_Name
+      value: '[SHOOT WITH CASING AND MUZZLE FLASH] FULL AUTO - AK 47_0'
+      objectReference: {fileID: 0}
+    - target: {fileID: 2001271411453773655, guid: fb3b108b4925c4903851d7a265662caa, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9078713185344369864, guid: fb3b108b4925c4903851d7a265662caa, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9078713185344369864, guid: fb3b108b4925c4903851d7a265662caa, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9078713185344369864, guid: fb3b108b4925c4903851d7a265662caa, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9078713185344369864, guid: fb3b108b4925c4903851d7a265662caa, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 9078713185344369864, guid: fb3b108b4925c4903851d7a265662caa, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9078713185344369864, guid: fb3b108b4925c4903851d7a265662caa, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9078713185344369864, guid: fb3b108b4925c4903851d7a265662caa, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9078713185344369864, guid: fb3b108b4925c4903851d7a265662caa, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9078713185344369864, guid: fb3b108b4925c4903851d7a265662caa, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9078713185344369864, guid: fb3b108b4925c4903851d7a265662caa, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: fb3b108b4925c4903851d7a265662caa, type: 3}
 --- !u!1001 &7068138269691535291
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -7133,3 +7196,4 @@ SceneRoots:
   - {fileID: 1096982691}
   - {fileID: 1293758252}
   - {fileID: 7068138269691535291}
+  - {fileID: 4315464712172295329}

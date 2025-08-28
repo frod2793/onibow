@@ -7,6 +7,9 @@ using DG.Tweening;
 /// </summary>
 public class ArrowController : MonoBehaviour
 {
+    public enum ArrowOwner { Player, Enemy }
+    public ArrowOwner Owner { get; set; }
+
     private Tween _moveTween;
 
     /// <summary>
@@ -63,8 +66,8 @@ public class ArrowController : MonoBehaviour
 
     private void OnTriggerEnter2D(Collider2D other)
     {
-        // 플레이어의 화살이 적과 충돌했거나, 적의 화살이 플레이어와 충돌했을 때 풀로 반환
-        if ((CompareTag("Untagged") && other.CompareTag("Enemy")) || (CompareTag("EnemyArrow") && other.CompareTag("Player")))
+        // 화살의 소유자에 따라 충돌 대상을 확인하고 풀로 반환
+        if ((Owner == ArrowOwner.Player && other.CompareTag("Enemy")) || (Owner == ArrowOwner.Enemy && other.CompareTag("Player")))
         {
             ReturnToPool();
         }
@@ -72,16 +75,15 @@ public class ArrowController : MonoBehaviour
 
     private void ReturnToPool()
     {
-        if (gameObject == null) return;
-
-        // 자신의 태그에 따라 올바른 풀로 돌아감
-        if (CompareTag("EnemyArrow"))
+        if (ObjectPoolManager.Instance != null)
         {
-            if (EnemyArrowPool.Instance != null) EnemyArrowPool.Instance.Return(gameObject);
+            // 중복 반환을 막기 위해 오브젝트가 아직 활성 상태일 때만 반환합니다.
+            if(gameObject.activeInHierarchy)
+                ObjectPoolManager.Instance.Return(gameObject);
         }
-        else
+        else // 풀 매니저가 없다면(씬 종료 등) 오브젝트를 파괴하여 메모리 누수를 방지합니다.
         {
-            if (ArrowPool.Instance != null) ArrowPool.Instance.Return(gameObject);
+            Destroy(gameObject);
         }
     }
 

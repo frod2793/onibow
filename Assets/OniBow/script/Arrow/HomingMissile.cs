@@ -23,6 +23,7 @@ public class HomingMissile : MonoBehaviour
 
     private Transform _target;
     private Rigidbody2D _rigidbody2D;
+    private Collider2D _collider;
     private float _randomStartTime; // 각 미사일의 비행 패턴을 다르게 하기 위한 오프셋
     private AfterimageEffect _afterimageEffect; // 잔상 효과 참조
     private bool _isHoming = false; // 추적 시작 플래그
@@ -30,6 +31,7 @@ public class HomingMissile : MonoBehaviour
     private void Awake()
     {
         _rigidbody2D = GetComponent<Rigidbody2D>();
+        _collider = GetComponent<Collider2D>();
         // DOTween으로 Transform을 직접 제어하므로, 물리 엔진과의 충돌을 피하기 위해 Kinematic으로 설정합니다.
         _rigidbody2D.isKinematic = true;
         _afterimageEffect = GetComponent<AfterimageEffect>();
@@ -37,6 +39,9 @@ public class HomingMissile : MonoBehaviour
 
         // 각 미사일이 다른 패턴으로 움직이도록 랜덤 값을 부여합니다.
         _randomStartTime = Random.Range(0f, 10f);
+
+        // 발사 시 의도치 않은 즉시 충돌을 방지하기 위해, 추적이 시작될 때까지 충돌체를 비활성화합니다.
+        _collider.enabled = false;
 
         Destroy(gameObject, lifeTime); // 일정 시간 후 자동 파괴
     }
@@ -47,6 +52,14 @@ public class HomingMissile : MonoBehaviour
     /// <param name="target">추적할 대상의 Transform</param>
     public void Launch(Transform target)
     {
+        // [수정] 오브젝트 풀에서 재사용될 때 발생할 수 있는 문제를 방지하기 위해 상태를 초기화합니다.
+        // 1. 부모로부터 분리하여 스케일(크기) 왜곡을 방지합니다.
+        transform.SetParent(null);
+        // 2. 회전 상태를 초기화하여 발사 애니메이션이 항상 동일한 조건에서 시작하도록 합니다.
+        transform.rotation = Quaternion.identity;
+        // 3. 매번 새로운 비행 패턴을 갖도록 랜덤 시드를 리셋합니다.
+        _randomStartTime = Random.Range(0f, 10f);
+
         _target = target;
 
         // 초기 발사 시 잔상 효과를 시작합니다.
@@ -63,6 +76,8 @@ public class HomingMissile : MonoBehaviour
 
         // 3. 애니메이션이 끝나면 추적을 시작하도록 플래그를 설정합니다.
         launchSequence.OnComplete(() => {
+            // 추적을 시작하기 직전에 충돌체를 활성화합니다.
+            _collider.enabled = true;
             _isHoming = true;
         });
     }
@@ -117,6 +132,8 @@ public class HomingMissile : MonoBehaviour
                 enemy.TakeDamage(damage);
             }
 
+            // 이 오브젝트에서 실행 중인 모든 DOTween 애니메이션을 정리합니다.
+            DOTween.Kill(transform);
             Destroy(gameObject); // 자기 자신을 파괴
         }
     }

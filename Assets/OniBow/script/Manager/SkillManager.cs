@@ -35,10 +35,9 @@ public class SkillManager : MonoBehaviour
 
     [Header("스킬무기 가 장착될 위치")] [SerializeField]
     private GameObject playerHand;
-    [SerializeField] private GameObject EnemyHand;
     
     [Header("스킬 무기")] [SerializeField] private GameObject BazookaPrefab;
-    
+    [SerializeField] private GameObject AK47;// 적이 6연발 할떄 사용할무기 
     
     
     
@@ -61,10 +60,12 @@ public class SkillManager : MonoBehaviour
     #region 적 스킬 변수
 
     [Header("적 스킬 설정")]
-    [Tooltip("적이 사용할 다발 사격용 화살 프리팹")]
-    [SerializeField] private GameObject enemyMultiShotArrowPrefab;
-    [SerializeField] private int enemyMultiShot_Count = 3; // 3연발
-    [SerializeField] private float enemyMultiShot_Interval = 0.3f; // 발사 간격
+    [Tooltip("적이 다발 사격 시 사용할 총알 프리팹")]
+    [SerializeField]
+    private GameObject akBulletPrefab;
+    [SerializeField] private int enemyMultiShot_Count = 5; // 5연발
+    [SerializeField] private float enemyMultiShot_Interval = 0.15f; // 발사 간격
+    [SerializeField] private float akBulletSpeed = 30f; // AK 총알 속도
 
     #endregion
 
@@ -74,15 +75,15 @@ public class SkillManager : MonoBehaviour
     /// 적 스킬: 지정된 대상을 향해 다발 사격을 가합니다.
     /// 이 메서드는 쿨타임을 관리하지 않으므로, 호출하는 쪽(Enemy.cs)에서 관리해야 합니다.
     /// </summary>
-    public void ExecuteEnemyMultiShot(Transform firePoint, Transform target)
+    public async UniTask ExecuteEnemyMultiShot(Transform handPoint, Transform target)
     {
-        if (enemyMultiShotArrowPrefab == null || firePoint == null || target == null)
+        if (AK47 == null || handPoint == null || ObjectPoolManager.Instance == null || target == null)
         {
-            Debug.LogWarning("적 다발 사격 스킬의 설정이 올바르지 않습니다.");
+            Debug.LogWarning("적 다발 사격 스킬의 설정이 올바르지 않습니다. (AK47, handPoint, ObjectPoolManager, target)");
             return;
         }
 
-        EnemyMultiShotAsync(firePoint, target, this.GetCancellationTokenOnDestroy()).Forget();
+        await EnemyAKSkillAsync(handPoint, target, this.GetCancellationTokenOnDestroy());
     }
 
     #endregion
@@ -236,27 +237,81 @@ public class SkillManager : MonoBehaviour
         }
     }
 
-    private async UniTaskVoid EnemyMultiShotAsync(Transform firePoint, Transform target, CancellationToken token)
+    /// <summary>
+    /// 적의 AK47 스킬을 실행하는 비동기 메서드.
+    /// AK47을 손에 들고, 5연발을 발사합니다.
+    /// </summary>
+    private async UniTask EnemyAKSkillAsync(Transform handPoint, Transform target, CancellationToken token)
     {
-        for (int i = 0; i < enemyMultiShot_Count; i++)
+        GameObject akInstance = Instantiate(AK47, handPoint);
+        
+        // AK47 프리팹에서 발사 위치를 찾습니다.
+        Transform akFirePoint = akInstance.transform.Find("FirePoint");
+        if (akFirePoint == null)
         {
-            if (token.IsCancellationRequested || firePoint == null || target == null) break;
+            Debug.LogError("AK47 프리팹에 'FirePoint' 자식 오브젝트가 없습니다.");
+            Destroy(akInstance);
+            return;
+        }
 
-            Vector2 direction = (target.position - firePoint.position).normalized;
-            GameObject arrow = Instantiate(enemyMultiShotArrowPrefab, firePoint.position, Quaternion.identity);
-            
-            // 화살의 속도나 발사 로직은 화살 프리팹의 스크립트에서 처리한다고 가정합니다.
-            // 예를 들어, Rigidbody2D를 사용해 힘을 가할 수 있습니다.
-            Rigidbody2D rb = arrow.GetComponent<Rigidbody2D>();
-            if (rb != null)
+        try
+        {
+            // 1. AK47이 대상을 향하도록 회전 (들어올리는 애니메이션 추가)
+            float aimDuration = 0.3f; // 바주카와 유사하게 들어올리는 시간
+            Vector2 directionToTarget = (target.position - handPoint.position).normalized;
+            Vector3 localDirection = handPoint.InverseTransformDirection(directionToTarget);
+            float finalLocalAngle = Mathf.Atan2(localDirection.y, localDirection.x) * Mathf.Rad2Deg;
+
+            // 총을 아래에서 위로 들어올리는 애니메이션을 위해 시작 각도를 설정합니다.
+            float currentAngle = -60f;
+
+            // 캐릭터가 뒤집혔을 때(오른쪽을 볼 때) 총이 상하로 뒤집히는 문제를 보정합니다.
+            if (handPoint.lossyScale.x < 0)
             {
-                rb.linearVelocity = direction * 20f; // 예시 속도
+                // 총의 Y축 스케일을 반전시켜 뒤집힌 것을 바로잡습니다.
+                Vector3 akScale = akInstance.transform.localScale;
+                akScale.y *= -1;
+                akInstance.transform.localScale = akScale;
+
+                // Y축이 반전되었으므로, 회전 각도도 반대로 적용해야 올바른 방향을 가리킵니다.
+                currentAngle *= -1;
+                finalLocalAngle *= -1;
             }
 
-            await UniTask.Delay((int)(enemyMultiShot_Interval * 1000), cancellationToken: token);
+            akInstance.transform.localRotation = Quaternion.Euler(0, 0, currentAngle);
+
+            DOTween.To(() => currentAngle, z => { currentAngle = z; akInstance.transform.localEulerAngles = new Vector3(0, 0, z); }, finalLocalAngle, aimDuration)
+                .SetEase(Ease.OutQuad);
+
+            await UniTask.Delay(TimeSpan.FromSeconds(aimDuration), cancellationToken: token);
+
+            // 2. 5연발 발사
+            for (int i = 0; i < enemyMultiShot_Count; i++)
+            {
+                if (token.IsCancellationRequested || target == null) break;
+
+                // 발사 시점의 타겟 방향을 다시 계산하여 정확도 향상
+                Vector2 direction = (target.position - akFirePoint.position).normalized;
+
+                GameObject bullet = ObjectPoolManager.Instance.Get(akBulletPrefab);
+                if (bullet == null) continue;
+
+                bullet.transform.SetPositionAndRotation(akFirePoint.position, Quaternion.identity);
+                
+                Rigidbody2D rb = bullet.GetComponent<Rigidbody2D>();
+                if (rb != null) rb.linearVelocity = direction * akBulletSpeed; // 총알 속도
+
+                await UniTask.Delay(TimeSpan.FromSeconds(enemyMultiShot_Interval), cancellationToken: token);
+            }
+        }
+        finally
+        {
+            if (akInstance != null)
+            {
+                Destroy(akInstance);
+            }
         }
     }
-
     /// <summary>
     /// 바주카 스킬을 실행하는 공용 비동기 메서드.
     /// 바주카를 손에 들고, 발사 애니메이션을 재생한 후 폭발탄을 발사합니다.

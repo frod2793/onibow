@@ -4,7 +4,6 @@ using DG.Tweening;
 using DG.Tweening.Core;
 using Cysharp.Threading.Tasks;
 using System.Threading;
-
 /// <summary>
 /// 2D 환경에 최적화된 플레이어 이동 및 공격 클래스입니다.
 /// Rigidbody2D, DOTween, UniTask를 사용하여 효율적이고 부드러운 움직임을 구현합니다.
@@ -41,6 +40,8 @@ public class PlayerControl : MonoBehaviour
 
     [Header("Attack Settings")]
     [Tooltip("발사할 화살 프리팹")]
+    [SerializeField] private GameObject arrowPrefab;
+    [Tooltip("화살이 발사될 위치")]
     [SerializeField] private Transform firePoint;
     [Tooltip("화살이 날아가는 고정 거리")]
     [SerializeField] private float fireDistance = 7f;
@@ -52,12 +53,6 @@ public class PlayerControl : MonoBehaviour
     [SerializeField] private AnimationCurve fireEaseCurve = new AnimationCurve(new Keyframe(0, 0, 0, 2f), new Keyframe(0.5f, 0.5f, 0, 0), new Keyframe(1, 1, 2f, 0));
     [Tooltip("정지 후 반복 발사 간격")]
     [SerializeField] private float fireInterval = 2f;
-
-    [Header("Movement Boundaries")]
-    [Tooltip("이동 가능한 최소 X 좌표")]
-    [SerializeField] private float minXPosition = -4.0f;
-    [Tooltip("이동 가능한 최대 X 좌표")]
-    [SerializeField] private float maxXPosition = 4.0f;
 
     [Header("Collision Settings")]
     [Tooltip("대쉬 시 충돌을 감지할 지면 및 벽 레이어")]
@@ -84,6 +79,10 @@ public class PlayerControl : MonoBehaviour
     private PlayerState _currentState = PlayerState.IDLE; // 현재 플레이어 상태
     private bool _isDashing = false; // 대쉬 중인지 확인하는 플래그
     private bool _isUsingSkill = false; // 스킬 사용 중인지 확인하는 플래그
+    
+    // 카메라 경계
+    private float _cameraMinX;
+    private float _cameraMaxX;
 
     #endregion
 
@@ -135,6 +134,7 @@ public class PlayerControl : MonoBehaviour
 
     private void Start()
     {
+        CalculateCameraBoundaries();
         ForceUpdateHpUI();
     }
 
@@ -295,7 +295,7 @@ public class PlayerControl : MonoBehaviour
 
     public void FireStraightArrow()
     {
-        if (!IsActionableState() || ArrowPool.Instance == null) return;
+        if (!IsActionableState() || ObjectPoolManager.Instance == null) return;
 
         GameObject nearestEnemy = FindNearestEnemy();
         if (nearestEnemy != null)
@@ -305,35 +305,47 @@ public class PlayerControl : MonoBehaviour
             Vector3 startPos = firePoint != null ? firePoint.position : transform.position;
             Vector2 direction = (nearestEnemy.transform.position - startPos).normalized;
 
-            GameObject arrowObject = ArrowPool.Instance.Get();
+            GameObject arrowObject = ObjectPoolManager.Instance.Get(arrowPrefab);
             if (arrowObject == null) return;
 
             ArrowController arrowController = arrowObject.GetComponent<ArrowController>();
             if (arrowController != null)
             {
+                arrowController.Owner = ArrowController.ArrowOwner.Player;
                 arrowController.LaunchStraight(startPos, direction, 100f, 1.5f);
             }
             else
             {
-                ArrowPool.Instance.Return(arrowObject);
+                ObjectPoolManager.Instance.Return(arrowObject);
             }
         }
     }
 
+    /// <summary>
+    /// 씬에 있는 모든 적 중에서 가장 가까운 살아있는 적을 찾습니다.
+    /// </summary>
+    /// <returns>가장 가까운 적의 GameObject. 없으면 null을 반환합니다.</returns>
     public GameObject FindNearestEnemy()
     {
-        GameObject enemyObject = GameObject.FindGameObjectWithTag("Enemy");
-        if (enemyObject == null) return null;
+        GameObject[] enemies = GameObject.FindGameObjectsWithTag("Enemy");
+        GameObject nearestEnemy = null;
+        float minDistance = Mathf.Infinity;
 
-        Enemy enemyComponent = enemyObject.GetComponent<Enemy>();
-
-        // 살아있는 적만 반환
-        if (enemyComponent != null && enemyComponent.currentState != Enemy.EnemyState.Dead)
+        foreach (var enemyObject in enemies)
         {
-            return enemyObject;
+            Enemy enemyComponent = enemyObject.GetComponent<Enemy>();
+            // 살아있는 적만 대상으로 합니다.
+            if (enemyComponent != null && enemyComponent.currentState != Enemy.EnemyState.Dead)
+            {
+                float distance = Vector2.Distance(transform.position, enemyObject.transform.position);
+                if (distance < minDistance)
+                {
+                    minDistance = distance;
+                    nearestEnemy = enemyObject;
+                }
+            }
         }
-
-        return null;
+        return nearestEnemy;
     }
 
     /// <summary>
@@ -390,7 +402,7 @@ public class PlayerControl : MonoBehaviour
             // 예상 위치 아래에 땅이 있는지 확인합니다.
             RaycastHit2D groundUnderneath = Physics2D.BoxCast(
                 checkPos,
-                new Vector2(_collider.bounds.size.x * 0.5f, 0.1f), // 폭을 약간 좁게 하여 더 안정적으로 감지
+                new Vector2(_collider.bounds.size.x * 0.9f, 0.1f), // 캐릭터 너비의 90%로 확인하여 안정성 향상
                 0f, Vector2.down, _collider.bounds.extents.y + 0.5f, groundLayer
             );
 
@@ -408,13 +420,15 @@ public class PlayerControl : MonoBehaviour
             finalDashDistance = wallLimitedDistance;
         }
 
-        // 벽이나 절벽에 너무 가깝게 붙지 않도록 약간의 여유를 줍니다.
-        finalDashDistance = Mathf.Max(0, finalDashDistance - 0.1f);
+        // 벽이나 절벽에 너무 가깝게 붙지 않도록 캐릭터 너비 기반의 여유를 줍니다.
+        finalDashDistance = Mathf.Max(0, finalDashDistance - _collider.bounds.extents.x);
 
-        float finalTargetX = currentX + direction * finalDashDistance;
+        // 최종 목표 지점을 카메라 경계 내로 제한합니다.
+        float finalTargetX = Mathf.Clamp(currentX + direction * finalDashDistance, _cameraMinX, _cameraMaxX);
 
         // 4. 실제 이동 거리에 따른 대쉬 시간을 계산하고 실행합니다.
-        float actualDuration = finalDashDistance / dashSpeed;
+        float actualDashDistance = Mathf.Abs(finalTargetX - currentX);
+        float actualDuration = actualDashDistance / dashSpeed;
         if (actualDuration < Time.fixedDeltaTime) return; // 이동 거리가 매우 짧으면 실행하지 않음
 
         DashAsync(finalTargetX, actualDuration).Forget();
@@ -423,6 +437,30 @@ public class PlayerControl : MonoBehaviour
 
     #region 내부 로직
 
+    /// <summary>
+    /// 카메라의 월드 좌표 경계를 계산하고, 캐릭터의 너비를 고려하여 보정합니다.
+    /// </summary>
+    private void CalculateCameraBoundaries()
+    {
+        if (GameManager.Instance != null && GameManager.Instance.mainCamera != null)
+        {
+            Camera cam = GameManager.Instance.mainCamera;
+            _cameraMinX = cam.ViewportToWorldPoint(new Vector3(0, 0, 0)).x;
+            _cameraMaxX = cam.ViewportToWorldPoint(new Vector3(1, 0, 0)).x;
+
+            // 캐릭터가 화면 밖으로 완전히 나가지 않도록 너비만큼 보정합니다.
+            float playerWidth = _collider.bounds.extents.x;
+            _cameraMinX += playerWidth;
+            _cameraMaxX -= playerWidth;
+        }
+        else
+        {
+            Debug.LogError("카메라 경계를 계산할 수 없습니다. GameManager 또는 MainCamera를 찾을 수 없습니다.");
+            _cameraMinX = -Mathf.Infinity;
+            _cameraMaxX = Mathf.Infinity;
+        }
+    }
+    
     private void HandleEnemyDestroyed(Enemy enemy)
     {
         // 적이 파괴된 후, 다른 적이 있는지 확인
@@ -469,7 +507,7 @@ public class PlayerControl : MonoBehaviour
 
     public void FireAtNearestEnemy()
     {
-        if (!IsActionableState() || ArrowPool.Instance == null) return;
+        if (!IsActionableState() || ObjectPoolManager.Instance == null) return;
 
         GameObject nearestEnemy = FindNearestEnemy();
         if (nearestEnemy != null)
@@ -489,19 +527,18 @@ public class PlayerControl : MonoBehaviour
             Vector3 apex = (startPos + endPos) / 2f + Vector3.up * fireArcHeight;
             Vector3 controlPoint = 2 * apex - (startPos + endPos) / 2f;
 
-            GameObject arrowObject = ArrowPool.Instance.Get();
+            GameObject arrowObject = ObjectPoolManager.Instance.Get(arrowPrefab);
             if (arrowObject == null) return;
-            arrowObject.transform.position = startPos;
-            arrowObject.transform.rotation = Quaternion.identity;
 
             ArrowController arrowController = arrowObject.GetComponent<ArrowController>();
             if (arrowController != null)
             {
+                arrowController.Owner = ArrowController.ArrowOwner.Player;
                 arrowController.Launch(startPos, controlPoint, endPos, fireDuration, fireEaseCurve);
             }
             else
             {
-                ArrowPool.Instance.Return(arrowObject);
+                ObjectPoolManager.Instance.Return(arrowObject);
             }
         }
     }
@@ -509,7 +546,7 @@ public class PlayerControl : MonoBehaviour
     private void ClampPosition()
     {
         Vector2 clampedPosition = _rigidbody2D.position;
-        clampedPosition.x = Mathf.Clamp(clampedPosition.x, minXPosition, maxXPosition);
+        clampedPosition.x = Mathf.Clamp(clampedPosition.x, _cameraMinX, _cameraMaxX);
         _rigidbody2D.position = clampedPosition;
     }
 
@@ -532,17 +569,24 @@ public class PlayerControl : MonoBehaviour
     private void SetState(PlayerState newState)
     {
         if (_currentState == newState) return;
-
         _currentState = newState;
+        PlayAnimationForState(newState);
+    }
+
+    /// <summary>
+    /// 지정된 상태에 해당하는 애니메이션을 재생합니다.
+    /// </summary>
+    /// <param name="stateToPlay">재생할 애니메이션의 상태</param>
+    private void PlayAnimationForState(PlayerState stateToPlay)
+    {
         if (_spumPrefabs != null)
         {
-            _spumPrefabs.PlayAnimation(_currentState, 0);
+            _spumPrefabs.PlayAnimation(stateToPlay, 0);
         }
     }
     #endregion
 
     #region 코루틴 및 비동기 메서드
-
     private async UniTaskVoid PlayAttackAnimationAsync()
     {
         if (!IsActionableState()) return;
@@ -621,23 +665,55 @@ public class PlayerControl : MonoBehaviour
     private async UniTaskVoid MoveLoopAsync(float direction, CancellationToken token)
     {
         float targetVelocityX = direction * maxSpeed;
+        var tcs = new UniTaskCompletionSource();
+        // 트윈이 외부에서 취소될 경우 Task도 함께 취소되도록 등록합니다.
+        token.Register(() => tcs.TrySetCanceled());
 
         _movementTween?.Kill();
         _movementTween = _rigidbody2D.DOVector(new Vector2(targetVelocityX, _rigidbody2D.linearVelocity.y), accelerationTime)
             .SetEase(accelerationEase)
-            .SetUpdate(UpdateType.Fixed);
+            .SetUpdate(UpdateType.Fixed)
+            // 트윈이 정상적으로 완료되면 Task를 성공 상태로 만듭니다.
+            .OnComplete(() => tcs.TrySetResult());
 
         try
         {
-            while (_movementTween.IsActive() && !token.IsCancellationRequested)
-            {
-                await UniTask.Yield(PlayerLoopTiming.FixedUpdate, token);
-            }
-            if (token.IsCancellationRequested) return;
-
+            // UniTaskCompletionSource의 Task를 기다립니다.
+            // 이렇게 하면 DOTween 확장 기능 없이도 트윈의 완료를 비동기적으로 기다릴 수 있습니다.
+            await tcs.Task;
+            
             while (!token.IsCancellationRequested)
             {
-                _rigidbody2D.linearVelocity = new Vector2(targetVelocityX, _rigidbody2D.linearVelocity.y);
+                // --- 예측 기반 이동 제한 로직 ---
+                float finalVelocityX = targetVelocityX;
+
+                // 1. 카메라 경계 예측: 이동하려는 방향으로 카메라 경계를 넘어서는지 확인합니다.
+                if ((_rigidbody2D.position.x <= _cameraMinX && finalVelocityX < 0) ||
+                    (_rigidbody2D.position.x >= _cameraMaxX && finalVelocityX > 0))
+                {
+                    finalVelocityX = 0;
+                }
+
+                // 2. 절벽 예측: 이동하려는 방향의 발밑에 땅이 있는지 확인합니다.
+                if (Mathf.Abs(finalVelocityX) > 0.01f) // 실제로 움직일 때만 확인
+                {
+                    float moveSign = Mathf.Sign(finalVelocityX);
+                    Vector2 groundCheckOrigin = (Vector2)_collider.bounds.center + new Vector2(moveSign * _collider.bounds.extents.x, -_collider.bounds.extents.y - 0.05f);
+                    RaycastHit2D groundHit = Physics2D.Raycast(groundCheckOrigin, Vector2.down, 0.2f, groundLayer);
+
+                    if (groundHit.collider == null)
+                    {
+                        finalVelocityX = 0; // 앞에 땅이 없으면 멈춥니다.
+                    }
+                }
+
+                // 3. 최종 속도 적용 및 시각적 상태(애니메이션) 업데이트
+                _rigidbody2D.linearVelocity = new Vector2(finalVelocityX, _rigidbody2D.linearVelocity.y);
+
+                // 이동 가능 여부에 따라 애니메이션을 즉시 변경합니다.
+                // _currentState는 'MOVE'로 유지하여, 장애물이 사라졌을 때 다시 움직일 수 있도록 합니다.
+                PlayAnimationForState(Mathf.Abs(finalVelocityX) > 0.01f ? PlayerState.MOVE : PlayerState.IDLE);
+
                 ClampPosition();
                 await UniTask.Yield(PlayerLoopTiming.FixedUpdate, token);
             }
@@ -669,7 +745,7 @@ public class PlayerControl : MonoBehaviour
         // 대쉬 움직임
         float originalGravity = _rigidbody2D.gravityScale;
         _rigidbody2D.gravityScale = 0; // 대쉬 중에는 중력 무시
-        _rigidbody2D.linearVelocity = new Vector2(direction * dashSpeed, 0);
+        _rigidbody2D.linearVelocity = Vector2.zero; // MoveTowards를 사용하므로 초기 속도는 0으로 설정
 
         // 대쉬 취소를 위한 토큰 설정
         _dashCts = new CancellationTokenSource();
@@ -680,16 +756,17 @@ public class PlayerControl : MonoBehaviour
             float elapsedTime = 0f;
             while (elapsedTime < duration)
             {
-                // 다음 FixedUpdate까지 대기하여 물리 엔진이 캐릭터를 움직이게 합니다.
+                // 다음 FixedUpdate까지 대기
                 await UniTask.Yield(PlayerLoopTiming.FixedUpdate, linkedCts.Token);
                 elapsedTime += Time.fixedDeltaTime;
 
-                // 대쉬 중 Y축 위치를 고정하여 수평 이동을 보장합니다.
-                _rigidbody2D.position = new Vector2(_rigidbody2D.position.x, startY);
+                // [개선] 속도 대신 MoveTowards를 사용하여 위치를 직접 제어합니다.
+                // 이렇게 하면 물리 엔진의 오차로 인한 오버슈팅을 방지하여 경계를 벗어나는 문제를 근본적으로 해결합니다.
+                float newX = Mathf.MoveTowards(_rigidbody2D.position.x, targetX, dashSpeed * Time.fixedDeltaTime);
+                _rigidbody2D.position = new Vector2(newX, startY);
 
-                // 목표 지점을 지나쳤는지 확인 (물리 오차 감안)
-                if ((direction > 0 && _rigidbody2D.position.x >= targetX) ||
-                    (direction < 0 && _rigidbody2D.position.x <= targetX))
+                // 목표 지점에 도달했는지 확인
+                if (Mathf.Approximately(_rigidbody2D.position.x, targetX))
                 {
                     break;
                 }
@@ -704,11 +781,17 @@ public class PlayerControl : MonoBehaviour
             _rigidbody2D.gravityScale = originalGravity;
             _rigidbody2D.linearVelocity = Vector2.zero;
             // 대쉬가 끝난 후 정확한 위치에 있도록 보정
-            _rigidbody2D.position = new Vector2(targetX, startY);
+            if (!this.GetCancellationTokenOnDestroy().IsCancellationRequested)
+            {
+                _rigidbody2D.position = new Vector2(targetX, startY);
+            }
             _isDashing = false;
-            SetState(PlayerState.IDLE);
-
-            if (_currentState != PlayerState.DEATH) StartRepeatingFire(); // 대쉬 후 다시 자동 공격 상태로 전환
+            
+            if (_currentState != PlayerState.DEATH)
+            {
+                SetState(PlayerState.IDLE);
+                StartRepeatingFire(); // 대쉬 후 다시 자동 공격 상태로 전환
+            }
         }
     }
 
