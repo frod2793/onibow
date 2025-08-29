@@ -118,8 +118,6 @@ public class AfterimageEffect : MonoBehaviour
         GameObject snapshotGO = ObjectPoolManager.Instance.Get(afterimagePrefab);
         if (snapshotGO == null) return;
 
-        // [수정] 잔상 컨테이너의 위치를 월드 원점으로 고정하여,
-        // 내부 파츠들의 월드 좌표가 항상 일관되게 계산되도록 합니다.
         snapshotGO.transform.position = Vector3.zero;
         snapshotGO.transform.rotation = Quaternion.identity;
         snapshotGO.transform.localScale = Vector3.one;

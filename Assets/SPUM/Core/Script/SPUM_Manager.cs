@@ -786,7 +786,7 @@ public class SPUM_Manager : MonoBehaviour
         NewMake();
     }
 
-    //프리펩 수정 부분
+
     public void EditPrefabs()
     {
         var SpumPreviewUnit = PreviewPrefab;

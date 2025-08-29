@@ -774,12 +774,9 @@ public class Enemy : MonoBehaviour
         
         Debug.Log($"<color=orange>[AI-Evade]</color> 계산된 실제 회피 가능 거리: {actualDashDistance:F2}");
 
-        // [수정] 대쉬할 최소 거리를 보장합니다.
         if (actualDashDistance < minEvadeDistance)
         {
             Debug.Log($"<color=orange>[AI-Evade]</color> 회피 실패: 이동 가능 거리({actualDashDistance:F2})가 최소 회피 거리({minEvadeDistance})보다 짧습니다.");
-            // 최소 회피 거리를 확보할 수 없으면, 회피를 시도하지 않고 원래 행동으로 돌아갑니다.
-            // 회피에 실패했음을 알리기 위해 false를 반환합니다.
             return false;
         }
 

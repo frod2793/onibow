@@ -52,7 +52,6 @@ public class HomingMissile : MonoBehaviour
     /// <param name="target">추적할 대상의 Transform</param>
     public void Launch(Transform target)
     {
-        // [수정] 오브젝트 풀에서 재사용될 때 발생할 수 있는 문제를 방지하기 위해 상태를 초기화합니다.
         // 1. 부모로부터 분리하여 스케일(크기) 왜곡을 방지합니다.
         transform.SetParent(null);
         // 2. 회전 상태를 초기화하여 발사 애니메이션이 항상 동일한 조건에서 시작하도록 합니다.
