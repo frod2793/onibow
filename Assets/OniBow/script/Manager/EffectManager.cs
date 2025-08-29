@@ -2,7 +2,25 @@ using UnityEngine;
 using Cysharp.Threading.Tasks;
 using System;
 using System.Collections.Generic;
+using DG.Tweening;
 using UnityEngine.Pool;
+using UnityEngine.UI;
+
+/// <summary>
+/// 데미지 텍스트의 스타일 설정을 그룹화하는 구조체입니다.
+/// </summary>
+[System.Serializable]
+public struct DamageTextStyleSettings
+{
+    [Tooltip("일반 데미지 텍스트의 스케일입니다.")]
+    public float normalScale;
+    [Tooltip("크리티컬 데미지 텍스트의 스케일입니다.")]
+    public float criticalScale;
+    [Tooltip("이 값 이상의 데미지를 크리티컬로 간주합니다.")]
+    public int criticalThreshold;
+    public Color normalColor;
+    public Color criticalColor;
+}
 
 /// <summary>
 /// 게임 내 모든 시각 효과(VFX)를 중앙에서 관리하는 싱글턴 클래스입니다.
@@ -17,6 +35,20 @@ public class EffectManager : MonoBehaviour
     [SerializeField] private GameObject damageTextPrefab;
     [SerializeField] private GameObject HomingMissileExplosionEffectPrefab;
     [SerializeField] private GameObject akBulletHitEffectPrefab;
+
+    [Header("체력 경고 효과 (UI 이미지)")]
+    [Tooltip("플레이어 체력이 낮을 때 표시될 화면 가장자리 효과 이미지")]
+    [SerializeField] private Image lowHealthVignette;
+    [Tooltip("체력 경고 효과가 발동될 체력 비율 (예: 0.3 = 30%)")]
+    [Range(0, 1)]
+    [SerializeField] private float lowHealthThreshold = 0.3f;
+    [Tooltip("비네트 효과의 색상")]
+    [SerializeField] private Color vignetteColor = Color.red;
+    [Tooltip("비네트 효과가 깜빡일 때의 최대 강도")]
+    [Range(0, 1)]
+    [SerializeField] private float vignetteMaxIntensity = 0.4f;
+    [Tooltip("비네트 효과가 한 번 깜빡이는 데 걸리는 시간 (초)")]
+    [SerializeField] private float vignettePulseDuration = 1.0f;
     
     [Header("오브젝트 풀 설정")]
     [SerializeField] private int damageTextPoolSize = 20;
@@ -30,15 +62,20 @@ public class EffectManager : MonoBehaviour
     [Tooltip("데미지 텍스트의 X축 위치에 적용될 랜덤 범위입니다. (예: 10이면 -10 ~ +10)")]
     [SerializeField] private float damageTextXRandomRange = 20f;
 
-    [Header("데미지 텍스트 스타일")]
-    [Tooltip("일반 데미지 텍스트의 스케일입니다.")]
-    [SerializeField] private float normalDamageScale = 1f;
-    [Tooltip("크리티컬 데미지 텍스트의 스케일입니다.")]
-    [SerializeField] private float criticalDamageScale = 1.5f;
-    [Tooltip("이 값 이상의 데미지를 크리티컬로 간주합니다.")]
-    [SerializeField] private int criticalDamageThreshold = 50;
-    [SerializeField] private Color normalDamageColor = Color.white;
-    [SerializeField] private Color criticalDamageColor = Color.yellow;
+    [Header("데미지 텍스트 스타일 설정")]
+    [SerializeField] private DamageTextStyleSettings damageTextStyle = new DamageTextStyleSettings {
+        normalScale = 1f,
+        criticalScale = 1.5f,
+        criticalThreshold = 50,
+        normalColor = Color.white,
+        criticalColor = Color.yellow
+    };
+
+    #if UNITY_EDITOR
+    private bool _isTestingLowHealthEffect = false; // 테스트 모드 상태 플래그
+    #endif
+
+    private Tween _vignetteTween;
     private IObjectPool<GameObject> _damageTextPool;
     private void Awake()
     {
@@ -50,6 +87,20 @@ public class EffectManager : MonoBehaviour
         else
         {
             Destroy(gameObject);
+        }
+    }
+
+    private void Start()
+    {
+        if (lowHealthVignette != null)
+        {
+            // 게임 시작 시 비네트 효과를 비활성화하고 투명하게 만듭니다.
+            lowHealthVignette.color = new Color(vignetteColor.r, vignetteColor.g, vignetteColor.b, 0);
+            lowHealthVignette.gameObject.SetActive(false);
+        }
+        else
+        {
+            Debug.LogWarning("EffectManager: Low Health Vignette 이미지가 할당되지 않았습니다. 체력 경고 효과가 동작하지 않습니다.", this);
         }
     }
 
@@ -173,6 +224,43 @@ public class EffectManager : MonoBehaviour
     }
 
     /// <summary>
+    /// 플레이어의 현재 체력에 따라 화면 가장자리 경고 효과를 업데이트합니다.
+    /// </summary>
+    public void UpdateLowHealthEffect(int currentHp, int maxHp)
+    {
+        if (lowHealthVignette == null) return;
+
+        float healthRatio = (float)currentHp / maxHp;
+
+        // 체력이 0보다 크고, 설정된 임계값보다 낮을 때 효과를 발동합니다.
+        if (healthRatio <= lowHealthThreshold && currentHp > 0)
+        {
+            // 체력이 낮을 때: 애니메이션이 실행 중이 아니라면 시작
+            if (_vignetteTween == null || !_vignetteTween.IsActive())
+            {
+                lowHealthVignette.gameObject.SetActive(true);
+                lowHealthVignette.color = new Color(vignetteColor.r, vignetteColor.g, vignetteColor.b, 0);
+
+                // 설정된 시간 동안 최대 강도(알파값)까지 올라갔다가 다시 0으로 돌아오는 것을 반복
+                _vignetteTween = lowHealthVignette.DOFade(vignetteMaxIntensity, vignettePulseDuration)
+                    .SetEase(Ease.InOutSine)
+                    .SetLoops(-1, LoopType.Yoyo); // Yoyo 루프로 페이드 인/아웃 반복
+            }
+        }
+        else
+        {
+            // 체력이 높거나 0일 때: 애니메이션을 멈추고 숨김
+            if (_vignetteTween != null)
+            {
+                _vignetteTween.Kill();
+                _vignetteTween = null;
+            }
+            lowHealthVignette.DOFade(0, 0.5f).OnComplete(() => {
+                if (lowHealthVignette != null) lowHealthVignette.gameObject.SetActive(false);
+            });
+        }
+    }
+    /// <summary>
     /// 지정된 위치에 데미지 텍스트를 표시합니다.
     /// </summary>
     /// <param name="target">데미지 텍스트가 표시될 대상 게임 오브젝트</param>
@@ -227,7 +315,12 @@ public class EffectManager : MonoBehaviour
         var damageTextComponent = textInstance.GetComponent<DamageText>();
         if (damageTextComponent != null)
         {
-            damageTextComponent.SetAppearance(damage, normalDamageScale, criticalDamageScale, normalDamageColor, criticalDamageColor, criticalDamageThreshold);
+            damageTextComponent.SetAppearance(damage, 
+                damageTextStyle.normalScale, 
+                damageTextStyle.criticalScale, 
+                damageTextStyle.normalColor, 
+                damageTextStyle.criticalColor, 
+                damageTextStyle.criticalThreshold);
             // 위치와 텍스트가 설정된 후 애니메이션을 재생합니다.
             damageTextComponent.PlayAnimation();
         }
@@ -241,4 +334,31 @@ public class EffectManager : MonoBehaviour
     {
         _damageTextPool.Release(textObject);
     }
+    
+    #if UNITY_EDITOR
+    /// <summary>
+    /// [테스트용] 인스펙터의 버튼을 통해 체력 경고 효과를 토글합니다.
+    /// </summary>
+    public void ToggleTestLowHealthEffect()
+    {
+        if (!Application.isPlaying)
+        {
+            Debug.LogWarning("체력 경고 효과 테스트는 Play 모드에서만 가능합니다.");
+            return;
+        }
+
+        _isTestingLowHealthEffect = !_isTestingLowHealthEffect;
+
+        if (_isTestingLowHealthEffect)
+        {
+            Debug.Log("<color=cyan>[TEST]</color> 체력 경고 효과 시작");
+            UpdateLowHealthEffect(1, 100); // 체력이 낮은 것처럼 시뮬레이션
+        }
+        else
+        {
+            Debug.Log("<color=cyan>[TEST]</color> 체력 경고 효과 중지");
+            UpdateLowHealthEffect(100, 100); // 체력이 높은 것처럼 시뮬레이션
+        }
+    }
+    #endif
 }

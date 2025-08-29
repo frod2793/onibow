@@ -170,6 +170,12 @@ public class UIManager : MonoBehaviour
         {
             PlayerHpText.text = $"{currentHp}";
         }
+
+        // 체력 상태에 따라 화면 효과를 업데이트하도록 EffectManager에 알립니다.
+        if (EffectManager.Instance != null)
+        {
+            EffectManager.Instance.UpdateLowHealthEffect(currentHp, maxHp);
+        }
     }
 
     private void UpdateEnemyHpUI(int currentHp, int tempHp, int maxHp)
