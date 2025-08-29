@@ -178,30 +178,115 @@ public class SkillManager : MonoBehaviour
     /// </summary>
     private async UniTaskVoid PlayerSkill1_BarrierAsync(CancellationToken token)
     {
-        if (playerControl == null || barrierEffectPrefab == null) return;
-
         playerControl.SetSkillUsageState(true);
+        playerControl.SetInvulnerable(true); // 무적 상태 시작
+
         GameObject barrierInstance = null;
+        Animator barrierAnimator = null;
+
         try
         {
-            // 배리어 이펙트 생성
+            // 1. 배리어 이펙트 생성 및 애니메이터 준비
+            if (playerControl == null || barrierEffectPrefab == null) return;
             barrierInstance = Instantiate(barrierEffectPrefab, playerControl.transform.position, Quaternion.identity, playerControl.transform);
-            if (barrierInstance != null) barrierInstance.SetActive(true); // 프리팹이 비활성화 상태일 경우를 대비해 명시적으로 활성화합니다.
+            if (barrierInstance == null) return;
             
-            // 플레이어를 무적 상태로 만듭니다.
-            playerControl.SetInvulnerable(true);
+            barrierInstance.SetActive(true);
+            barrierAnimator = barrierInstance.GetComponentInChildren<Animator>();
 
-            // 지정된 시간 동안 대기
+            if (barrierAnimator != null)
+            {
+                // 2. "Spawn" 트리거로 스폰 애니메이션 작동
+                barrierAnimator.SetTrigger("Spawn");
+
+                // 참고: 일반적으로 스폰 애니메이션이 끝나면 자동으로 유지(Stay) 상태로 전환되도록
+                // Animator를 설정하는 것이 더 효율적입니다.
+                // 여기서는 요청에 따라 "Stay" 트리거를 명시적으로 호출합니다.
+                
+                // 3. "Stay" 트리거로 유지 애니메이션 작동
+                barrierAnimator.SetTrigger("Stay");
+            }
+            else
+            {
+                Debug.LogWarning("배리어 프리팹에 Animator 컴포넌트가 없습니다.");
+            }
+
+            // 스킬 지속 시간 동안 대기
             await UniTask.Delay(TimeSpan.FromSeconds(barrierDuration), cancellationToken: token);
         }
-        catch (OperationCanceledException) { /* 스킬이 중간에 취소된 경우 */ }
+        catch (OperationCanceledException) 
+        { 
+            // 스킬이 중간에 취소된 경우 (예: 플레이어 사망)
+            Debug.Log("배리어 스킬이 취소되었습니다.");
+        }
         finally
         {
-            // 배리어 이펙트 파괴 및 상태 복구
-            if (barrierInstance != null) Destroy(barrierInstance);
+            // 4. 소멸 애니메이션 재생 및 오브젝트 파괴/비활성화
+            if (barrierInstance != null)
+            {
+                // `finally` 블록은 async/await를 직접 지원하지 않으므로,
+                // 소멸 애니메이션을 재생하고 기다리는 별도의 async void 메서드를 호출합니다.
+                PopAndDestroyBarrierAsync(barrierInstance, barrierAnimator).Forget();
+            }
+            
+            // 5. 플레이어 상태 복구
             playerControl.SetInvulnerable(false); // 무적 상태 해제
             playerControl.SetSkillUsageState(false);
         }
+    }
+
+    /// <summary>
+    /// 배리어의 소멸 애니메이션을 재생하고, 애니메이션이 끝나면 오브젝트를 파괴합니다.
+    /// </summary>
+    private async UniTaskVoid PopAndDestroyBarrierAsync(GameObject barrierInstance, Animator animator)
+    {
+        if (animator == null || barrierInstance == null)
+        {
+            if(barrierInstance != null) Destroy(barrierInstance);
+            return;
+        }
+
+        var token = barrierInstance.GetCancellationTokenOnDestroy();
+        animator.SetTrigger("Pop");
+
+        try
+        {
+          
+           
+            await UniTask.WaitUntil(() => animator.GetCurrentAnimatorStateInfo(0).IsName("Pop"), cancellationToken: token);
+
+          
+            await UniTask.WaitUntil(() => animator.GetCurrentAnimatorStateInfo(0).normalizedTime >= 1.0f, cancellationToken: token);
+        }
+        catch (OperationCanceledException)
+        {
+            // 대기 중에 배리어가 파괴된 경우
+            return; // 즉시 함수 종료
+        }
+
+        // 애니메이션이 끝난 후 오브젝트를 파괴합니다.
+        if (barrierInstance != null)
+        {
+            Destroy(barrierInstance);
+        }
+    }
+
+    /// <summary>
+    /// 애니메이터에서 특정 이름의 애니메이션 클립 길이를 찾아 반환하는 헬퍼 메서드입니다.
+    /// </summary>
+    private float GetAnimationClipLength(Animator animator, string clipName)
+    {
+        if (animator == null || animator.runtimeAnimatorController == null) return 0f;
+
+        foreach (var clip in animator.runtimeAnimatorController.animationClips)
+        {
+            if (clip.name.Equals(clipName, StringComparison.OrdinalIgnoreCase))
+            {
+                return clip.length;
+            }
+        }
+        Debug.LogWarning($"Animator에서 '{clipName}' 클립을 찾을 수 없습니다.");
+        return 0f; // 클립을 못 찾으면 0을 반환하여 즉시 다음 로직이 실행되도록 함
     }
 
     /// <summary>
