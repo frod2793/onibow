@@ -263,7 +263,7 @@ public class SkillManager : MonoBehaviour
             float finalLocalAngle = Mathf.Atan2(localDirection.y, localDirection.x) * Mathf.Rad2Deg;
 
             // 총을 아래에서 위로 들어올리는 애니메이션을 위해 시작 각도를 설정합니다.
-            float currentAngle = -60f;
+            float currentAngle = 90f;
 
             // 캐릭터가 뒤집혔을 때(오른쪽을 볼 때) 총이 상하로 뒤집히는 문제를 보정합니다.
             if (handPoint.lossyScale.x < 0)
@@ -278,14 +278,14 @@ public class SkillManager : MonoBehaviour
                 finalLocalAngle *= -1;
             }
 
-            akInstance.transform.localRotation = Quaternion.Euler(0, 0, currentAngle);
+            akInstance.transform.localRotation = Quaternion.Euler(0, 0, currentAngle+10f);
 
             DOTween.To(() => currentAngle, z => { currentAngle = z; akInstance.transform.localEulerAngles = new Vector3(0, 0, z); }, finalLocalAngle, aimDuration)
                 .SetEase(Ease.OutQuad);
 
             await UniTask.Delay(TimeSpan.FromSeconds(aimDuration), cancellationToken: token);
 
-            // 2. 5연발 발사
+            // 2. 연발 발사
             for (int i = 0; i < enemyMultiShot_Count; i++)
             {
                 if (token.IsCancellationRequested || target == null) break;

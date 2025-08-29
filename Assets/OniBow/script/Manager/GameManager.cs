@@ -25,6 +25,9 @@ public class GameManager : MonoBehaviour
     [SerializeField] private GameObject playerObject; // 플레이어 오브젝트
     [SerializeField] private GameObject enemyObject; // 적 오브젝트
 
+    [Header("개발자 설정")]
+    [SerializeField] private bool developerMode = false; // 개발자 모드 활성화 토글
+
     private PlayerControl _playerControl;
     private Enemy _enemy;
 
@@ -62,21 +65,33 @@ public class GameManager : MonoBehaviour
         _playerControl = playerObject.GetComponent<PlayerControl>();
         _enemy = enemyObject.GetComponent<Enemy>();
 
-        // 게임 시작 시 플레이어와 적은 비활성화 상태로 시작
-        SetGameActive(false);
-        countdownText.gameObject.SetActive(false);
-       // gameOverScreen?.SetActive(false);
-      //  gameClearScreen?.SetActive(false);
-
-        // 시작 버튼 이벤트 연결
-        startButton?.onClick.AddListener(StartGame);
-
-        // 시작 버튼이 부드럽게 페이드 인/아웃 되는 효과 추가
-        Image startButtonImage = startButton?.GetComponent<Image>();
-        if (startButtonImage != null)
+        if (developerMode)
         {
-            // 반투명 상태까지 갔다가 다시 원래대로 돌아오는 것을 반복합니다.
-            startButtonImage.DOFade(0.5f, 1.5f).SetEase(Ease.InOutSine).SetLoops(-1, LoopType.Yoyo);
+            // 개발자 모드: 타이틀 시퀀스를 건너뛰고 바로 게임을 시작합니다.
+            titleScreen?.SetActive(false);
+            countdownText.gameObject.SetActive(false);
+            SetGameActive(true);
+            _currentGameState = GameState.Playing;
+            Debug.Log("개발자 모드로 게임을 시작합니다.");
+        }
+        else
+        {
+            // 일반 모드: 타이틀 화면부터 시작합니다.
+            SetGameActive(false);
+            countdownText.gameObject.SetActive(false);
+           // gameOverScreen?.SetActive(false);
+          //  gameClearScreen?.SetActive(false);
+
+            // 시작 버튼 이벤트 연결
+            startButton?.onClick.AddListener(StartGame);
+
+            // 시작 버튼이 부드럽게 페이드 인/아웃 되는 효과 추가
+            Image startButtonImage = startButton?.GetComponent<Image>();
+            if (startButtonImage != null)
+            {
+                // 반투명 상태까지 갔다가 다시 원래대로 돌아오는 것을 반복합니다.
+                startButtonImage.DOFade(0.5f, 1.5f).SetEase(Ease.InOutSine).SetLoops(-1, LoopType.Yoyo);
+            }
         }
     }
 
@@ -121,7 +136,7 @@ public class GameManager : MonoBehaviour
     /// <summary>
     /// 게임 시작 버튼 클릭 시 호출됩니다.
     /// </summary>
-    public void StartGame()
+    private void StartGame()
     {
         if (_currentGameState != GameState.Title) return;
 
@@ -142,8 +157,7 @@ public class GameManager : MonoBehaviour
 
     private async UniTaskVoid StartGameSequenceAsync()
     {
-        // 시작 버튼 클릭 후 0.2초 딜레이
-        await UniTask.Delay(TimeSpan.FromSeconds(2f));
+        await UniTask.Delay(TimeSpan.FromSeconds(1f));
 
         // --- 1. 문 열림 애니메이션 ---
         float doorOpenDuration = 1.0f; // 문 열리는 시간

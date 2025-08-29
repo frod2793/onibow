@@ -16,6 +16,7 @@ public class EffectManager : MonoBehaviour
     [SerializeField] private GameObject rocketExplosionEffectPrefab;
     [SerializeField] private GameObject damageTextPrefab;
     [SerializeField] private GameObject HomingMissileExplosionEffectPrefab;
+    [SerializeField] private GameObject akBulletHitEffectPrefab;
     
     [Header("오브젝트 풀 설정")]
     [SerializeField] private int damageTextPoolSize = 20;
@@ -113,13 +114,13 @@ public class EffectManager : MonoBehaviour
         }
 
         // 1. 파티클 시스템을 기반으로 자동 파괴 시간을 계산합니다.
-        if (effectInstance.TryGetComponent<ParticleSystem>(out var ps))
+        if (effectInstance.GetComponentInChildren<ParticleSystem>() is { } ps)
         {
             // 파티클 시스템의 총 지속 시간이 지난 후에 게임 오브젝트를 파괴합니다.
             Destroy(effectInstance, ps.main.duration + ps.main.startLifetime.constantMax);
         }
         // 2. 파티클 시스템이 없다면, Animator를 확인하여 스프라이트 애니메이션 길이를 가져옵니다.
-        else if (effectInstance.TryGetComponent<Animator>(out var animator))
+        else if (effectInstance.GetComponentInChildren<Animator>() is { } animator)
         {
             // 애니메이터에 연결된 첫 번째 애니메이션 클립의 길이를 가져옵니다.
             // 이 방법은 이펙트가 단일 애니메이션 클립으로 구성되어 있다고 가정합니다.
@@ -159,6 +160,16 @@ public class EffectManager : MonoBehaviour
     {
         // 호밍 미사일은 작은 폭발이므로 기본 스케일과 렌더링 순서를 사용합니다.
         PlayEffect(HomingMissileExplosionEffectPrefab, position, Quaternion.identity);
+    }
+
+    /// <summary>
+    /// 지정된 위치에 AK 총알 착탄 이펙트를 재생합니다.
+    /// </summary>
+    /// <param name="position">이펙트가 생성될 월드 위치</param>
+    public void PlayBulletHitEffect(Vector3 position)
+    {
+        // 총알 이펙트는 보통 작고 빠르므로 기본 스케일과 렌더링 순서를 사용합니다.
+        PlayEffect(akBulletHitEffectPrefab, position, Quaternion.Euler(0, 0, -90));
     }
 
     /// <summary>

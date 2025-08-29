@@ -10,6 +10,8 @@ using System.Threading;
 [RequireComponent(typeof(Rigidbody2D))]
 public class AKBullet : MonoBehaviour
 {
+    [SerializeField] private int damage = 5; // 총알 데미지
+
     private CancellationTokenSource _lifeTimeCts;
 
     private void OnEnable()
@@ -24,7 +26,18 @@ public class AKBullet : MonoBehaviour
         // 플레이어와 충돌 시 즉시 풀로 반환합니다.
         if (other.CompareTag("Player"))
         {
-            // 여기에 피격 이펙트나 사운드 재생 로직을 추가할 수 있습니다.
+            // 착탄 이펙트 재생
+            if (EffectManager.Instance != null)
+            {
+                EffectManager.Instance.PlayBulletHitEffect(transform.position);
+            }
+
+            // 플레이어에게 데미지 처리
+            if (other.TryGetComponent<PlayerControl>(out var player))
+            {
+                player.TakeDamage(damage);
+            }
+
             ReturnToPool();
         }
     }

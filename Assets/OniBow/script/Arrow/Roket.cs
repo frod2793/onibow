@@ -12,7 +12,6 @@ public class Roket : MonoBehaviour
     [SerializeField] private float speed = 20f;         // 이동 속도
     [SerializeField] private float explosionRadius = 5f;  // 폭발 반경
     [SerializeField] private int explosionDamage = 50;    // 폭발 데미지
-    [SerializeField] private LayerMask enemyLayer;        // 적 레이어
 
     [Header("카메라 쉐이크")]
     [SerializeField] private float shakeDuration = 0.3f;  // 카메라 쉐이크 지속 시간
@@ -20,7 +19,7 @@ public class Roket : MonoBehaviour
 
     [Header("충돌 설정")]
     [Tooltip("로켓이 충돌했을 때 폭발을 일으킬 오브젝트의 태그 목록입니다.")]
-    [SerializeField] private string[] collisionTags = { "Enemy", "Ground" }; // 충돌 시 폭발할 태그 목록
+    [SerializeField] private string[] collisionTags = { "Enemy"}; // 충돌 시 폭발할 태그 목록
 
     private Rigidbody2D _rigidbody2D;
     private bool _hasExploded = false; // 중복 폭발 방지 플래그

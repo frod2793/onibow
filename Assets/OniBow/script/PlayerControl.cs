@@ -78,7 +78,6 @@ public class PlayerControl : MonoBehaviour
     private AfterimageEffect _afterimageEffect; // 잔상 효과 참조
     private PlayerState _currentState = PlayerState.IDLE; // 현재 플레이어 상태
     private bool _isDashing = false; // 대쉬 중인지 확인하는 플래그
-    private bool _isUsingSkill = false; // 스킬 사용 중인지 확인하는 플래그
     
     // 카메라 경계
     private float _cameraMinX;
@@ -138,18 +137,6 @@ public class PlayerControl : MonoBehaviour
         ForceUpdateHpUI();
     }
 
-    private void Update()
-    {
-        // 예비 체력(Temp HP)이 현재 체력보다 높고, 마지막 피격 후 일정 시간이 지났다면
-        // 예비 체력을 서서히 감소시켜 현재 체력과 맞춥니다.
-        if (_currentState != PlayerState.DEATH && _tempHp > _currentHp && Time.time >= _lastDamageTime + tempHpDecreaseDelay)
-        {
-            int decreaseAmount = (int)Mathf.Ceil(tempHpCatchUpSpeed * Time.deltaTime);
-            _tempHp = Mathf.Max(_currentHp, _tempHp - decreaseAmount);
-            OnHealthUpdated?.Invoke(_currentHp, _tempHp, maxHp);
-        }
-    }
-
     private void OnTriggerEnter2D(Collider2D other)
     {
         if (_currentState != PlayerState.DEATH && other.CompareTag("EnemyArrow"))
@@ -186,27 +173,19 @@ public class PlayerControl : MonoBehaviour
         CancelAllActions();
         SetState(PlayerState.DAMAGED);
 
-        int oldHp = _currentHp;
+        // 데미지를 받기 시작한 시점의 체력을 예비 체력으로 기록합니다.
+        // 예비 체력 감소 딜레이 시간 내에 추가 타격을 받으면, 예비 체력은 갱신되지 않고 현재 체력만 감소합니다.
+        if (Time.time > _lastDamageTime + tempHpDecreaseDelay)
+        {
+            _tempHp = _currentHp;
+        }
+
         _currentHp -= damage;
         _currentHp = Mathf.Max(0, _currentHp);
-
-        // 예비 체력이 현재 체력과 같았다면 (즉, 예비 체력 효과가 없었다면),
-        // 예비 체력을 이전 체력 값으로 설정하여 효과를 시작합니다.
-        if (_tempHp == oldHp)
-        {
-            _tempHp = oldHp;
-        }
-        // 예비 체력이 이미 존재했다면 (이전 피격 후 아직 회복되지 않았다면),
-        // 예비 체력도 함께 데미지를 입습니다.
-        else
-        {
-            _tempHp -= damage;
-        }
-        // 예비 체력이 현재 체력보다 낮아지는 것을 방지합니다.
-        _tempHp = Mathf.Max(_tempHp, _currentHp);
         _lastDamageTime = Time.time; // 마지막 피격 시간 갱신
 
         Debug.Log($"플레이어가 {damage}의 데미지를 입었습니다. 현재 체력: {_currentHp}");
+        // UI 매니저에게 현재 체력과, 데미지를 받기 시작한 시점의 체력(예비 체력)을 전달합니다.
         OnHealthUpdated?.Invoke(_currentHp, _tempHp, maxHp);
 
         // 데미지 텍스트 표시 (캐릭터 머리 위)
@@ -242,17 +221,18 @@ public class PlayerControl : MonoBehaviour
     /// <param name="isUsing">스킬을 사용 중이면 true, 아니면 false.</param>
     public void SetSkillUsageState(bool isUsing)
     {
-        _isUsingSkill = isUsing;
         if (isUsing)
         {
-            // 스킬 사용 시작 시, 자동 공격 중단
-            _fireCts?.Cancel();
+            // 스킬 사용 시작 시, 다른 모든 행동을 중단하고 상태를 변경합니다.
+            CancelAllActions();
+            SetState(PlayerState.OTHER);
         }
         else
         {
-            // 스킬 사용 종료 시, IDLE 상태라면 다시 자동 공격 시작
-            if (_currentState == PlayerState.IDLE)
+            // 스킬 사용이 끝나면 IDLE 상태로 돌아가 자동 공격을 다시 시작합니다.
+            if (_currentState == PlayerState.OTHER)
             {
+                SetState(PlayerState.IDLE);
                 StartRepeatingFire();
             }
         }
@@ -261,7 +241,8 @@ public class PlayerControl : MonoBehaviour
     public void StartMoving(float direction)
     {
         // [우선권 2순위: 이동] - 공격 행동을 중단시킴
-        if (_currentState == PlayerState.DEATH || _isDashing || _currentState == PlayerState.DAMAGED || _isUsingSkill) return;
+        // 사망, 피격, 대쉬, 스킬 사용 중에는 이동할 수 없습니다. 공격 중에는 이동으로 전환할 수 있습니다.
+        if (_currentState == PlayerState.DEATH || _isDashing || _currentState == PlayerState.DAMAGED || _currentState == PlayerState.OTHER) return;
 
         _fireCts?.Cancel(); // 공격 루프 중단
 
@@ -556,9 +537,10 @@ public class PlayerControl : MonoBehaviour
     /// <returns>행동 가능 여부</returns>
     private bool IsActionableState()
     {
-        // 스킬 사용 중이거나 대쉬 중에는 다른 행동 불가
-        if (_isUsingSkill || _isDashing) return false;
+        // 대쉬 중에는 다른 행동 불가
+        if (_isDashing) return false;
 
+        // IDLE 또는 MOVE 상태일 때만 새로운 행동을 시작할 수 있습니다.
         return _currentState == PlayerState.IDLE || _currentState == PlayerState.MOVE;
     }
 

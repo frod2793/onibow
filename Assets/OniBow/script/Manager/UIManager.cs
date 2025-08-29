@@ -1,3 +1,4 @@
+using DG.Tweening;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
@@ -17,6 +18,12 @@ public class UIManager : MonoBehaviour
     [Tooltip("UI가 추적할 적. 인스펙터에서 할당합니다.")]
     [SerializeField] private Enemy enemy;
     
+    [Header("체력 바 애니메이션 설정")]
+    [Tooltip("예비 체력이 감소를 시작하기까지의 대기 시간 (초)")]
+    [SerializeField] private float tempHpDecreaseDelay = 1.0f;
+    [Tooltip("예비 체력이 1초당 감소하는 속도 (체력 바 기준, 0~1)")]
+    [SerializeField] private float tempHpDecreaseSpeed = 0.5f;
+    
     [Header("UI 요소")]
     [SerializeField] private Slider PlayerHpbar;//본체력 
     [SerializeField] private Slider PlayerTempHpbar;// 예비 체력 
@@ -32,6 +39,8 @@ public class UIManager : MonoBehaviour
     [SerializeField] private Button rightMoveButton;
     [SerializeField] private Button leftMoveButton;
 
+    private Tween _playerTempHpTween;
+    private Tween _enemyTempHpTween;
     private TextMeshProUGUI _skill1CooldownText;
     private TextMeshProUGUI _skill2CooldownText;
     private TextMeshProUGUI _skill3CooldownText;
@@ -128,11 +137,35 @@ public class UIManager : MonoBehaviour
 
     private void UpdatePlayerHpUI(int currentHp, int tempHp, int maxHp)
     {
+        // 진행 중인 예비 체력 감소 애니메이션이 있다면 중단합니다.
+        // 이는 플레이어가 짧은 간격으로 연속해서 피격당했을 때, 이전 애니메이션을 멈추고
+        // 새로운 상태에서 애니메이션을 다시 시작하기 위함입니다.
+        _playerTempHpTween?.Kill();
+
+        float currentHpRatio = (float)currentHp / maxHp;
+        float tempHpRatio = (float)tempHp / maxHp;
+
         if (PlayerHpbar != null)
         {
-            PlayerHpbar.value = (float)currentHp / maxHp;
+            // 메인 체력 바는 즉시 업데이트하여 피격감을 줍니다.
+            PlayerHpbar.value = currentHpRatio;
         }
-        if (PlayerTempHpbar != null) PlayerTempHpbar.value = (float)tempHp / maxHp;
+
+        if (PlayerTempHpbar != null)
+        {
+            // 예비 체력 바는 먼저 데미지 입기 전 체력으로 즉시 업데이트됩니다.
+            PlayerTempHpbar.value = tempHpRatio;
+
+            float diffRatio = tempHpRatio - currentHpRatio;
+            if (diffRatio > 0.001f)
+            {
+                // 지속 시간 = 거리 / 속도. 일정한 속도로 체력 바가 줄어들도록 합니다.
+                float duration = diffRatio / tempHpDecreaseSpeed;
+                _playerTempHpTween = PlayerTempHpbar.DOValue(currentHpRatio, duration)
+                    .SetDelay(tempHpDecreaseDelay)
+                    .SetEase(Ease.Linear);
+            }
+        }
         if (PlayerHpText != null)
         {
             PlayerHpText.text = $"{currentHp}";
@@ -141,13 +174,27 @@ public class UIManager : MonoBehaviour
 
     private void UpdateEnemyHpUI(int currentHp, int tempHp, int maxHp)
     {
+        _enemyTempHpTween?.Kill();
+
+        float currentHpRatio = (float)currentHp / maxHp;
+        float tempHpRatio = (float)tempHp / maxHp;
+
         if (EnemyHpBar != null)
         {
-            EnemyHpBar.value = (float)currentHp / maxHp;
+            EnemyHpBar.value = currentHpRatio;
         }
         if (EnemyTempHpBar != null)
         {
-            EnemyTempHpBar.value = (float)tempHp / maxHp;
+            EnemyTempHpBar.value = tempHpRatio;
+
+            float diffRatio = tempHpRatio - currentHpRatio;
+            if (diffRatio > 0.001f)
+            {
+                float duration = diffRatio / tempHpDecreaseSpeed;
+                _enemyTempHpTween = EnemyTempHpBar.DOValue(currentHpRatio, duration)
+                    .SetDelay(tempHpDecreaseDelay)
+                    .SetEase(Ease.Linear);
+            }
         }
         if (EnemyHPText != null)
         {
