@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
@@ -16,14 +17,14 @@ public class SkillManager : MonoBehaviour
     #region 플레이어 스킬 변수
 
     [Header("플레이어 스킬 쿨타임")]
-    [SerializeField] private float playerSkill1_Cooldown = 10f; // 5연발
-    [SerializeField] private float playerSkill2_Cooldown = 5f;  // 직선 발사
-    [SerializeField] private float playerSkill3_Cooldown = 15f; // 추적탄
-    [SerializeField] private float playerSkill4_Cooldown = 20f; // 폭발탄
-    [SerializeField] private float playerHealSkill_Cooldown = 30f; // 회복
-
+    [SerializeField] private float playerSkill1_Cooldown = 10f; //배리어
+    [SerializeField] private float playerSkill2_Cooldown = 15f;  // 힐
+    [SerializeField] private float playerSkill3_Cooldown = 15f; // 호밍 미사일 
+    [SerializeField] private float playerSkill4_Cooldown = 20f;// 바주카
+  
     [Header("플레이어 스킬 설정")]
-    [SerializeField] private float playerSkill1_FireInterval = 0.2f; // 5연발 발사 간격
+    [SerializeField] private GameObject barrierEffectPrefab; // 배리어 이펙트 프리팹
+    [SerializeField] private float barrierDuration = 5f; // 배리어 지속 시간
     [SerializeField] private GameObject homingMissilePrefab; // 추적 미사일 프리팹
     [SerializeField] private GameObject explosiveArrowPrefab; // 폭발탄 프리팹
     [SerializeField] private int homingMissileCount = 5; // 추적 미사일 발사 개수
@@ -46,14 +47,12 @@ public class SkillManager : MonoBehaviour
     private float _lastSkill2_Time = -999f;
     private float _lastSkill3_Time = -999f;
     private float _lastSkill4_Time = -999f;
-    private float _lastHealSkill_Time = -999f;
 
     // 외부에서 남은 쿨타임을 확인할 수 있는 프로퍼티
     public float Skill1_RemainingCooldown => Mathf.Max(0f, _lastSkill1_Time + playerSkill1_Cooldown - Time.time);
     public float Skill2_RemainingCooldown => Mathf.Max(0f, _lastSkill2_Time + playerSkill2_Cooldown - Time.time);
     public float Skill3_RemainingCooldown => Mathf.Max(0f, _lastSkill3_Time + playerSkill3_Cooldown - Time.time);
     public float Skill4_RemainingCooldown => Mathf.Max(0f, _lastSkill4_Time + playerSkill4_Cooldown - Time.time);
-    public float HealSkill_RemainingCooldown => Mathf.Max(0f, _lastHealSkill_Time + playerHealSkill_Cooldown - Time.time);
 
     #endregion
 
@@ -105,18 +104,18 @@ public class SkillManager : MonoBehaviour
     #region 플레이어 스킬 (UI에서 호출)
 
     /// <summary>
-    /// 스킬 1: 5연발 사용
+    /// 스킬 1: 배리어 사용
     /// </summary>
     public void UseSkill1()
     {
         if (Skill1_RemainingCooldown > 0) return; // 쿨타임 체크
         _lastSkill1_Time = Time.time;
-        Debug.Log("스킬 1: 5연발 사용!");
-        PlayerSkill1_FiveShotBarrageAsync(this.GetCancellationTokenOnDestroy()).Forget();
+        Debug.Log("스킬 1: 배리어 사용!");
+        PlayerSkill1_BarrierAsync(this.GetCancellationTokenOnDestroy()).Forget();
     }
 
     /// <summary>
-    /// 스킬 2: 직선 발사 사용
+    /// 스킬 2: 힐 사용
     /// </summary>
     public void UseSkill2()
     {
@@ -124,12 +123,13 @@ public class SkillManager : MonoBehaviour
         if (playerControl == null) return;
 
         _lastSkill2_Time = Time.time;
-        Debug.Log("스킬 2: 직선 발사 사용!");
-        playerControl.FireStraightArrow();
+        Debug.Log("스킬 2: 힐 사용!");
+        // 새로운 비동기 힐 로직 호출
+        PlayerSkill2_HealAsync(this.GetCancellationTokenOnDestroy()).Forget();
     }
 
     /// <summary>
-    /// 스킬 3: 추적탄 사용
+    /// 스킬 3: 추적 미사일 사용
     /// </summary>
     public void UseSkill3()
     {
@@ -149,7 +149,7 @@ public class SkillManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 스킬 4: 폭발탄 사용
+    /// 스킬 4: 바주카 사용
     /// </summary>
     public void UseSkill4()
     {
@@ -169,43 +169,131 @@ public class SkillManager : MonoBehaviour
         ExecuteBazookaSkillAsync(playerFirePoint, playerHand, target.transform, this.GetCancellationTokenOnDestroy()).Forget();
     }
 
-    /// <summary>
-    /// 플레이어 회복 스킬 사용
-    /// </summary>
-    public void UseHealSkill()
-    {
-        if (HealSkill_RemainingCooldown > 0 || playerControl == null) return;
-
-        _lastHealSkill_Time = Time.time;
-        Debug.Log("플레이어 회복 스킬 사용!");
-        // 예비 체력만큼 현재 체력을 회복합니다.
-        playerControl.HealWithTempHp();
-    }
-
     #endregion
 
     #region 스킬 실행 로직 (공용/내부)
 
     /// <summary>
-    /// 플레이어 스킬 1: 5연발을 비동기적으로 발사합니다.
+    /// 플레이어 스킬 1: 배리어를 생성합니다.
     /// </summary>
-    private async UniTaskVoid PlayerSkill1_FiveShotBarrageAsync(CancellationToken token)
+    private async UniTaskVoid PlayerSkill1_BarrierAsync(CancellationToken token)
     {
-        if (playerControl == null) return;
-        playerControl.SetSkillUsageState(true); // 스킬 사용 시작
+        if (playerControl == null || barrierEffectPrefab == null) return;
+
+        playerControl.SetSkillUsageState(true);
+        GameObject barrierInstance = null;
         try
         {
-            for (int i = 0; i < 5; i++)
-            {
-                if (token.IsCancellationRequested) break;
+            // 배리어 이펙트 생성
+            barrierInstance = Instantiate(barrierEffectPrefab, playerControl.transform.position, Quaternion.identity, playerControl.transform);
+            if (barrierInstance != null) barrierInstance.SetActive(true); // 프리팹이 비활성화 상태일 경우를 대비해 명시적으로 활성화합니다.
+            
+            // 플레이어를 무적 상태로 만듭니다.
+            playerControl.SetInvulnerable(true);
 
-                playerControl.FireAtNearestEnemy();
-                await UniTask.Delay(TimeSpan.FromSeconds(playerSkill1_FireInterval), cancellationToken: token);
+            // 지정된 시간 동안 대기
+            await UniTask.Delay(TimeSpan.FromSeconds(barrierDuration), cancellationToken: token);
+        }
+        catch (OperationCanceledException) { /* 스킬이 중간에 취소된 경우 */ }
+        finally
+        {
+            // 배리어 이펙트 파괴 및 상태 복구
+            if (barrierInstance != null) Destroy(barrierInstance);
+            playerControl.SetInvulnerable(false); // 무적 상태 해제
+            playerControl.SetSkillUsageState(false);
+        }
+    }
+
+    /// <summary>
+    /// 플레이어 스킬 2: 힐 스킬의 비동기 실행 로직입니다.
+    /// </summary>
+    private async UniTaskVoid PlayerSkill2_HealAsync(CancellationToken token)
+    {
+        if (playerControl == null) return;
+
+        playerControl.SetSkillUsageState(true);
+        GameObject healEffectInstance = null;
+        
+        try
+        {
+            // 1. 예비 체력이 본체력보다 높을 경우, 즉시 예비 체력까지 회복합니다.
+            playerControl.HealWithTempHp();
+
+            // 2. 힐 이펙트를 생성하고 컬러 틴트를 적용합니다.
+            if (EffectManager.Instance != null && EffectManager.Instance.HealEffectPrefab != null)
+            {
+                // 이펙트를 플레이어의 자식으로 생성하여 따라다니게 합니다.
+                healEffectInstance = Instantiate(EffectManager.Instance.HealEffectPrefab, playerControl.transform.position, Quaternion.identity, playerControl.transform);
+                if (healEffectInstance != null) healEffectInstance.SetActive(true); // 프리팹이 비활성화 상태일 경우를 대비해 명시적으로 활성화합니다.
+
+                // 힐 이펙트가 플레이어 위에 렌더링되도록 Sorting Order를 조정합니다.
+                var spum = playerControl.GetComponentInChildren<SPUM_Prefabs>();
+                if (spum != null && spum._anim != null)
+                {
+                    int maxPlayerSortingOrder = 0;
+                    // 플레이어의 모든 렌더러를 찾아 가장 높은 Sorting Order를 구합니다.
+                    foreach (var playerRenderer in spum._anim.GetComponentsInChildren<SpriteRenderer>())
+                    {
+                        if (playerRenderer.sortingOrder > maxPlayerSortingOrder)
+                        {
+                            maxPlayerSortingOrder = playerRenderer.sortingOrder;
+                        }
+                    }
+
+                    // 힐 이펙트의 모든 렌더러를 찾아 플레이어보다 높은 Sorting Order를 부여합니다.
+                    foreach (var effectRenderer in healEffectInstance.GetComponentsInChildren<Renderer>())
+                    {
+                        effectRenderer.sortingOrder = maxPlayerSortingOrder + 1;
+                    }
+                }
             }
+            // 3초간 초록색 틴트 적용 (이 작업은 힐과 동시에 진행됩니다)
+            ApplyPlayerTintAsync(new Color(0.7f, 1f, 0.7f, 1f), 3f, token).Forget();
+
+            // 3. 3초에 걸쳐 체력의 30%를 서서히 회복합니다.
+            float healAmount = playerControl.GetMaxHp() * 0.3f;
+            await playerControl.GradualHeal(healAmount, 3f, token);
+        }
+        catch (OperationCanceledException) { /* 스킬이 중간에 취소된 경우 */ }
+        finally
+        {
+            // 4. 이펙트 파괴 및 상태 복구
+            if (healEffectInstance != null) Destroy(healEffectInstance);
+            // 컬러 틴트는 ApplyPlayerTintAsync 내부에서 자동으로 복구됩니다.
+            playerControl.SetSkillUsageState(false);
+        }
+    }
+
+    private async UniTaskVoid ApplyPlayerTintAsync(Color tintColor, float duration, CancellationToken token)
+    {
+        if (playerControl == null) return;
+        var spum = playerControl.GetComponentInChildren<SPUM_Prefabs>();
+        if (spum == null || spum._anim == null) return;
+
+        var renderers = spum._anim.GetComponentsInChildren<SpriteRenderer>();
+        var originalColors = new Dictionary<SpriteRenderer, Color>();
+
+        try
+        {
+            foreach (var renderer in renderers)
+            {
+                if (renderer != null)
+                {
+                    originalColors[renderer] = renderer.color;
+                    renderer.color = tintColor;
+                }
+            }
+            await UniTask.Delay(TimeSpan.FromSeconds(duration), cancellationToken: token);
         }
         finally
         {
-            playerControl.SetSkillUsageState(false); // 스킬 사용 종료
+            foreach (var kvp in originalColors)
+            {
+                if (kvp.Key != null)
+                {
+                    kvp.Key.color = kvp.Value;
+                }
+            }
         }
     }
 

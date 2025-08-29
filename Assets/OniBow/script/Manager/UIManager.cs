@@ -35,7 +35,6 @@ public class UIManager : MonoBehaviour
     [SerializeField] private Button skill2Button;
     [SerializeField] private Button skill3Button;
     [SerializeField] private Button skill4Button;
-    [SerializeField] private Button healSkillButton;
     [SerializeField] private Button rightMoveButton;
     [SerializeField] private Button leftMoveButton;
 
@@ -45,7 +44,6 @@ public class UIManager : MonoBehaviour
     private TextMeshProUGUI _skill2CooldownText;
     private TextMeshProUGUI _skill3CooldownText;
     private TextMeshProUGUI _skill4CooldownText;
-    private TextMeshProUGUI _healSkillCooldownText;
 
     private float _leftButtonClickTime = -1f;
     private float _rightButtonClickTime = -1f;
@@ -61,7 +59,6 @@ public class UIManager : MonoBehaviour
         if (skill2Button != null) _skill2CooldownText = skill2Button.GetComponentInChildren<TextMeshProUGUI>();
         if (skill3Button != null) _skill3CooldownText = skill3Button.GetComponentInChildren<TextMeshProUGUI>();
         if (skill4Button != null) _skill4CooldownText = skill4Button.GetComponentInChildren<TextMeshProUGUI>();
-        if (healSkillButton != null) _healSkillCooldownText = healSkillButton.GetComponentInChildren<TextMeshProUGUI>();
 
         BindButtonEvents();
         BindHealthBarEvents();
@@ -130,7 +127,6 @@ public class UIManager : MonoBehaviour
         skill2Button.interactable = isInteractable;
         skill3Button.interactable = isInteractable;
         skill4Button.interactable = isInteractable;
-        healSkillButton.interactable = isInteractable;
         rightMoveButton.interactable = isInteractable;
         leftMoveButton.interactable = isInteractable;
     }
@@ -225,7 +221,6 @@ public class UIManager : MonoBehaviour
             skill2Button?.onClick.AddListener(skillManager.UseSkill2);
             skill3Button?.onClick.AddListener(skillManager.UseSkill3);
             skill4Button?.onClick.AddListener(skillManager.UseSkill4);
-            healSkillButton?.onClick.AddListener(skillManager.UseHealSkill);
         }
     }
 
@@ -265,7 +260,6 @@ public class UIManager : MonoBehaviour
         UpdateSingleSkillUI(_skill2CooldownText, skillManager.Skill2_RemainingCooldown);
         UpdateSingleSkillUI(_skill3CooldownText, skillManager.Skill3_RemainingCooldown);
         UpdateSingleSkillUI(_skill4CooldownText, skillManager.Skill4_RemainingCooldown);
-        UpdateSingleSkillUI(_healSkillCooldownText, skillManager.HealSkill_RemainingCooldown);
     }
 
     private void UpdateSingleSkillUI(TextMeshProUGUI textElement, float remainingTime)

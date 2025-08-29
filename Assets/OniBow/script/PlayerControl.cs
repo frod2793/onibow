@@ -78,6 +78,7 @@ public class PlayerControl : MonoBehaviour
     private AfterimageEffect _afterimageEffect; // 잔상 효과 참조
     private PlayerState _currentState = PlayerState.IDLE; // 현재 플레이어 상태
     private bool _isDashing = false; // 대쉬 중인지 확인하는 플래그
+    private bool isInvulnerable = false; // 무적 상태인지 확인하는 플래그
     
     // 카메라 경계
     private float _cameraMinX;
@@ -168,6 +169,9 @@ public class PlayerControl : MonoBehaviour
     public void TakeDamage(int damage)
     {
         // [우선권 1순위: 피격] - 다른 모든 행동을 중단시킴
+        // 무적 상태일 경우 데미지를 받지 않습니다.
+        if (isInvulnerable) return;
+
         if (_currentState == PlayerState.DEATH) return; 
 
         CancelAllActions();
@@ -211,6 +215,42 @@ public class PlayerControl : MonoBehaviour
             _currentHp += recoveryAmount;
             _tempHp = _currentHp; // 회복 후에는 예비 체력과 현재 체력을 일치시킴
             OnHealthUpdated?.Invoke(_currentHp, _tempHp, maxHp);
+        }
+    }
+
+    /// <summary>
+    /// 플레이어의 무적 상태를 설정합니다. (배리어 스킬용)
+    /// </summary>
+    /// <param name="state">무적 상태 여부</param>
+    public void SetInvulnerable(bool state)
+    {
+        isInvulnerable = state;
+    }
+
+    /// <summary>
+    /// 플레이어의 최대 체력을 반환합니다.
+    /// </summary>
+    public int GetMaxHp() => maxHp;
+
+    /// <summary>
+    /// 지정된 시간 동안 지정된 양만큼 체력을 서서히 회복합니다.
+    /// </summary>
+    public async UniTask GradualHeal(float totalHealAmount, float duration, CancellationToken token)
+    {
+        float healPerSecond = totalHealAmount / duration;
+        float elapsedTime = 0f;
+
+        while (elapsedTime < duration)
+        {
+            if (token.IsCancellationRequested) return;
+
+            float healThisFrame = healPerSecond * Time.deltaTime;
+            _currentHp = Mathf.Min(_currentHp + (int)Mathf.Ceil(healThisFrame), maxHp);
+            _tempHp = _currentHp; // 점진적 회복 중에는 예비 체력도 함께 회복됩니다.
+            OnHealthUpdated?.Invoke(_currentHp, _tempHp, maxHp);
+            
+            elapsedTime += Time.deltaTime;
+            await UniTask.Yield(token);
         }
     }
 

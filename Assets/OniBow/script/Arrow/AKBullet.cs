@@ -12,6 +12,10 @@ public class AKBullet : MonoBehaviour
 {
     [SerializeField] private int damage = 5; // 총알 데미지
 
+    [Header("카메라 쉐이크")]
+    [SerializeField] private float shakeDuration = 0.1f;  // 카메라 쉐이크 지속 시간
+    [SerializeField] private float shakeStrength = 0.15f; // 카메라 쉐이크 강도
+
     private CancellationTokenSource _lifeTimeCts;
 
     private void OnEnable()
@@ -30,6 +34,12 @@ public class AKBullet : MonoBehaviour
             if (EffectManager.Instance != null)
             {
                 EffectManager.Instance.PlayBulletHitEffect(transform.position);
+            }
+
+            // 카메라 쉐이크
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.ShakeCamera(shakeDuration, shakeStrength);
             }
 
             // 플레이어에게 데미지 처리

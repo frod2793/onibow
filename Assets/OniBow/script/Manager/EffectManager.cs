@@ -35,15 +35,14 @@ public class EffectManager : MonoBehaviour
     [SerializeField] private GameObject damageTextPrefab;
     [SerializeField] private GameObject HomingMissileExplosionEffectPrefab;
     [SerializeField] private GameObject akBulletHitEffectPrefab;
-
+    public GameObject HealEffectPrefab;
+    
     [Header("체력 경고 효과 (UI 이미지)")]
     [Tooltip("플레이어 체력이 낮을 때 표시될 화면 가장자리 효과 이미지")]
     [SerializeField] private Image lowHealthVignette;
     [Tooltip("체력 경고 효과가 발동될 체력 비율 (예: 0.3 = 30%)")]
     [Range(0, 1)]
     [SerializeField] private float lowHealthThreshold = 0.3f;
-    [Tooltip("비네트 효과의 색상")]
-    [SerializeField] private Color vignetteColor = Color.red;
     [Tooltip("비네트 효과가 깜빡일 때의 최대 강도")]
     [Range(0, 1)]
     [SerializeField] private float vignetteMaxIntensity = 0.4f;
@@ -95,8 +94,7 @@ public class EffectManager : MonoBehaviour
         if (lowHealthVignette != null)
         {
             // 게임 시작 시 비네트 효과를 비활성화하고 투명하게 만듭니다.
-            lowHealthVignette.color = new Color(vignetteColor.r, vignetteColor.g, vignetteColor.b, 0);
-            lowHealthVignette.gameObject.SetActive(false);
+               lowHealthVignette.gameObject.SetActive(false);
         }
         else
         {
@@ -224,6 +222,16 @@ public class EffectManager : MonoBehaviour
     }
 
     /// <summary>
+    /// 지정된 위치에 힐 이펙트를 재생합니다.
+    /// </summary>
+    /// <param name="position">이펙트가 생성될 월드 위치</param>
+    public void PlayHealEffect(Vector3 position)
+    {
+        // 힐 이펙트는 플레이어 위에 표시되므로 적절한 스케일과 렌더링 순서를 사용할 수 있습니다.
+        PlayEffect(HealEffectPrefab, position, Quaternion.identity);
+    }
+
+    /// <summary>
     /// 플레이어의 현재 체력에 따라 화면 가장자리 경고 효과를 업데이트합니다.
     /// </summary>
     public void UpdateLowHealthEffect(int currentHp, int maxHp)
@@ -239,8 +247,7 @@ public class EffectManager : MonoBehaviour
             if (_vignetteTween == null || !_vignetteTween.IsActive())
             {
                 lowHealthVignette.gameObject.SetActive(true);
-                lowHealthVignette.color = new Color(vignetteColor.r, vignetteColor.g, vignetteColor.b, 0);
-
+             
                 // 설정된 시간 동안 최대 강도(알파값)까지 올라갔다가 다시 0으로 돌아오는 것을 반복
                 _vignetteTween = lowHealthVignette.DOFade(vignetteMaxIntensity, vignettePulseDuration)
                     .SetEase(Ease.InOutSine)
