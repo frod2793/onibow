@@ -40,10 +40,14 @@ public class UIManager : MonoBehaviour
 
     private Tween _playerTempHpTween;
     private Tween _enemyTempHpTween;
-    private TextMeshProUGUI _skill1CooldownText;
-    private TextMeshProUGUI _skill2CooldownText;
-    private TextMeshProUGUI _skill3CooldownText;
-    private TextMeshProUGUI _skill4CooldownText;
+    private TMP_Text _skill1CooldownText;
+    private Image _skill1CooldownMask;
+    private TMP_Text _skill2CooldownText;
+    private Image _skill2CooldownMask;
+    private TMP_Text _skill3CooldownText;
+    private Image _skill3CooldownMask;
+    private TMP_Text _skill4CooldownText;
+    private Image _skill4CooldownMask;
 
     private float _leftButtonClickTime = -1f;
     private float _rightButtonClickTime = -1f;
@@ -55,10 +59,26 @@ public class UIManager : MonoBehaviour
         if (skillManager == null) Debug.LogError("SkillManager 참조가 UIManager에 할당되지 않았습니다!", this);
         if (enemy == null) Debug.LogError("Enemy 참조가 UIManager에 할당되지 않았습니다!", this);
 
-        if (skill1Button != null) _skill1CooldownText = skill1Button.GetComponentInChildren<TextMeshProUGUI>();
-        if (skill2Button != null) _skill2CooldownText = skill2Button.GetComponentInChildren<TextMeshProUGUI>();
-        if (skill3Button != null) _skill3CooldownText = skill3Button.GetComponentInChildren<TextMeshProUGUI>();
-        if (skill4Button != null) _skill4CooldownText = skill4Button.GetComponentInChildren<TextMeshProUGUI>();
+        if (skill1Button != null)
+        {
+            _skill1CooldownText = skill1Button.GetComponentInChildren<TMP_Text>();
+            _skill1CooldownMask = skill1Button.transform.Find("CoolTimeMask")?.GetComponent<Image>();
+        }
+        if (skill2Button != null)
+        {
+            _skill2CooldownText = skill2Button.GetComponentInChildren<TMP_Text>();
+            _skill2CooldownMask = skill2Button.transform.Find("CoolTimeMask")?.GetComponent<Image>();
+        }
+        if (skill3Button != null)
+        {
+            _skill3CooldownText = skill3Button.GetComponentInChildren<TMP_Text>();
+            _skill3CooldownMask = skill3Button.transform.Find("CoolTimeMask")?.GetComponent<Image>();
+        }
+        if (skill4Button != null)
+        {
+            _skill4CooldownText = skill4Button.GetComponentInChildren<TMP_Text>();
+            _skill4CooldownMask = skill4Button.transform.Find("CoolTimeMask")?.GetComponent<Image>();
+        }
 
         BindButtonEvents();
         BindHealthBarEvents();
@@ -256,24 +276,36 @@ public class UIManager : MonoBehaviour
     {
         if (skillManager == null) return;
 
-        UpdateSingleSkillUI(_skill1CooldownText, skillManager.Skill1_RemainingCooldown);
-        UpdateSingleSkillUI(_skill2CooldownText, skillManager.Skill2_RemainingCooldown);
-        UpdateSingleSkillUI(_skill3CooldownText, skillManager.Skill3_RemainingCooldown);
-        UpdateSingleSkillUI(_skill4CooldownText, skillManager.Skill4_RemainingCooldown);
+        UpdateSingleSkillUI(_skill1CooldownText, _skill1CooldownMask, skillManager.Skill1_RemainingCooldown, skillManager.PlayerSkill1_Cooldown);
+        UpdateSingleSkillUI(_skill2CooldownText, _skill2CooldownMask, skillManager.Skill2_RemainingCooldown, skillManager.PlayerSkill2_Cooldown);
+        UpdateSingleSkillUI(_skill3CooldownText, _skill3CooldownMask, skillManager.Skill3_RemainingCooldown, skillManager.PlayerSkill3_Cooldown);
+        UpdateSingleSkillUI(_skill4CooldownText, _skill4CooldownMask, skillManager.Skill4_RemainingCooldown, skillManager.PlayerSkill4_Cooldown);
     }
 
-    private void UpdateSingleSkillUI(TextMeshProUGUI textElement, float remainingTime)
+    private void UpdateSingleSkillUI(TMP_Text textElement, Image maskImage, float remainingTime, float totalCooldown)
     {
-        if (textElement == null) return;
+        bool isOnCooldown = remainingTime > 0;
 
-        if (remainingTime > 0)
+        // 쿨타임 텍스트 업데이트
+        if (textElement != null)
         {
-            textElement.text = remainingTime.ToString("F1");
+            textElement.gameObject.SetActive(isOnCooldown);
+            if (isOnCooldown)
+            {
+                textElement.text = remainingTime.ToString("F1");
+            }
         }
-        else
+
+        // 쿨타임 마스크 이미지 업데이트
+        if (maskImage != null)
         {
-            textElement.text = "";
+            maskImage.gameObject.SetActive(isOnCooldown);
+            if (isOnCooldown && totalCooldown > 0)
+            {
+                maskImage.fillAmount = remainingTime / totalCooldown;
+            }
         }
+
     }
 
     private void AddEventTrigger(GameObject target, System.Action onPointerDown, System.Action onPointerUp)

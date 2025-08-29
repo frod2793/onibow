@@ -57,6 +57,24 @@ public class SoundManager : MonoBehaviour
 
     private void Initialize()
     {
+        // BGM 플레이어가 인스펙터에서 할당되지 않았다면, 동적으로 생성합니다.
+        if (bgmPlayer == null)
+        {
+            GameObject bgmObject = new GameObject("BGM_Player");
+            bgmObject.transform.SetParent(transform);
+            bgmPlayer = bgmObject.AddComponent<AudioSource>();
+            bgmPlayer.playOnAwake = false;
+        }
+
+        // 예비 SFX 플레이어가 인스펙터에서 할당되지 않았다면, 동적으로 생성합니다.
+        if (sfxPlayer == null)
+        {
+            GameObject sfxObject = new GameObject("SFX_Player_Reserve");
+            sfxObject.transform.SetParent(transform);
+            sfxPlayer = sfxObject.AddComponent<AudioSource>();
+            sfxPlayer.playOnAwake = false;
+        }
+
         // SFX 딕셔너리 초기화
         _sfxDictionary = new Dictionary<string, Sound>();
         foreach (Sound sound in sfxSounds)

@@ -54,6 +54,11 @@ public class SkillManager : MonoBehaviour
     public float Skill3_RemainingCooldown => Mathf.Max(0f, _lastSkill3_Time + playerSkill3_Cooldown - Time.time);
     public float Skill4_RemainingCooldown => Mathf.Max(0f, _lastSkill4_Time + playerSkill4_Cooldown - Time.time);
 
+    public float PlayerSkill1_Cooldown => playerSkill1_Cooldown;
+    public float PlayerSkill2_Cooldown => playerSkill2_Cooldown;
+    public float PlayerSkill3_Cooldown => playerSkill3_Cooldown;
+    public float PlayerSkill4_Cooldown => playerSkill4_Cooldown;
+
     #endregion
 
     #region 적 스킬 변수
