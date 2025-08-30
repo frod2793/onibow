@@ -25,6 +25,9 @@ public class GameManager : MonoBehaviour
     [SerializeField] private GameObject playerObject; // 플레이어 오브젝트
     [SerializeField] private GameObject enemyObject; // 적 오브젝트
 
+    [Header("사운드 설정")]
+    [SerializeField] private string inGameBgmName = "InGameTheme"; // 게임 플레이 중 재생할 BGM 이름
+
     [Header("개발자 설정")]
     [SerializeField] private bool developerMode = false; // 개발자 모드 활성화 토글
 
@@ -73,6 +76,7 @@ public class GameManager : MonoBehaviour
             SetGameActive(true);
             _currentGameState = GameState.Playing;
             Debug.Log("개발자 모드로 게임을 시작합니다.");
+            SoundManager.Instance?.PlayBGM(inGameBgmName);
         }
         else
         {
@@ -231,6 +235,7 @@ public class GameManager : MonoBehaviour
         SetGameActive(true);
         _currentGameState = GameState.Playing;
         Debug.Log("게임 시작!");
+        SoundManager.Instance?.PlayBGM(inGameBgmName);
     }
 
     private void SetGameActive(bool isActive)
@@ -245,8 +250,9 @@ public class GameManager : MonoBehaviour
 
         _currentGameState = GameState.GameOver;
         Debug.Log("게임 오버!");
+        SoundManager.Instance?.StopBGM();
         OnGameOver?.Invoke();
-        gameOverScreen?.SetActive(true);
+     //   gameOverScreen?.SetActive(true);
     }
 
     private void HandleEnemyDeath(Enemy enemy)
@@ -255,7 +261,8 @@ public class GameManager : MonoBehaviour
 
         _currentGameState = GameState.GameClear;
         Debug.Log("게임 클리어!");
+        SoundManager.Instance?.StopBGM();
         OnGameClear?.Invoke();
-        gameClearScreen?.SetActive(true);
+       // gameClearScreen?.SetActive(true);
     }
 }
