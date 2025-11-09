@@ -11,9 +11,9 @@ public class ObjectPoolManager : MonoBehaviour
     public static ObjectPoolManager Instance { get; private set; }
 
     // 프리팹을 키로 사용하는 딕셔너리
-    private Dictionary<GameObject, IObjectPool<GameObject>> _prefabPools;
+    private Dictionary<GameObject, IObjectPool<GameObject>> m_prefabPools;
     // 활성화된 오브젝트가 어느 풀에 속하는지 추적하는 딕셔너리 (Key: 인스턴스 ID, Value: 풀)
-    private Dictionary<int, IObjectPool<GameObject>> _spawnedObjects;
+    private Dictionary<int, IObjectPool<GameObject>> m_spawnedObjects;
 
     private void Awake()
     {
@@ -27,8 +27,8 @@ public class ObjectPoolManager : MonoBehaviour
             return;
         }
 
-        _prefabPools = new Dictionary<GameObject, IObjectPool<GameObject>>();
-        _spawnedObjects = new Dictionary<int, IObjectPool<GameObject>>();
+        m_prefabPools = new Dictionary<GameObject, IObjectPool<GameObject>>();
+        m_spawnedObjects = new Dictionary<int, IObjectPool<GameObject>>();
     }
 
     /// <summary>
@@ -42,16 +42,9 @@ public class ObjectPoolManager : MonoBehaviour
             return null;
         }
 
-        if (!_prefabPools.TryGetValue(prefab, out var pool))
-        {
-            // 요청된 프리팹에 대한 풀이 없으면 동적으로 생성합니다.
-            // 이를 통해 인스펙터에서 모든 풀을 미리 정의할 필요가 없어집니다.
-            pool = CreateNewPoolForPrefab(prefab);
-            _prefabPools.Add(prefab, pool);
-        }
-
+        IObjectPool<GameObject> pool = GetOrCreatePool(prefab);
         GameObject objectToSpawn = pool.Get();
-        _spawnedObjects.Add(objectToSpawn.GetInstanceID(), pool);
+        m_spawnedObjects.Add(objectToSpawn.GetInstanceID(), pool);
 
         return objectToSpawn;
     }
@@ -63,16 +56,31 @@ public class ObjectPoolManager : MonoBehaviour
     {
         int instanceID = objectToReturn.GetInstanceID();
 
-        if (_spawnedObjects.TryGetValue(instanceID, out var pool))
+        if (m_spawnedObjects.TryGetValue(instanceID, out var pool))
         {
             pool.Release(objectToReturn);
-            _spawnedObjects.Remove(instanceID);
+            m_spawnedObjects.Remove(instanceID);
         }
         else
         {
+#if UNITY_EDITOR
             Debug.LogWarning($"'{objectToReturn.name}' 오브젝트는 풀에서 관리되지 않거나 이미 반환되었습니다. 오브젝트를 파괴합니다.");
+#endif
             Destroy(objectToReturn); // 풀에서 관리하지 않는 오브젝트는 파괴
         }
+    }
+
+    private IObjectPool<GameObject> GetOrCreatePool(GameObject prefab, int defaultCapacity = 10)
+    {
+        if (m_prefabPools.TryGetValue(prefab, out var pool))
+        {
+            return pool;
+        }
+
+        // 요청된 프리팹에 대한 풀이 없으면 동적으로 생성합니다.
+        pool = CreateNewPoolForPrefab(prefab, defaultCapacity);
+        m_prefabPools.Add(prefab, pool);
+        return pool;
     }
 
     /// <summary>
@@ -83,8 +91,10 @@ public class ObjectPoolManager : MonoBehaviour
     /// <returns>생성된 IObjectPool 인스턴스</returns>
     private IObjectPool<GameObject> CreateNewPoolForPrefab(GameObject prefab, int defaultCapacity = 10)
     {
-        // 요청 시점에 풀이 없으면 동적으로 생성합니다.
+#if UNITY_EDITOR
+        // 개발 중에는 동적 생성을 알려주어, 필요 시 초기 풀 용량 설정을 고려할 수 있게 합니다.
         Debug.Log($"ObjectPoolManager: '{prefab.name}' 프리팹에 대한 풀을 동적으로 생성합니다.");
+#endif
         return new ObjectPool<GameObject>(
             createFunc: () => Instantiate(prefab),
             actionOnGet: (obj) => {
