@@ -196,6 +196,12 @@ public class Enemy : MonoBehaviour
             // 회피에 실패했다면(예: 공간 부족), 아래의 데미지 로직을 계속 진행합니다.
         }
 
+        // 사운드 재생
+        if (SoundManager.Instance != null && !string.IsNullOrEmpty(SoundManager.Instance.EnemyDamagedSfx))
+        {
+            SoundManager.Instance.PlaySFX(SoundManager.Instance.EnemyDamagedSfx);
+        }
+
         // 데미지를 받기 시작한 시점의 체력을 예비 체력으로 기록합니다.
         // 예비 체력 감소 딜레이 시간 내에 추가 타격을 받으면, 예비 체력은 갱신되지 않고 현재 체력만 감소합니다.
         if (Time.time > m_lastDamageTime + m_tempHpDecreaseDelay)
@@ -251,6 +257,12 @@ public class Enemy : MonoBehaviour
     {
         if (m_isDead) return;
         m_isDead = true;
+
+        // 사운드 재생
+        if (SoundManager.Instance != null && !string.IsNullOrEmpty(SoundManager.Instance.EnemyDeathSfx))
+        {
+            SoundManager.Instance.PlaySFX(SoundManager.Instance.EnemyDeathSfx);
+        }
         
         m_aiTaskCts?.Cancel();
         m_rigidbody2D.linearVelocity = Vector2.zero;
@@ -392,6 +404,12 @@ public class Enemy : MonoBehaviour
 
     private void PerformArrowLaunch()
     {
+        // 사운드 재생
+        if (SoundManager.Instance != null && !string.IsNullOrEmpty(SoundManager.Instance.EnemyAttackSfx))
+        {
+            SoundManager.Instance.PlaySFX(SoundManager.Instance.EnemyAttackSfx);
+        }
+
         if (m_isDead || ObjectPoolManager.Instance == null || m_player == null) return;
         Vector3 startPos = m_firePoint.position;
         Vector2 direction = (m_player.position - startPos).normalized;
@@ -741,6 +759,12 @@ public class Enemy : MonoBehaviour
     {
         if (m_isDead) return;
 
+        // 사운드 재생
+        if (SoundManager.Instance != null && !string.IsNullOrEmpty(SoundManager.Instance.EnemyHealSfx))
+        {
+            SoundManager.Instance.PlaySFX(SoundManager.Instance.EnemyHealSfx);
+        }
+
         Debug.Log("적이 회복을 시전합니다.");
         m_lastHealTime = Time.time;
 
@@ -842,6 +866,12 @@ public class Enemy : MonoBehaviour
         m_rigidbody2D.linearVelocity = Vector2.zero;
 
         FlipCharacter(direction);
+
+        // 사운드 재생
+        if (SoundManager.Instance != null && !string.IsNullOrEmpty(SoundManager.Instance.EnemyEvadeSfx))
+        {
+            SoundManager.Instance.PlaySFX(SoundManager.Instance.EnemyEvadeSfx);
+        }
         m_afterimageEffect?.StartEffect(actualDuration);
 
         // CancellationToken을 생성하여 회피 중 다른 행동(예: 피격)으로 취소될 수 있도록 합니다.

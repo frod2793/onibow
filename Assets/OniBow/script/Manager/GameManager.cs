@@ -5,6 +5,7 @@ using TMPro;
 using UnityEngine.UI;
 using System;
 using System.Linq;
+using UnityEngine.SceneManagement;
 
 public class GameManager : MonoBehaviour
 {
@@ -21,8 +22,12 @@ public class GameManager : MonoBehaviour
     [SerializeField] private Image m_leftDoorImage;
     [SerializeField] private Image m_rightDoorImage;
     [SerializeField] private TMP_Text m_countdownText;
-    [SerializeField] private GameObject m_gameOverScreen;
-    [SerializeField] private GameObject m_gameClearScreen;
+
+    [Header("게임 종료 UI")]
+    [SerializeField] private GameObject m_endGamePopup;
+    [SerializeField] private GameObject m_gameOverTitle;
+    [SerializeField] private GameObject m_gameClearTitle;
+    [SerializeField] private Button m_restartButton;
 
     [Header("게임 오브젝트 참조")]
     [SerializeField] private GameObject m_playerObject;
@@ -43,7 +48,6 @@ public class GameManager : MonoBehaviour
 
     private PlayerControl m_playerControl;
     private Vector3 m_initialCameraPosition;
-    private Enemy m_enemy;
 
     public enum GameState
     {
@@ -80,6 +84,8 @@ public class GameManager : MonoBehaviour
         {
             m_initialCameraPosition = m_mainCamera.transform.position;
         }
+
+        m_restartButton?.onClick.AddListener(RestartGame);
 
         InitializeReferences();
 
@@ -166,7 +172,6 @@ public class GameManager : MonoBehaviour
     {
         // 참조가 할당되었는지 확인 후 컴포넌트를 가져와 NullReferenceException을 방지합니다.
         if (m_playerObject != null) m_playerControl = m_playerObject.GetComponent<PlayerControl>();
-        if (m_enemyObject != null) m_enemy = m_enemyObject.GetComponent<Enemy>();
     }
 
     private void SetupForDeveloperMode()
@@ -187,8 +192,8 @@ public class GameManager : MonoBehaviour
     {
         SetGameActive(false);
         m_countdownText.gameObject.SetActive(false);
-      //  m_gameOverScreen?.SetActive(false);
-     //   m_gameClearScreen?.SetActive(false);
+        m_endGamePopup?.SetActive(false);
+        m_restartButton?.onClick.AddListener(RestartGame);
 
         m_startButton?.onClick.AddListener(StartGame);
 
@@ -315,30 +320,46 @@ public class GameManager : MonoBehaviour
 
     private void HandlePlayerDeath()
     {
-        EndGame(GameState.GameOver, "게임 오버!", OnGameOver, m_gameOverScreen);
+        EndGame(GameState.GameOver, "게임 오버!", OnGameOver);
     }
 
     private void HandleEnemyDeath(Enemy enemy)
     {
-        EndGame(GameState.GameClear, "게임 클리어!", OnGameClear, m_gameClearScreen);
+        EndGame(GameState.GameClear, "게임 클리어!", OnGameClear);
     }
 
     /// <summary>
     /// 게임 종료(게임 오버 또는 클리어) 시 공통 로직을 처리합니다.
     /// </summary>
-    private void EndGame(GameState endState, string logMessage, Action endEvent, GameObject endScreen)
+    private void EndGame(GameState endState, string logMessage, Action endEvent)
     {
         if (m_currentGameState != GameState.Playing) return;
 
         m_currentGameState = endState;
         Debug.Log(logMessage);
         endEvent?.Invoke();
-        if (endScreen != null) endScreen.SetActive(true);
+
+        if (m_endGamePopup != null)
+        {
+            m_endGamePopup.SetActive(true);
+            // 상태에 따라 적절한 타이틀 이미지를 활성화/비활성화합니다.
+            m_gameOverTitle?.SetActive(endState == GameState.GameOver);
+            m_gameClearTitle?.SetActive(endState == GameState.GameClear);
+        }
 
         // 게임 종료 시 BGM을 정지합니다.
         if (SoundManager.Instance != null)
         {
             SoundManager.Instance.StopBGM(1.0f);
         }
+    }
+
+    /// <summary>
+    /// 현재 씬을 다시 로드하여 게임을 재시작합니다.
+    /// </summary>
+    private void RestartGame()
+    {
+        // 현재 활성화된 씬을 다시 로드합니다.
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 }

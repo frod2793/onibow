@@ -75,6 +75,13 @@ public class SoundManager : MonoBehaviour
     [field: SerializeField, SoundName] public string RoketLaunchSfx { get; private set; } = "Roket_Launch";
     [field: SerializeField, SoundName] public string RoketExplosionSfx { get; private set; } = "Roket_Explosion";
 
+    [Header("Enemy Sounds")]
+    [field: SerializeField, SoundName] public string EnemyAttackSfx { get; private set; } = "Enemy_Attack";
+    [field: SerializeField, SoundName] public string EnemyDamagedSfx { get; private set; } = "Enemy_Damaged";
+    [field: SerializeField, SoundName] public string EnemyDeathSfx { get; private set; } = "Enemy_Death";
+    [field: SerializeField, SoundName] public string EnemyEvadeSfx { get; private set; } = "Enemy_Evade";
+    [field: SerializeField, SoundName] public string EnemyHealSfx { get; private set; } = "Enemy_Heal";
+
     // --- 상태 변수 ---
     private Sound m_currentBgmSound; // 현재 재생 중인 BGM
     private float m_bgmVolume = 1f;

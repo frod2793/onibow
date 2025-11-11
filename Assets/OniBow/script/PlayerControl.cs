@@ -450,8 +450,6 @@ public class PlayerControl : MonoBehaviour
         float currentX = m_rigidbody2D.position.x;
         float maxDashDistance = m_dashSpeed * m_dashDuration;
 
-        // 1. 벽에 의해 제한되는 최대 대쉬 거리를 계산합니다.
-        Vector2 currentRigidbodyPosition = m_rigidbody2D.position;
         float wallLimitedDistance = maxDashDistance;
         RaycastHit2D wallHit = Physics2D.BoxCast(
             (Vector2)currentTransformPosition + m_collider.offset,
@@ -743,7 +741,6 @@ public class PlayerControl : MonoBehaviour
             
             while (!token.IsCancellationRequested)
             {
-                Vector2 currentRigidbodyPosition = m_rigidbody2D.position;
                 // --- 예측 기반 이동 제한 로직 ---
                 float finalVelocityX = targetVelocityX;
 
@@ -845,7 +842,6 @@ public class PlayerControl : MonoBehaviour
         }
         finally
         {
-            Vector2 currentRigidbodyPosition = m_rigidbody2D.position;
             m_rigidbody2D.gravityScale = originalGravity;
             m_rigidbody2D.linearVelocity = Vector2.zero;
             // 대쉬가 끝난 후 정확한 위치에 있도록 보정

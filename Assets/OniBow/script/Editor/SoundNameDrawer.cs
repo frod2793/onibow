@@ -67,7 +67,7 @@ public class SoundNameDrawer : PropertyDrawer
         _soundNames = new List<string> { "None" }; // 첫 항목은 선택 안 함 옵션
 
         // SoundManager는 싱글턴이므로, 씬에 있는 인스턴스를 찾습니다.
-        SoundManager soundManager = Object.FindObjectOfType<SoundManager>();
+        SoundManager soundManager = Object.FindFirstObjectByType<SoundManager>();
         if (soundManager == null)
         {
             Debug.LogWarning("[SoundNameDrawer] 씬에서 SoundManager를 찾을 수 없습니다.");

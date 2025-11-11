@@ -12,9 +12,12 @@ using UnityEngine.EventSystems;
 [System.Serializable]
 public struct SkillUIElements
 {
+    [Tooltip("스킬 버튼 참조")]
     public Button Button;
-    public TMP_Text CooldownText;
-    public Image CooldownMask;
+    [Tooltip("쿨타임 텍스트 (TMP_Text) 참조")]
+    [SerializeField] public TMP_Text CooldownText;
+    [Tooltip("쿨타임 마스크 이미지 참조")]
+    [SerializeField] public Image CooldownMask;
 }
 
 /// <summary>
@@ -112,14 +115,15 @@ public class UIManager : MonoBehaviour
         if (m_skillManager == null) Debug.LogError("SkillManager 참조가 UIManager에 할당되지 않았습니다!", this);
         if (m_enemy == null) Debug.LogError("Enemy 참조가 UIManager에 할당되지 않았습니다!", this);
 
-        // 스킬 UI 요소 자동 할당 (자식 오브젝트에서 찾기)
+        // 인스펙터에서 할당된 스킬 UI 요소들의 유효성을 검사합니다.
         for (int i = 0; i < m_skillUIElements.Length; i++)
         {
-            if (m_skillUIElements[i].Button != null)
-            {
-                m_skillUIElements[i].CooldownText = m_skillUIElements[i].Button.GetComponentInChildren<TMP_Text>();
-                m_skillUIElements[i].CooldownMask = m_skillUIElements[i].Button.transform.Find("CoolTimeMask")?.GetComponent<Image>();
-            }
+            if (m_skillUIElements[i].Button == null)
+                Debug.LogWarning($"Skill UI Element {i}: Button이 할당되지 않았습니다.", this);
+            if (m_skillUIElements[i].CooldownText == null)
+                Debug.LogWarning($"Skill UI Element {i}: CooldownText가 할당되지 않았습니다.", this);
+            if (m_skillUIElements[i].CooldownMask == null)
+                Debug.LogWarning($"Skill UI Element {i}: CooldownMask가 할당되지 않았습니다.", this);
         }
     }
 
@@ -316,19 +320,20 @@ public class UIManager : MonoBehaviour
     {
         bool isOnCooldown = remainingTime > 0;
 
-        // 쿨타임 텍스트 업데이트
         if (ui.CooldownText != null)
         {
+            // UI 요소를 먼저 활성화/비활성화하고 값을 설정합니다.
             ui.CooldownText.gameObject.SetActive(isOnCooldown);
             if (isOnCooldown)
             {
+                // 쿨타임 텍스트를 소수점 첫째 자리까지 표시합니다. (예: "5.3")
                 ui.CooldownText.text = remainingTime.ToString("F1");
             }
         }
 
-        // 쿨타임 마스크 이미지 업데이트
         if (ui.CooldownMask != null)
         {
+            // UI 요소를 먼저 활성화/비활성화하고 값을 설정합니다.
             ui.CooldownMask.gameObject.SetActive(isOnCooldown);
             if (isOnCooldown && totalCooldown > 0)
             {
