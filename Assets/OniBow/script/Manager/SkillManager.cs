@@ -201,14 +201,9 @@ public class SkillManager : MonoBehaviour
 
             if (barrierAnimator != null)
             {
-                // 2. "Spawn" 트리거로 스폰 애니메이션 작동
                 barrierAnimator.SetTrigger("Spawn");
-
-                // 참고: 일반적으로 스폰 애니메이션이 끝나면 자동으로 유지(Stay) 상태로 전환되도록
-                // Animator를 설정하는 것이 더 효율적입니다.
-                // 여기서는 요청에 따라 "Stay" 트리거를 명시적으로 호출합니다.
                 
-                // 3. "Stay" 트리거로 유지 애니메이션 작동
+                
                 barrierAnimator.SetTrigger("Stay");
             }
             else
@@ -216,25 +211,19 @@ public class SkillManager : MonoBehaviour
                 Debug.LogWarning("배리어 프리팹에 Animator 컴포넌트가 없습니다.");
             }
 
-            // 스킬 지속 시간 동안 대기
             await UniTask.Delay(TimeSpan.FromSeconds(barrierDuration), cancellationToken: token);
         }
         catch (OperationCanceledException) 
         { 
-            // 스킬이 중간에 취소된 경우 (예: 플레이어 사망)
             Debug.Log("배리어 스킬이 취소되었습니다.");
         }
         finally
         {
-            // 4. 소멸 애니메이션 재생 및 오브젝트 파괴/비활성화
             if (barrierInstance != null)
             {
-                // `finally` 블록은 async/await를 직접 지원하지 않으므로,
-                // 소멸 애니메이션을 재생하고 기다리는 별도의 async void 메서드를 호출합니다.
                 PopAndDestroyBarrierAsync(barrierInstance, barrierAnimator).Forget();
             }
             
-            // 5. 플레이어 상태 복구
             playerControl.SetInvulnerable(false); // 무적 상태 해제
             playerControl.SetSkillUsageState(false);
         }
@@ -265,11 +254,9 @@ public class SkillManager : MonoBehaviour
         }
         catch (OperationCanceledException)
         {
-            // 대기 중에 배리어가 파괴된 경우
             return; // 즉시 함수 종료
         }
 
-        // 애니메이션이 끝난 후 오브젝트를 파괴합니다.
         if (barrierInstance != null)
         {
             Destroy(barrierInstance);
@@ -291,7 +278,7 @@ public class SkillManager : MonoBehaviour
             }
         }
         Debug.LogWarning($"Animator에서 '{clipName}' 클립을 찾을 수 없습니다.");
-        return 0f; // 클립을 못 찾으면 0을 반환하여 즉시 다음 로직이 실행되도록 함
+        return 0f; 
     }
 
     /// <summary>
@@ -306,22 +293,17 @@ public class SkillManager : MonoBehaviour
         
         try
         {
-            // 1. 예비 체력이 본체력보다 높을 경우, 즉시 예비 체력까지 회복합니다.
             playerControl.HealWithTempHp();
 
-            // 2. 힐 이펙트를 생성하고 컬러 틴트를 적용합니다.
             if (EffectManager.Instance != null && EffectManager.Instance.HealEffectPrefab != null)
             {
-                // 이펙트를 플레이어의 자식으로 생성하여 따라다니게 합니다.
                 healEffectInstance = Instantiate(EffectManager.Instance.HealEffectPrefab, playerControl.transform.position, Quaternion.identity, playerControl.transform);
-                if (healEffectInstance != null) healEffectInstance.SetActive(true); // 프리팹이 비활성화 상태일 경우를 대비해 명시적으로 활성화합니다.
+                if (healEffectInstance != null) healEffectInstance.SetActive(true); 
 
-                // 힐 이펙트가 플레이어 위에 렌더링되도록 Sorting Order를 조정합니다.
                 var spum = playerControl.GetComponentInChildren<SPUM_Prefabs>();
                 if (spum != null && spum._anim != null)
                 {
                     int maxPlayerSortingOrder = 0;
-                    // 플레이어의 모든 렌더러를 찾아 가장 높은 Sorting Order를 구합니다.
                     foreach (var playerRenderer in spum._anim.GetComponentsInChildren<SpriteRenderer>())
                     {
                         if (playerRenderer.sortingOrder > maxPlayerSortingOrder)
@@ -330,26 +312,22 @@ public class SkillManager : MonoBehaviour
                         }
                     }
 
-                    // 힐 이펙트의 모든 렌더러를 찾아 플레이어보다 높은 Sorting Order를 부여합니다.
                     foreach (var effectRenderer in healEffectInstance.GetComponentsInChildren<Renderer>())
                     {
                         effectRenderer.sortingOrder = maxPlayerSortingOrder + 1;
                     }
                 }
             }
-            // 3초간 초록색 틴트 적용 (이 작업은 힐과 동시에 진행됩니다)
             ApplyPlayerTintAsync(new Color(0.7f, 1f, 0.7f, 1f), 3f, token).Forget();
 
-            // 3. 3초에 걸쳐 체력의 30%를 서서히 회복합니다.
+            // 3초에 걸쳐 체력의 30%를 서서히 회복합니다.
             float healAmount = playerControl.GetMaxHp() * 0.3f;
             await playerControl.GradualHeal(healAmount, 3f, token);
         }
         catch (OperationCanceledException) { /* 스킬이 중간에 취소된 경우 */ }
         finally
         {
-            // 4. 이펙트 파괴 및 상태 복구
             if (healEffectInstance != null) Destroy(healEffectInstance);
-            // 컬러 틴트는 ApplyPlayerTintAsync 내부에서 자동으로 복구됩니다.
             playerControl.SetSkillUsageState(false);
         }
     }
@@ -400,7 +378,6 @@ public class SkillManager : MonoBehaviour
             {
                 if (token.IsCancellationRequested || target == null) break;
 
-                // 약간의 랜덤한 위치에서 발사하여 겹치지 않게 함
                 Vector3 spawnPosition = playerHand.transform.position + (Vector3)UnityEngine.Random.insideUnitCircle * 0.05f;
 
                 GameObject missileObject = ObjectPoolManager.Instance.Get(homingMissilePrefab);
@@ -414,7 +391,7 @@ public class SkillManager : MonoBehaviour
         }
         finally
         {
-            playerControl.SetSkillUsageState(false); // 스킬 사용 종료
+            playerControl.SetSkillUsageState(false); 
         }
     }
 
@@ -426,7 +403,6 @@ public class SkillManager : MonoBehaviour
     {
         GameObject akInstance = Instantiate(AK47, handPoint);
         
-        // AK47 프리팹에서 발사 위치를 찾습니다.
         Transform akFirePoint = akInstance.transform.Find("FirePoint");
         if (akFirePoint == null)
         {
@@ -437,24 +413,19 @@ public class SkillManager : MonoBehaviour
 
         try
         {
-            // 1. AK47이 대상을 향하도록 회전 (들어올리는 애니메이션 추가)
             float aimDuration = 0.3f; // 바주카와 유사하게 들어올리는 시간
             Vector2 directionToTarget = (target.position - handPoint.position).normalized;
             Vector3 localDirection = handPoint.InverseTransformDirection(directionToTarget);
             float finalLocalAngle = Mathf.Atan2(localDirection.y, localDirection.x) * Mathf.Rad2Deg;
 
-            // 총을 아래에서 위로 들어올리는 애니메이션을 위해 시작 각도를 설정합니다.
             float currentAngle = 90f;
 
-            // 캐릭터가 뒤집혔을 때(오른쪽을 볼 때) 총이 상하로 뒤집히는 문제를 보정합니다.
             if (handPoint.lossyScale.x < 0)
             {
-                // 총의 Y축 스케일을 반전시켜 뒤집힌 것을 바로잡습니다.
                 Vector3 akScale = akInstance.transform.localScale;
                 akScale.y *= -1;
                 akInstance.transform.localScale = akScale;
 
-                // Y축이 반전되었으므로, 회전 각도도 반대로 적용해야 올바른 방향을 가리킵니다.
                 currentAngle *= -1;
                 finalLocalAngle *= -1;
             }
@@ -466,18 +437,15 @@ public class SkillManager : MonoBehaviour
 
             await UniTask.Delay(TimeSpan.FromSeconds(aimDuration), cancellationToken: token);
 
-            // 2. 연발 발사
             for (int i = 0; i < enemyMultiShot_Count; i++)
             {
                 if (token.IsCancellationRequested || target == null) break;
 
-                // 발사 시점의 타겟 방향을 다시 계산하여 정확도 향상
                 Vector2 direction = (target.position - akFirePoint.position).normalized;
 
                 GameObject bullet = ObjectPoolManager.Instance.Get(akBulletPrefab);
                 if (bullet == null) continue;
-
-                // 발사 사운드 재생
+                
                 if (SoundManager.Instance != null && !string.IsNullOrEmpty(SoundManager.Instance.AKFireSfx))
                 {
                     SoundManager.Instance.PlaySFX(SoundManager.Instance.AKFireSfx);
@@ -514,7 +482,6 @@ public class SkillManager : MonoBehaviour
         playerControl.SetSkillUsageState(true); // 스킬 사용 시작
 
         GameObject bazookaInstance = Instantiate(BazookaPrefab, hand.transform);
-        // 캐릭터의 방향에 따라 초기 각도가 달라질 수 있으므로 localRotation을 사용합니다.
         bazookaInstance.transform.localRotation = Quaternion.Euler(0, 0, -90f);
         
         Animator bazookaAnimator = bazookaInstance.GetComponent<Animator>();
@@ -525,7 +492,6 @@ public class SkillManager : MonoBehaviour
             return;
         }
 
-        // 바주카 프리팹에서 발사 위치를 찾습니다.
         Transform bazookaFirePoint = bazookaInstance.transform.Find("FirePoint");
         if (bazookaFirePoint == null)
         {
@@ -534,58 +500,43 @@ public class SkillManager : MonoBehaviour
             return;
         }
 
-        // 애니메이션 및 회전 시간 설정
         float shoulderAnimDuration = 0.3f; // 어깨에 얹는 회전 시간
         float fireDelay = 0.2f; // 발사 애니메이션 시작 후 실제 발사까지의 딜레이
-        float totalFireAnimDuration = 1.2f; // Fire 애니메이션의 총 길이 (발사 딜레이 포함)
+        float totalFireAnimDuration = 1.2f;
 
         try
         {
-            // 2. 바주카가 대상을 향하도록 회전 (어깨에 얹는 동작)
-            // 월드 공간에서의 목표 방향을 계산합니다.
             Vector2 directionToTarget = (target.position - hand.transform.position).normalized;
             
-            // 월드 방향을 부모(손)의 로컬 공간으로 변환합니다.
             Vector3 localDirection = hand.transform.InverseTransformDirection(directionToTarget);
 
-            // 로컬 방향으로부터 최종 로컬 Z축 각도를 계산합니다.
             float finalLocalAngle = Mathf.Atan2(localDirection.y, localDirection.x) * Mathf.Rad2Deg;
-
-            // X, Y축은 고정한 채 Z축만 애니메이션하기 위해 DOTween.To를 사용합니다.
-            // 이렇게 하면 회전 중 Y축이 변하는 현상을 방지할 수 있습니다.
+            
             float currentZ = -90f;
             DOTween.To(() => currentZ, z => { currentZ = z; bazookaInstance.transform.localEulerAngles = new Vector3(0, 0, z); }, finalLocalAngle, shoulderAnimDuration)
                 .SetEase(Ease.OutQuad);
 
-            // 회전 애니메이션이 끝날 때까지 대기합니다.
             await UniTask.Delay(TimeSpan.FromSeconds(shoulderAnimDuration), cancellationToken: token);
 
-            // 3. 애니메이터 활성화 및 발사 애니메이션 재생
             bazookaAnimator.enabled = true;
             bazookaAnimator.SetTrigger("Fire");
 
-            // 4. 발사 타이밍까지 대기
             await UniTask.Delay(TimeSpan.FromSeconds(fireDelay), cancellationToken: token);
 
-            // 5. 폭발탄 발사
             if (explosiveArrowPrefab != null)
             {
-                // 발사 시점의 타겟 방향을 다시 계산하여 정확도 향상
                 Vector2 direction = (target.position - bazookaFirePoint.position).normalized;
                 GameObject arrow = Instantiate(explosiveArrowPrefab, bazookaFirePoint.position, Quaternion.identity);
                 arrow.GetComponent<Roket>()?.Launch(direction);
             }
-
-            // 6. 남은 애니메이션 시간만큼 대기
+            
             await UniTask.Delay(TimeSpan.FromSeconds(totalFireAnimDuration - fireDelay), cancellationToken: token);
         }
         catch (OperationCanceledException)
         {
-            // Task was cancelled
         }
         finally
         {
-            // 7. 바주카 파괴
             if (bazookaInstance != null)
             {
                 Destroy(bazookaInstance);

@@ -262,10 +262,14 @@ public class UIManager : MonoBehaviour
 
         if (m_skillManager != null)
         {
-            m_skillUIElements[0].Button?.onClick.AddListener(() => { PlaySfx(SoundManager.Instance.GenericButtonClickSfx); m_skillManager.UseSkill1(); });
-            m_skillUIElements[1].Button?.onClick.AddListener(() => { PlaySfx(SoundManager.Instance.GenericButtonClickSfx); m_skillManager.UseSkill2(); });
-            m_skillUIElements[2].Button?.onClick.AddListener(() => { PlaySfx(SoundManager.Instance.GenericButtonClickSfx); m_skillManager.UseSkill3(); });
-            m_skillUIElements[3].Button?.onClick.AddListener(() => { PlaySfx(SoundManager.Instance.GenericButtonClickSfx); m_skillManager.UseSkill4(); });
+            if (m_skillUIElements[0].Button != null)
+                m_skillUIElements[0].Button.onClick.AddListener(() => { PlaySfx(SoundManager.Instance.GenericButtonClickSfx); m_skillManager.UseSkill1(); });
+            if (m_skillUIElements[1].Button != null)
+                m_skillUIElements[1].Button.onClick.AddListener(() => { PlaySfx(SoundManager.Instance.GenericButtonClickSfx); m_skillManager.UseSkill2(); });
+            if (m_skillUIElements[2].Button != null)
+                m_skillUIElements[2].Button.onClick.AddListener(() => { PlaySfx(SoundManager.Instance.GenericButtonClickSfx); m_skillManager.UseSkill3(); });
+            if (m_skillUIElements[3].Button != null)
+                m_skillUIElements[3].Button.onClick.AddListener(() => { PlaySfx(SoundManager.Instance.GenericButtonClickSfx); m_skillManager.UseSkill4(); });
         }
     }
 
@@ -348,15 +352,21 @@ public class UIManager : MonoBehaviour
     {
         if (m_settingsPopup != null) m_settingsPopup.SetActive(false);
 
-        m_openSettingsButton?.onClick.AddListener(OpenSettingsPopup);
-        m_closeSettingsButton?.onClick.AddListener(CloseSettingsPopup);
+        if (m_openSettingsButton != null)
+            m_openSettingsButton.onClick.AddListener(OpenSettingsPopup);
+        if (m_closeSettingsButton != null)
+            m_closeSettingsButton.onClick.AddListener(CloseSettingsPopup);
 
         if (SoundManager.Instance != null)
         {
-            m_bgmVolumeSlider?.onValueChanged.AddListener((v) => { PlaySfx(SoundManager.Instance.SliderChangedSfx); SoundManager.Instance.SetBGMVolume(v); });
-            m_sfxVolumeSlider?.onValueChanged.AddListener((v) => { PlaySfx(SoundManager.Instance.SliderChangedSfx); SoundManager.Instance.SetSFXVolume(v); });
-            m_bgmMuteToggle?.onValueChanged.AddListener((v) => { PlaySfx(SoundManager.Instance.ToggleChangedSfx); SoundManager.Instance.SetBGMMute(v); });
-            m_sfxMuteToggle?.onValueChanged.AddListener((v) => { PlaySfx(SoundManager.Instance.ToggleChangedSfx); SoundManager.Instance.SetSFXMute(v); });
+            if (m_bgmVolumeSlider != null)
+                m_bgmVolumeSlider.onValueChanged.AddListener((v) => { PlaySfx(SoundManager.Instance.SliderChangedSfx); SoundManager.Instance.SetBGMVolume(v); });
+            if (m_sfxVolumeSlider != null)
+                m_sfxVolumeSlider.onValueChanged.AddListener((v) => { PlaySfx(SoundManager.Instance.SliderChangedSfx); SoundManager.Instance.SetSFXVolume(v); });
+            if (m_bgmMuteToggle != null)
+                m_bgmMuteToggle.onValueChanged.AddListener((v) => { PlaySfx(SoundManager.Instance.ToggleChangedSfx); SoundManager.Instance.SetBGMMute(v); });
+            if (m_sfxMuteToggle != null)
+                m_sfxMuteToggle.onValueChanged.AddListener((v) => { PlaySfx(SoundManager.Instance.ToggleChangedSfx); SoundManager.Instance.SetSFXMute(v); });
         }
     }
 

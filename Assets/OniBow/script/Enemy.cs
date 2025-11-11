@@ -32,8 +32,6 @@ public class Enemy : MonoBehaviour
     [SerializeField] private int m_maxHp = 150;
     [Tooltip("예비 체력이 현재 체력을 따라잡기 시작하는 시간 (초)")]
     [SerializeField] private float m_tempHpDecreaseDelay = 3f;
-    [Tooltip("예비 체력이 현재 체력을 따라잡는 속도 (초당 체력)")]
-    [SerializeField] private float m_tempHpCatchUpSpeed = 50f;
     private int m_currentHp;
     private int m_tempHp;
     private float m_lastDamageTime;
@@ -872,7 +870,8 @@ public class Enemy : MonoBehaviour
         {
             SoundManager.Instance.PlaySFX(SoundManager.Instance.EnemyEvadeSfx);
         }
-        m_afterimageEffect?.StartEffect(actualDuration);
+        if (m_afterimageEffect != null)
+            m_afterimageEffect.StartEffect(actualDuration);
 
         // CancellationToken을 생성하여 회피 중 다른 행동(예: 피격)으로 취소될 수 있도록 합니다.
         var evadeCts = new CancellationTokenSource();

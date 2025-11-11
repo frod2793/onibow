@@ -10,9 +10,7 @@ public class ObjectPoolManager : MonoBehaviour
 {
     public static ObjectPoolManager Instance { get; private set; }
 
-    // 프리팹을 키로 사용하는 딕셔너리
     private Dictionary<GameObject, IObjectPool<GameObject>> _prefabPools;
-    // 활성화된 오브젝트가 어느 풀에 속하는지 추적하는 딕셔너리 (Key: 인스턴스 ID, Value: 풀)
     private Dictionary<int, IObjectPool<GameObject>> _spawnedObjects;
 
     private void Awake()
@@ -44,8 +42,6 @@ public class ObjectPoolManager : MonoBehaviour
 
         if (!_prefabPools.TryGetValue(prefab, out var pool))
         {
-            // 요청된 프리팹에 대한 풀이 없으면 동적으로 생성합니다.
-            // 이를 통해 인스펙터에서 모든 풀을 미리 정의할 필요가 없어집니다.
             pool = CreateNewPoolForPrefab(prefab);
             _prefabPools.Add(prefab, pool);
         }
@@ -71,7 +67,7 @@ public class ObjectPoolManager : MonoBehaviour
         else
         {
             Debug.LogWarning($"'{objectToReturn.name}' 오브젝트는 풀에서 관리되지 않거나 이미 반환되었습니다. 오브젝트를 파괴합니다.");
-            Destroy(objectToReturn); // 풀에서 관리하지 않는 오브젝트는 파괴
+            Destroy(objectToReturn);
         }
     }
 
@@ -83,16 +79,15 @@ public class ObjectPoolManager : MonoBehaviour
     /// <returns>생성된 IObjectPool 인스턴스</returns>
     private IObjectPool<GameObject> CreateNewPoolForPrefab(GameObject prefab, int defaultCapacity = 10)
     {
-        // 요청 시점에 풀이 없으면 동적으로 생성합니다.
         Debug.Log($"ObjectPoolManager: '{prefab.name}' 프리팹에 대한 풀을 동적으로 생성합니다.");
         return new ObjectPool<GameObject>(
             createFunc: () => Instantiate(prefab),
             actionOnGet: (obj) => {
-                obj.transform.SetParent(null); // 풀에서 나올 때 부모를 해제하여 월드 공간에 배치
+                obj.transform.SetParent(null);
                 obj.SetActive(true);
             },
             actionOnRelease: (obj) => {
-                obj.transform.SetParent(transform); // 반환 시 매니저의 자식으로 다시 설정하여 씬을 깔끔하게 유지합니다.
+                obj.transform.SetParent(transform);
                 obj.SetActive(false);
             },
             actionOnDestroy: (obj) => Destroy(obj),

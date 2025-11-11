@@ -20,8 +20,6 @@ public class PlayerControl : MonoBehaviour
     [SerializeField] private int m_maxHp = 100;
     [Tooltip("예비 체력이 현재 체력을 따라잡기 시작하는 시간 (초)")]
     [SerializeField] private float m_tempHpDecreaseDelay = 3f;
-    [Tooltip("예비 체력이 현재 체력을 따라잡는 속도 (초당 체력)")]
-    [SerializeField] private float m_tempHpCatchUpSpeed = 50f;
     private int m_currentHp;
     private int m_tempHp; // 예비 체력 (UI의 상단 바에 해당)
     private float m_lastDamageTime; // 마지막 피격 시간
@@ -202,7 +200,6 @@ public class PlayerControl : MonoBehaviour
         m_currentHp -= damage;
         m_currentHp = Mathf.Max(0, m_currentHp);
         m_lastDamageTime = Time.time;
-
         Debug.Log($"플레이어가 {damage}의 데미지를 입었습니다. 현재 체력: {m_currentHp}");
         OnHealthUpdated?.Invoke(m_currentHp, m_tempHp, m_maxHp);
 
@@ -798,7 +795,8 @@ public class PlayerControl : MonoBehaviour
         }
 
         // 잔상 효과 시작
-        m_afterimageEffect?.StartEffect(duration);
+        if (m_afterimageEffect != null)
+            m_afterimageEffect.StartEffect(duration);
 
         // 사운드 재생
         if (SoundManager.Instance != null && !string.IsNullOrEmpty(SoundManager.Instance.PlayerDashSfx))

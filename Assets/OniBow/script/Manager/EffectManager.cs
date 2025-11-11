@@ -71,7 +71,7 @@ public class EffectManager : MonoBehaviour
     };
 
     #if UNITY_EDITOR
-    private bool _isTestingLowHealthEffect = false; // 테스트 모드 상태 플래그
+    private bool _isTestingLowHealthEffect = false;
     #endif
 
     private Tween _vignetteTween;
@@ -93,8 +93,7 @@ public class EffectManager : MonoBehaviour
     {
         if (lowHealthVignette != null)
         {
-            // 게임 시작 시 비네트 효과를 비활성화하고 투명하게 만듭니다.
-               lowHealthVignette.gameObject.SetActive(false);
+            lowHealthVignette.gameObject.SetActive(false);
         }
         else
         {
@@ -106,29 +105,22 @@ public class EffectManager : MonoBehaviour
     {
         _damageTextPool = new ObjectPool<GameObject>(
             createFunc: () => {
-                // 새로 생성될 때의 로직
                 return Instantiate(damageTextPrefab);
             },
             actionOnGet: (obj) => {
-                // 풀에서 가져올 때의 로직
                 obj.transform.SetParent(DamagedTextCanvas.transform, false);
                 obj.SetActive(true);
             },
             actionOnRelease: (obj) => {
-                // 풀로 반환할 때의 로직
                 obj.transform.SetParent(transform, false);
                 obj.SetActive(false);
             },
             actionOnDestroy: (obj) => {
-                // 풀이 파괴될 때의 로직
                 Destroy(obj);
             },
-            collectionCheck: true,  // 이미 풀에 반환된 오브젝트를 다시 반환하려 할 때 오류 발생
-            defaultCapacity: damageTextPoolSize,
-            maxSize: damageTextPoolSize * 2 // 풀의 최대 크기
+            collectionCheck: true, defaultCapacity: damageTextPoolSize, maxSize: damageTextPoolSize * 2
         );
 
-        // 오브젝트 풀을 미리 채워둡니다 (Pre-warming).
         var prewarmList = new List<GameObject>();
         for(int i = 0; i < damageTextPoolSize; i++)
         {
@@ -153,26 +145,19 @@ public class EffectManager : MonoBehaviour
 
         GameObject effectInstance = Instantiate(effectPrefab, position, rotation);
         
-        // 스케일 설정
         effectInstance.transform.localScale = Vector3.one * scale;
 
-        // 스프라이트 렌더러의 Sorting Order 설정
         if (sortingOrder.HasValue && effectInstance.TryGetComponent<SpriteRenderer>(out var renderer))
         {
             renderer.sortingOrder = sortingOrder.Value;
         }
 
-        // 1. 파티클 시스템을 기반으로 자동 파괴 시간을 계산합니다.
         if (effectInstance.GetComponentInChildren<ParticleSystem>() is { } ps)
         {
-            // 파티클 시스템의 총 지속 시간이 지난 후에 게임 오브젝트를 파괴합니다.
             Destroy(effectInstance, ps.main.duration + ps.main.startLifetime.constantMax);
         }
-        // 2. 파티클 시스템이 없다면, Animator를 확인하여 스프라이트 애니메이션 길이를 가져옵니다.
         else if (effectInstance.GetComponentInChildren<Animator>() is { } animator)
         {
-            // 애니메이터에 연결된 첫 번째 애니메이션 클립의 길이를 가져옵니다.
-            // 이 방법은 이펙트가 단일 애니메이션 클립으로 구성되어 있다고 가정합니다.
             if (animator.runtimeAnimatorController != null && animator.runtimeAnimatorController.animationClips.Length > 0)
             {
                 float clipLength = animator.runtimeAnimatorController.animationClips[0].length;
@@ -180,13 +165,11 @@ public class EffectManager : MonoBehaviour
             }
             else
             {
-                // 클립을 찾을 수 없는 경우, 기본 시간으로 파괴합니다.
                 Destroy(effectInstance, 1.5f);
             }
         }
         else
         {
-            // 3. 둘 다 없는 경우, 기본 시간(1.5초) 후에 파괴합니다.
             Debug.LogWarning($"'{effectPrefab.name}'에 ParticleSystem 또는 Animator 컴포넌트가 없어 기본 시간 후 파괴됩니다.");
             Destroy(effectInstance, 1.5f);
         }
@@ -207,7 +190,6 @@ public class EffectManager : MonoBehaviour
     /// <param name="position">폭발이 일어날 월드 위치</param>
     public void PlayHomingMissileExplosion(Vector3 position)
     {
-        // 호밍 미사일은 작은 폭발이므로 기본 스케일과 렌더링 순서를 사용합니다.
         PlayEffect(HomingMissileExplosionEffectPrefab, position, Quaternion.identity);
     }
 
@@ -217,7 +199,6 @@ public class EffectManager : MonoBehaviour
     /// <param name="position">이펙트가 생성될 월드 위치</param>
     public void PlayBulletHitEffect(Vector3 position)
     {
-        // 총알 이펙트는 보통 작고 빠르므로 기본 스케일과 렌더링 순서를 사용합니다.
         PlayEffect(akBulletHitEffectPrefab, position, Quaternion.Euler(0, 0, -90));
     }
 
@@ -227,7 +208,6 @@ public class EffectManager : MonoBehaviour
     /// <param name="position">이펙트가 생성될 월드 위치</param>
     public void PlayHealEffect(Vector3 position)
     {
-        // 힐 이펙트는 플레이어 위에 표시되므로 적절한 스케일과 렌더링 순서를 사용할 수 있습니다.
         PlayEffect(HealEffectPrefab, position, Quaternion.identity);
     }
 
@@ -240,23 +220,19 @@ public class EffectManager : MonoBehaviour
 
         float healthRatio = (float)currentHp / maxHp;
 
-        // 체력이 0보다 크고, 설정된 임계값보다 낮을 때 효과를 발동합니다.
         if (healthRatio <= lowHealthThreshold && currentHp > 0)
         {
-            // 체력이 낮을 때: 애니메이션이 실행 중이 아니라면 시작
             if (_vignetteTween == null || !_vignetteTween.IsActive())
             {
                 lowHealthVignette.gameObject.SetActive(true);
              
-                // 설정된 시간 동안 최대 강도(알파값)까지 올라갔다가 다시 0으로 돌아오는 것을 반복
                 _vignetteTween = lowHealthVignette.DOFade(vignetteMaxIntensity, vignettePulseDuration)
                     .SetEase(Ease.InOutSine)
-                    .SetLoops(-1, LoopType.Yoyo); // Yoyo 루프로 페이드 인/아웃 반복
+                    .SetLoops(-1, LoopType.Yoyo);
             }
         }
         else
         {
-            // 체력이 높거나 0일 때: 애니메이션을 멈추고 숨김
             if (_vignetteTween != null)
             {
                 _vignetteTween.Kill();
@@ -291,7 +267,6 @@ public class EffectManager : MonoBehaviour
             return;
         }
 
-        // 대상의 머리 위 위치를 계산합니다.
         Collider2D targetCollider = target.GetComponent<Collider2D>();
         if (targetCollider == null)
         {
@@ -300,10 +275,8 @@ public class EffectManager : MonoBehaviour
         }
         Vector3 position = targetCollider.bounds.center + Vector3.up * (targetCollider.bounds.extents.y + damageTextYOffset);
 
-        // Instantiate the damage text prefab as a child of the Canvas
         GameObject textInstance = _damageTextPool.Get();
 
-        // Get the RectTransform of the instantiated text
         RectTransform textRectTransform = textInstance.GetComponent<RectTransform>();
         if (textRectTransform == null)
         {
@@ -312,13 +285,10 @@ public class EffectManager : MonoBehaviour
             return;
         }
 
-        // Screen Space - Overlay 캔버스에서는 UI 요소의 position을 스크린 좌표로 직접 설정할 수 있습니다.
-        // 이 방식이 RectTransformUtility를 사용하는 것보다 더 간단하고 직관적입니다.
         Vector2 screenPosition = Camera.main.WorldToScreenPoint(position);
         screenPosition.x += UnityEngine.Random.Range(-damageTextXRandomRange, damageTextXRandomRange);
         textRectTransform.position = screenPosition;
 
-        // DamageText 스크립트를 찾아 데미지 값을 설정합니다.
         var damageTextComponent = textInstance.GetComponent<DamageText>();
         if (damageTextComponent != null)
         {
@@ -328,7 +298,6 @@ public class EffectManager : MonoBehaviour
                 damageTextStyle.normalColor, 
                 damageTextStyle.criticalColor, 
                 damageTextStyle.criticalThreshold);
-            // 위치와 텍스트가 설정된 후 애니메이션을 재생합니다.
             damageTextComponent.PlayAnimation();
         }
     }
@@ -359,12 +328,12 @@ public class EffectManager : MonoBehaviour
         if (_isTestingLowHealthEffect)
         {
             Debug.Log("<color=cyan>[TEST]</color> 체력 경고 효과 시작");
-            UpdateLowHealthEffect(1, 100); // 체력이 낮은 것처럼 시뮬레이션
+            UpdateLowHealthEffect(1, 100);
         }
         else
         {
             Debug.Log("<color=cyan>[TEST]</color> 체력 경고 효과 중지");
-            UpdateLowHealthEffect(100, 100); // 체력이 높은 것처럼 시뮬레이션
+            UpdateLowHealthEffect(100, 100);
         }
     }
     #endif

@@ -34,7 +34,6 @@ public class SoundNameDrawer : PropertyDrawer
 
         if (!string.IsNullOrEmpty(currentSoundName))
         {
-            // 현재 설정된 사운드 이름이 목록에 없으면 -1을 반환합니다.
             int foundIndex = _soundNames.IndexOf(currentSoundName);
             if (foundIndex != -1)
             {
@@ -48,11 +47,9 @@ public class SoundNameDrawer : PropertyDrawer
             }
         }
 
-        // 드롭다운 메뉴를 그립니다.
         int newIndex = EditorGUI.Popup(position, label.text, currentIndex, _soundNames.ToArray());
         GUI.color = Color.white; // 색상 원상 복구
 
-        // 사용자가 다른 항목을 선택하면 프로퍼티 값을 업데이트합니다.
         if (newIndex != currentIndex)
         {
             property.stringValue = (newIndex == 0) ? "" : _soundNames[newIndex];
@@ -66,7 +63,6 @@ public class SoundNameDrawer : PropertyDrawer
     {
         _soundNames = new List<string> { "None" }; // 첫 항목은 선택 안 함 옵션
 
-        // SoundManager는 싱글턴이므로, 씬에 있는 인스턴스를 찾습니다.
         SoundManager soundManager = Object.FindFirstObjectByType<SoundManager>();
         if (soundManager == null)
         {

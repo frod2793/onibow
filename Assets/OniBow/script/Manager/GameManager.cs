@@ -85,7 +85,8 @@ public class GameManager : MonoBehaviour
             m_initialCameraPosition = m_mainCamera.transform.position;
         }
 
-        m_restartButton?.onClick.AddListener(RestartGame);
+        if (m_restartButton != null)
+            m_restartButton.onClick.AddListener(RestartGame);
 
         InitializeReferences();
 
@@ -122,14 +123,12 @@ public class GameManager : MonoBehaviour
     {
         if (MainCamera != null)
         {
-            // 이전에 진행 중이던 카메라 트윈을 모두 중단합니다.
             MainCamera.transform.DOKill(true);
 
             MainCamera.transform.DOShakePosition(duration, strength, vibrato, randomness)
                 .SetLoops(1, LoopType.Restart) // 쉐이크가 한 번 완료되면 OnComplete를 호출하도록 설정
                 .OnComplete(() =>
                 {
-                    // 쉐이크 후 카메라 위치가 초기 위치와 다를 경우, 부드럽게 원래 위치로 이동시킵니다.
                     if (MainCamera.transform.position != m_initialCameraPosition)
                         MainCamera.transform.DOMove(m_initialCameraPosition, 0.2f).SetEase(Ease.OutQuad);
                 });
@@ -147,7 +146,7 @@ public class GameManager : MonoBehaviour
     {
         if (m_currentGameState != GameState.Title) return;
 
-        m_startButton.interactable = false; // 중복 클릭 방지
+        m_startButton.interactable = false;
 
         FadeOutButton(m_startButton, 0.2f);
 
@@ -159,7 +158,6 @@ public class GameManager : MonoBehaviour
     {
         if (button == null) return;
 
-        // 버튼 자신을 포함한 모든 자식 Image 컴포넌트를 가져옵니다.
         Image[] allImages = button.GetComponentsInChildren<Image>();
         foreach (var image in allImages)
         {
@@ -170,13 +168,13 @@ public class GameManager : MonoBehaviour
 
     private void InitializeReferences()
     {
-        // 참조가 할당되었는지 확인 후 컴포넌트를 가져와 NullReferenceException을 방지합니다.
         if (m_playerObject != null) m_playerControl = m_playerObject.GetComponent<PlayerControl>();
     }
 
     private void SetupForDeveloperMode()
     {
-        m_titleScreen?.SetActive(false);
+        if (m_titleScreen != null) 
+            m_titleScreen.SetActive(false);
         m_countdownText.gameObject.SetActive(false);
         SetGameActive(true);
         m_currentGameState = GameState.Playing;
@@ -191,11 +189,13 @@ public class GameManager : MonoBehaviour
     private void SetupForNormalMode()
     {
         SetGameActive(false);
-        m_countdownText.gameObject.SetActive(false);
-        m_endGamePopup?.SetActive(false);
-        m_restartButton?.onClick.AddListener(RestartGame);
+        if (m_countdownText != null) m_countdownText.gameObject.SetActive(false);
+        if (m_endGamePopup != null) m_endGamePopup.SetActive(false);
+        if (m_restartButton != null)
+            m_restartButton.onClick.AddListener(RestartGame);
 
-        m_startButton?.onClick.AddListener(StartGame);
+        if (m_startButton != null)
+            m_startButton.onClick.AddListener(StartGame);
 
         if (m_startButton != null)
         {
@@ -210,7 +210,7 @@ public class GameManager : MonoBehaviour
 
         if (SoundManager.Instance != null && !string.IsNullOrEmpty(SoundManager.Instance.TitleBgm))
         {
-            SoundManager.Instance.PlayBGM(SoundManager.Instance.TitleBgm, 1.0f);
+            SoundManager.Instance.PlayBGM(SoundManager.Instance.TitleBgm);
         }
     }
 
@@ -234,11 +234,9 @@ public class GameManager : MonoBehaviour
 
     private async UniTask TransitionToGameAsync()
     {
-        // 문 열림 애니메이션과 배경 페이드 아웃을 동시에 시작
         var doorTask = AnimateDoorsAsync();
         var backgroundTask = FadeOutTitleAsync();
 
-        // 두 애니메이션이 모두 끝날 때까지 대기
         await UniTask.WhenAll(doorTask, backgroundTask);
 
         if (m_titleScreen != null) m_titleScreen.SetActive(false);
@@ -246,7 +244,6 @@ public class GameManager : MonoBehaviour
 
     private async UniTask AnimateDoorsAsync()
     {
-        // 문 열림 사운드 재생
         if (SoundManager.Instance != null && !string.IsNullOrEmpty(SoundManager.Instance.DoorOpenSfx))
         {
             SoundManager.Instance.PlaySFX(SoundManager.Instance.DoorOpenSfx);
@@ -286,7 +283,6 @@ public class GameManager : MonoBehaviour
             m_countdownText.gameObject.SetActive(true);
             for (int i = m_countdownStart; i > 0; i--)
             {
-                // 카운트다운 틱 사운드 재생
                 if (SoundManager.Instance != null && !string.IsNullOrEmpty(SoundManager.Instance.CountdownTickSfx))
                 {
                     SoundManager.Instance.PlaySFX(SoundManager.Instance.CountdownTickSfx);
@@ -305,7 +301,7 @@ public class GameManager : MonoBehaviour
             m_countdownText.text = "Fight!";
             m_countdownText.alpha = 1f;
             m_countdownText.transform.localScale = Vector3.one;
-            m_countdownText.transform.DOPunchScale(new Vector3(0.5f, 0.5f, 0.5f), 0.5f, 10, 1);
+            m_countdownText.transform.DOPunchScale(new Vector3(0.5f, 0.5f, 0.5f), 0.5f);
 
             await UniTask.Delay(TimeSpan.FromSeconds(1.0f));
             m_countdownText.gameObject.SetActive(false);
@@ -342,15 +338,15 @@ public class GameManager : MonoBehaviour
         if (m_endGamePopup != null)
         {
             m_endGamePopup.SetActive(true);
-            // 상태에 따라 적절한 타이틀 이미지를 활성화/비활성화합니다.
-            m_gameOverTitle?.SetActive(endState == GameState.GameOver);
-            m_gameClearTitle?.SetActive(endState == GameState.GameClear);
+            if (m_gameOverTitle != null)
+                m_gameOverTitle.SetActive(endState == GameState.GameOver);
+            if (m_gameClearTitle != null)
+                m_gameClearTitle.SetActive(endState == GameState.GameClear);
         }
 
-        // 게임 종료 시 BGM을 정지합니다.
         if (SoundManager.Instance != null)
         {
-            SoundManager.Instance.StopBGM(1.0f);
+            SoundManager.Instance.StopBGM();
         }
     }
 
@@ -359,7 +355,6 @@ public class GameManager : MonoBehaviour
     /// </summary>
     private void RestartGame()
     {
-        // 현재 활성화된 씬을 다시 로드합니다.
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 }
