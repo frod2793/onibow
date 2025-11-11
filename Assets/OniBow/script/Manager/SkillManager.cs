@@ -403,8 +403,11 @@ public class SkillManager : MonoBehaviour
                 // 약간의 랜덤한 위치에서 발사하여 겹치지 않게 함
                 Vector3 spawnPosition = playerHand.transform.position + (Vector3)UnityEngine.Random.insideUnitCircle * 0.05f;
 
-                GameObject missile = Instantiate(homingMissilePrefab, spawnPosition, playerHand.transform.rotation);
-                missile.GetComponent<HomingMissile>()?.Launch(target);
+                GameObject missileObject = ObjectPoolManager.Instance.Get(homingMissilePrefab);
+                if (missileObject == null) continue;
+
+                missileObject.transform.SetPositionAndRotation(spawnPosition, playerHand.transform.rotation);
+                missileObject.GetComponent<HomingMissile>()?.Launch(target, playerHand.transform);
 
                 await UniTask.Delay(TimeSpan.FromSeconds(homingMissileSpawnInterval), cancellationToken: token);
             }
@@ -473,6 +476,12 @@ public class SkillManager : MonoBehaviour
 
                 GameObject bullet = ObjectPoolManager.Instance.Get(akBulletPrefab);
                 if (bullet == null) continue;
+
+                // 발사 사운드 재생
+                if (SoundManager.Instance != null && !string.IsNullOrEmpty(SoundManager.Instance.AKFireSfx))
+                {
+                    SoundManager.Instance.PlaySFX(SoundManager.Instance.AKFireSfx);
+                }
 
                 bullet.transform.SetPositionAndRotation(akFirePoint.position, Quaternion.identity);
                 

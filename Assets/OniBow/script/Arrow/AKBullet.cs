@@ -36,6 +36,12 @@ public class AKBullet : MonoBehaviour
                 EffectManager.Instance.PlayBulletHitEffect(transform.position);
             }
 
+            // 명중 사운드 재생
+            if (SoundManager.Instance != null && !string.IsNullOrEmpty(SoundManager.Instance.AKHitSfx))
+            {
+                SoundManager.Instance.PlaySFX(SoundManager.Instance.AKHitSfx);
+            }
+
             // 카메라 쉐이크
             if (GameManager.Instance != null)
             {

@@ -258,15 +258,17 @@ public class UIManager : MonoBehaviour
 
         if (m_skillManager != null)
         {
-            m_skillUIElements[0].Button?.onClick.AddListener(m_skillManager.UseSkill1);
-            m_skillUIElements[1].Button?.onClick.AddListener(m_skillManager.UseSkill2);
-            m_skillUIElements[2].Button?.onClick.AddListener(m_skillManager.UseSkill3);
-            m_skillUIElements[3].Button?.onClick.AddListener(m_skillManager.UseSkill4);
+            m_skillUIElements[0].Button?.onClick.AddListener(() => { PlaySfx(SoundManager.Instance.GenericButtonClickSfx); m_skillManager.UseSkill1(); });
+            m_skillUIElements[1].Button?.onClick.AddListener(() => { PlaySfx(SoundManager.Instance.GenericButtonClickSfx); m_skillManager.UseSkill2(); });
+            m_skillUIElements[2].Button?.onClick.AddListener(() => { PlaySfx(SoundManager.Instance.GenericButtonClickSfx); m_skillManager.UseSkill3(); });
+            m_skillUIElements[3].Button?.onClick.AddListener(() => { PlaySfx(SoundManager.Instance.GenericButtonClickSfx); m_skillManager.UseSkill4(); });
         }
     }
 
     private void OnLeftButtonDown()
     {
+        PlaySfx(SoundManager.Instance.GenericButtonClickSfx);
+
         if (Time.time - m_leftButtonClickTime < k_DoubleClickTime)
         {
             m_playerControl.Dash(-1f);
@@ -281,6 +283,8 @@ public class UIManager : MonoBehaviour
 
     private void OnRightButtonDown()
     {
+        PlaySfx(SoundManager.Instance.GenericButtonClickSfx);
+
         if (Time.time - m_rightButtonClickTime < k_DoubleClickTime)
         {
             m_playerControl.Dash(1f);
@@ -344,10 +348,10 @@ public class UIManager : MonoBehaviour
 
         if (SoundManager.Instance != null)
         {
-            m_bgmVolumeSlider?.onValueChanged.AddListener(SoundManager.Instance.SetBGMVolume);
-            m_sfxVolumeSlider?.onValueChanged.AddListener(SoundManager.Instance.SetSFXVolume);
-            m_bgmMuteToggle?.onValueChanged.AddListener(SoundManager.Instance.SetBGMMute);
-            m_sfxMuteToggle?.onValueChanged.AddListener(SoundManager.Instance.SetSFXMute);
+            m_bgmVolumeSlider?.onValueChanged.AddListener((v) => { PlaySfx(SoundManager.Instance.SliderChangedSfx); SoundManager.Instance.SetBGMVolume(v); });
+            m_sfxVolumeSlider?.onValueChanged.AddListener((v) => { PlaySfx(SoundManager.Instance.SliderChangedSfx); SoundManager.Instance.SetSFXVolume(v); });
+            m_bgmMuteToggle?.onValueChanged.AddListener((v) => { PlaySfx(SoundManager.Instance.ToggleChangedSfx); SoundManager.Instance.SetBGMMute(v); });
+            m_sfxMuteToggle?.onValueChanged.AddListener((v) => { PlaySfx(SoundManager.Instance.ToggleChangedSfx); SoundManager.Instance.SetSFXMute(v); });
         }
     }
 
@@ -357,6 +361,7 @@ public class UIManager : MonoBehaviour
 
         m_settingsPopup.SetActive(true);
         Time.timeScale = 0f; // 게임 일시 정지
+        PlaySfx(SoundManager.Instance.PopupOpenSfx);
 
         // 현재 설정 값으로 UI 초기화
         m_bgmVolumeSlider.value = SoundManager.Instance.GetBGMVolume();
@@ -371,6 +376,7 @@ public class UIManager : MonoBehaviour
 
         m_settingsPopup.SetActive(false);
         Time.timeScale = 1f; // 게임 재개
+        PlaySfx(SoundManager.Instance.PopupCloseSfx);
     }
 
     #endregion
@@ -395,4 +401,12 @@ public class UIManager : MonoBehaviour
     }
 
     #endregion
+
+    private void PlaySfx(string sfxName)
+    {
+        if (SoundManager.Instance != null && !string.IsNullOrEmpty(sfxName))
+        {
+            SoundManager.Instance.PlaySFX(sfxName);
+        }
+    }
 }

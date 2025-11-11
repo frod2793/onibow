@@ -176,6 +176,11 @@ public class GameManager : MonoBehaviour
         SetGameActive(true);
         m_currentGameState = GameState.Playing;
         Debug.Log("개발자 모드로 게임을 시작합니다.");
+
+        if (SoundManager.Instance != null && !string.IsNullOrEmpty(SoundManager.Instance.GameplayBgm))
+        {
+            SoundManager.Instance.PlayBGM(SoundManager.Instance.GameplayBgm, 0.5f);
+        }
     }
 
     private void SetupForNormalMode()
@@ -197,6 +202,11 @@ public class GameManager : MonoBehaviour
                 image.DOFade(0.5f, 1.5f).SetEase(Ease.InOutSine).SetLoops(-1, LoopType.Yoyo);
             }
         }
+
+        if (SoundManager.Instance != null && !string.IsNullOrEmpty(SoundManager.Instance.TitleBgm))
+        {
+            SoundManager.Instance.PlayBGM(SoundManager.Instance.TitleBgm, 1.0f);
+        }
     }
 
     private async UniTaskVoid StartGameSequenceAsync()
@@ -209,6 +219,11 @@ public class GameManager : MonoBehaviour
 
         SetGameActive(true);
         m_currentGameState = GameState.Playing;
+
+        if (SoundManager.Instance != null && !string.IsNullOrEmpty(SoundManager.Instance.GameplayBgm))
+        {
+            SoundManager.Instance.PlayBGM(SoundManager.Instance.GameplayBgm, 1.5f);
+        }
         Debug.Log("게임 시작!");
     }
 
@@ -226,6 +241,12 @@ public class GameManager : MonoBehaviour
 
     private async UniTask AnimateDoorsAsync()
     {
+        // 문 열림 사운드 재생
+        if (SoundManager.Instance != null && !string.IsNullOrEmpty(SoundManager.Instance.DoorOpenSfx))
+        {
+            SoundManager.Instance.PlaySFX(SoundManager.Instance.DoorOpenSfx);
+        }
+
         if (m_leftDoorImage != null)
         {
             m_leftDoorImage.rectTransform.DOAnchorPos(new Vector2(-m_leftDoorImage.rectTransform.rect.width, 0), m_doorOpenDuration)
@@ -260,6 +281,12 @@ public class GameManager : MonoBehaviour
             m_countdownText.gameObject.SetActive(true);
             for (int i = m_countdownStart; i > 0; i--)
             {
+                // 카운트다운 틱 사운드 재생
+                if (SoundManager.Instance != null && !string.IsNullOrEmpty(SoundManager.Instance.CountdownTickSfx))
+                {
+                    SoundManager.Instance.PlaySFX(SoundManager.Instance.CountdownTickSfx);
+                }
+
                 m_countdownText.text = i.ToString();
                 m_countdownText.transform.localScale = Vector3.one * 2f;
                 m_countdownText.alpha = 1f;
@@ -307,5 +334,11 @@ public class GameManager : MonoBehaviour
         Debug.Log(logMessage);
         endEvent?.Invoke();
         if (endScreen != null) endScreen.SetActive(true);
+
+        // 게임 종료 시 BGM을 정지합니다.
+        if (SoundManager.Instance != null)
+        {
+            SoundManager.Instance.StopBGM(1.0f);
+        }
     }
 }

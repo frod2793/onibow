@@ -66,6 +66,7 @@ public class PlayerControl : MonoBehaviour
     [Tooltip("대쉬 쿨다운 (초)")]
     [SerializeField] private float m_dashCooldown = 1f;
 
+
     private Rigidbody2D m_rigidbody2D;
     private Collider2D m_collider;
     private Tween m_movementTween;
@@ -181,6 +182,12 @@ public class PlayerControl : MonoBehaviour
         // 무적 상태일 경우 데미지를 받지 않습니다.
         if (m_isInvulnerable) return;
 
+        // 사운드 재생
+        if (SoundManager.Instance != null && !string.IsNullOrEmpty(SoundManager.Instance.PlayerDamagedSfx))
+        {
+            SoundManager.Instance.PlaySFX(SoundManager.Instance.PlayerDamagedSfx);
+        }
+
         if (m_currentState == PlayerState.DEATH) return; 
         
         CancelAllActions();
@@ -224,6 +231,12 @@ public class PlayerControl : MonoBehaviour
             m_currentHp += recoveryAmount;
             m_tempHp = m_currentHp; // 회복 후에는 예비 체력과 현재 체력을 일치시킴
             OnHealthUpdated?.Invoke(m_currentHp, m_tempHp, m_maxHp);
+
+            // 사운드 재생
+            if (SoundManager.Instance != null && !string.IsNullOrEmpty(SoundManager.Instance.PlayerHealSfx))
+            {
+                SoundManager.Instance.PlaySFX(SoundManager.Instance.PlayerHealSfx);
+            }
         }
     }
 
@@ -489,6 +502,12 @@ public class PlayerControl : MonoBehaviour
         // 적이 파괴된 후, 다른 적이 있는지 확인
         if (FindNearestEnemy() == null)
         {
+            // BGM을 정지할 필요가 있다면 여기에 로직 추가
+            // 예: if (SoundManager.Instance != null)
+            //     {
+            //         SoundManager.Instance.StopBGM();
+            //     }
+
             // 남은 적이 없으면 공격 루프 중단
             m_fireCts?.Cancel();
         }
@@ -497,6 +516,12 @@ public class PlayerControl : MonoBehaviour
     private void Die()
     {
         SetState(PlayerState.DEATH); // 상태를 사망으로 변경
+
+        if (SoundManager.Instance != null && !string.IsNullOrEmpty(SoundManager.Instance.PlayerDeathSfx))
+        {
+            SoundManager.Instance.PlaySFX(SoundManager.Instance.PlayerDeathSfx);
+        }
+
         CancelAllActions();
 
         // 체력을 0으로 설정하고 UI를 업데이트합니다.
@@ -535,6 +560,12 @@ public class PlayerControl : MonoBehaviour
         GameObject nearestEnemy = FindNearestEnemy();
         if (nearestEnemy != null)
         {
+            // 사운드 재생
+            if (SoundManager.Instance != null && !string.IsNullOrEmpty(SoundManager.Instance.PlayerFireSfx))
+            {
+                SoundManager.Instance.PlaySFX(SoundManager.Instance.PlayerFireSfx);
+            }
+
             if (m_spumPrefabs != null)
             {
                 float directionToEnemyX = nearestEnemy.transform.position.x - transform.position.x;
@@ -771,6 +802,12 @@ public class PlayerControl : MonoBehaviour
 
         // 잔상 효과 시작
         m_afterimageEffect?.StartEffect(duration);
+
+        // 사운드 재생
+        if (SoundManager.Instance != null && !string.IsNullOrEmpty(SoundManager.Instance.PlayerDashSfx))
+        {
+            SoundManager.Instance.PlaySFX(SoundManager.Instance.PlayerDashSfx);
+        }
 
         // 대쉬 움직임
         float originalGravity = m_rigidbody2D.gravityScale;

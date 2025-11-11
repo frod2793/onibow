@@ -380,11 +380,71 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f90b96f7d52d4473a45e518ce6d7fcf6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SoundManager
-  m_bgmSounds: []
-  m_sfxSounds: []
+  m_bgmSounds:
+  - name: BGM
+    clip: {fileID: 8300000, guid: a24bed27f1aad45d8b50ae495e66b42b, type: 3}
+    volume: 1
+    pitch: 1
+    loop: 1
+  - name: time_for_adventure
+    clip: {fileID: 8300000, guid: 27544163595c248d19eeed2b99fae707, type: 3}
+    volume: 1
+    pitch: 1
+    loop: 1
+  m_sfxSounds:
+  - name: 8bit_gunloop_explosion
+    clip: {fileID: 8300000, guid: 7d63fc0011e6e43f7b6575a8bd86f437, type: 3}
+    volume: 1
+    pitch: 1
+    loop: 0
+  - name: Arrow
+    clip: {fileID: 8300000, guid: 7d26d380b08684c849d773c2ecf0b465, type: 3}
+    volume: 1
+    pitch: 1
+    loop: 0
+  - name: Barrier
+    clip: {fileID: 8300000, guid: 36cd960d9bb3c4df7a746562087c47a3, type: 3}
+    volume: 1
+    pitch: 1
+    loop: 0
+  - name: BazookaBoom
+    clip: {fileID: 8300000, guid: e129357f79a8d483b9b631835a9e1e13, type: 3}
+    volume: 1
+    pitch: 1
+    loop: 0
+  - name: heal
+    clip: {fileID: 8300000, guid: 2f5789294068a4f5d801bbba8049fe90, type: 3}
+    volume: 1
+    pitch: 1
+    loop: 0
+  - name: HomingImpact
+    clip: {fileID: 8300000, guid: e7a075d0793ee4951a8e18fed859f322, type: 3}
+    volume: 1
+    pitch: 1
+    loop: 0
   m_bgmPlayer: {fileID: 0}
   m_sfxPlayer: {fileID: 0}
   m_sfxPoolSize: 15
+  <TitleBgm>k__BackingField: time_for_adventure
+  <GameplayBgm>k__BackingField: BGM
+  <DoorOpenSfx>k__BackingField: Game_DoorOpen
+  <CountdownTickSfx>k__BackingField: Game_CountdownTick
+  <PlayerFireSfx>k__BackingField: Arrow
+  <PlayerDashSfx>k__BackingField: Player_Dash
+  <PlayerDamagedSfx>k__BackingField: Player_Damaged
+  <PlayerDeathSfx>k__BackingField: Player_Death
+  <PlayerHealSfx>k__BackingField: heal
+  <GenericButtonClickSfx>k__BackingField: UI_Button_Click
+  <PopupOpenSfx>k__BackingField: UI_Popup_Open
+  <PopupCloseSfx>k__BackingField: UI_Popup_Close
+  <SliderChangedSfx>k__BackingField: UI_Slider_Tick
+  <ToggleChangedSfx>k__BackingField: UI_Toggle_Switch
+  <AKFireSfx>k__BackingField: AK_Fire
+  <AKHitSfx>k__BackingField: AK_Hit
+  <MissileLaunchSfx>k__BackingField: Missile_Launch
+  <MissileExplosionSfx>k__BackingField: HomingImpact
+  <RoketLaunchSfx>k__BackingField: Roket_Launch
+  <RoketExplosionSfx>k__BackingField: Roket_Explosion
 --- !u!114 &245737706 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 4078143095410508677, guid: b4330fcb1ade14a529b188576b580bb0, type: 3}
@@ -5175,6 +5235,7 @@ GameObject:
   - component: {fileID: 1268412190}
   - component: {fileID: 1268412189}
   - component: {fileID: 1268412188}
+  - component: {fileID: 1268412192}
   m_Layer: 10
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -5316,6 +5377,14 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!81 &1268412192
+AudioListener:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1268412187}
+  m_Enabled: 1
 --- !u!1 &1290394405
 GameObject:
   m_ObjectHideFlags: 0
@@ -9030,6 +9099,10 @@ PrefabInstance:
     - target: {fileID: 7816015520213829031, guid: 5f04dc13a32ea453f81ec90b3b730c13, type: 3}
       propertyPath: m_Name
       value: Barrier
+      objectReference: {fileID: 0}
+    - target: {fileID: 7816015520213829031, guid: 5f04dc13a32ea453f81ec90b3b730c13, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

@@ -36,6 +36,12 @@ public class Roket : MonoBehaviour
     public void Launch(Vector2 direction)
     {
         transform.right = direction; // 화살이 날아가는 방향을 바라보도록 설정
+        
+        // 발사 사운드 재생
+        if (SoundManager.Instance != null && !string.IsNullOrEmpty(SoundManager.Instance.RoketLaunchSfx))
+        {
+            SoundManager.Instance.PlaySFX(SoundManager.Instance.RoketLaunchSfx);
+        }
         _rigidbody2D.linearVelocity = direction.normalized * speed;
     }
 
@@ -74,6 +80,12 @@ public class Roket : MonoBehaviour
         // 중앙 EffectManager를 통해 폭발 이펙트를 재생합니다.
         EffectManager.Instance.PlayExplosionEffect(transform.position);
 
+                // 폭발 사운드 재생
+        if (SoundManager.Instance != null && !string.IsNullOrEmpty(SoundManager.Instance.RoketExplosionSfx))
+        {
+            SoundManager.Instance.PlaySFX(SoundManager.Instance.RoketExplosionSfx);
+        }
+
         // GameManager를 통해 카메라를 흔듭니다.
         GameManager.Instance.ShakeCamera(shakeDuration, shakeStrength);
 
@@ -85,6 +97,6 @@ public class Roket : MonoBehaviour
         }
        
         // 모든 처리가 끝난 후 오브젝트 파괴
-        Destroy(gameObject);
+                Destroy(gameObject);
     }
 }

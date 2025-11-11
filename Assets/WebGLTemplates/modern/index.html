@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>{{{ PRODUCT_NAME }}}</title>
+    <link rel="shortcut icon" href="TemplateData/favicon.ico">
+    <link rel="stylesheet" href="TemplateData/style.css">
+  </head>
+  <body>
+    <div id="unity-container" class="unity-desktop">
+      <button id="unity-fullscreen-button" onclick="toggleFullscreen()"></button>
+      <canvas id="unity-canvas"></canvas>
+      <div id="unity-loading-bar">
+        <div id="unity-progress-bar-empty">
+          <div id="unity-progress-bar-full"></div>
+        </div>
+      </div>
+      <div id="unity-warning"> </div>
+    </div>
+    <script>
+      var container = document.querySelector("#unity-container");
+      var canvas = document.querySelector("#unity-canvas");
+      var loadingBar = document.querySelector("#unity-loading-bar");
+      var progressBarFull = document.querySelector("#unity-progress-bar-full");
+      var fullscreenButton = document.querySelector("#unity-fullscreen-button");
+      var warningBanner = document.querySelector("#unity-warning");
+      
+      function isFullscreen()
+      {
+        return document.fullscreenElement !== null && document.fullscreenElement
+          || document.webkitFullscreenElement !== null && document.webkitFullscreenElement
+          || document.msFullscreenElement !== null && document.msFullscreenElement;
+      }
+      
+      function rebuildFullscreenGUI()
+      {
+        if (isFullscreen()) {
+          document.getElementById("unity-fullscreen-button").style.backgroundImage="url('TemplateData/fullscreen-button-in.png')";
+        }
+        else {
+          document.getElementById("unity-fullscreen-button").style.backgroundImage="url('TemplateData/fullscreen-button-out.png')";
+        }
+      }
+      
+      function unityShowBanner(msg, type) {
+        function updateBannerVisibility() {
+          warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
+        }
+        var div = document.createElement('div');
+        div.innerHTML = msg;
+        warningBanner.appendChild(div);
+        if (type == 'error') div.style = 'background: red; padding: 10px;';
+        else {
+          if (type == 'warning') div.style = 'background: yellow; padding: 10px;';
+          setTimeout(function() {
+            warningBanner.removeChild(div);
+            updateBannerVisibility();
+          }, 5000);
+        }
+        updateBannerVisibility();
+      }
+      
+      function toggleFullscreen() {
+         if (isFullscreen()) {
+            if (document.exitFullscreen) {
+              document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) {
+              document.webkitExitFullscreen();
+            } else if (document.msExitFullscreen) {
+              document.msExitFullscreen();
+            } else {
+              alert("Full screen is not supported by this browser.");
+            }
+         }
+         else {
+           var element = document.getElementById("unity-container");
+            if (element.requestFullscreen) {
+              element.requestFullscreen();
+            } else if (element.webkitRequestFullscreen) {
+              element.webkitRequestFullscreen();
+            } else if (element.msRequestFullscreen) {
+              element.msRequestFullscreen();
+            } else {
+              alert("Full screen is not supported by this browser.");
+            }
+         }
+      }
+
+      function confirmUnload(event) {
+        return confirm("All unsaved progress will be lost.");
+      }
+      
+      var buildUrl = "Build";
+      var loaderUrl = buildUrl + "/{{{ LOADER_FILENAME }}}";
+      var config = {
+        dataUrl: buildUrl + "/{{{ DATA_FILENAME }}}",
+        frameworkUrl: buildUrl + "/{{{ FRAMEWORK_FILENAME }}}",
+      #if USE_WASM
+        codeUrl: buildUrl + "/{{{ CODE_FILENAME }}}",
+      #endif
+      #if MEMORY_FILENAME
+        memoryUrl: buildUrl + "/{{{ MEMORY_FILENAME }}}",
+      #endif
+      #if SYMBOLS_FILENAME
+        symbolsUrl: buildUrl + "/{{{ SYMBOLS_FILENAME }}}",
+      #endif
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: {{{ JSON.stringify(COMPANY_NAME) }}},
+        productName: {{{ JSON.stringify(PRODUCT_NAME) }}},
+        productVersion: {{{ JSON.stringify(PRODUCT_VERSION) }}},
+        showBanner: unityShowBanner,
+      };
+
+      // 고해상도(HiDPI/Retina) 디스플레이에서 선명한 렌더링을 위해 devicePixelRatio를 2로 설정합니다.
+      // 성능에 민감한 경우 이 값을 1로 낮추거나, window.devicePixelRatio를 사용하여 동적으로 조절할 수 있습니다.
+      config.devicePixelRatio = 2;
+      
+      // 기본적으로 Unity는 WebGL 캔버스 렌더 타겟 크기를 캔버스 요소의 DOM 크기(window.devicePixelRatio에 의해 스케일됨)와 일치시킵니다.
+      // 엔진 내부에서 이 동기화가 일어나는 것을 분리하고, 대신 캔버스 DOM 크기와 WebGL 렌더 타겟 크기를 직접 조절하고 싶다면 이 값을 false로 설정하세요.
+      // config.matchWebGLToCanvasSize = false;
+      
+      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        // 모바일 기기 스타일: 브라우저 클라이언트 영역 전체를 게임 캔버스로 채웁니다.
+        var meta = document.createElement('meta');
+        meta.name = 'viewport';
+        meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
+        document.getElementsByTagName('head')[0].appendChild(meta);
+        container.className = "unity-mobile";
+      
+        // 모바일 기기에서 성능 향상을 위해 캔버스 해상도를 낮추려면 아래 줄의 주석을 해제하세요.
+        unityShowBanner('WebGL builds are not supported on mobile devices.');
+      }
+      
+      #if BACKGROUND_FILENAME
+      canvas.style.background = "url('" + buildUrl + "/{{{ BACKGROUND_FILENAME.replace(/'/g, '%27') }}}') center / cover";
+      #endif
+      loadingBar.style.display = "block";
+      
+      var script = document.createElement("script");
+      script.src = loaderUrl;
+      script.onload = () => {
+        createUnityInstance(canvas, config, (progress) => {
+          progressBarFull.style.width = 100 * progress + "%";
+        }).then((unityInstance) => {
+          loadingBar.style.display = "none";
+
+          // 플레이어가 탭을 닫기 전에 경고를 표시하고 싶다면, 아래 줄의 주석을 해제하세요.
+          // window.onbeforeunload = confirmUnload;
+        }).catch((message) => {
+          alert(message);
+        });
+      };
+      document.body.appendChild(script);
+      
+      document.onfullscreenchange = rebuildFullscreenGUI;
+    </script>
+  </body>
+</html>

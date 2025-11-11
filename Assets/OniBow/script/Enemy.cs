@@ -697,13 +697,19 @@ public class Enemy : MonoBehaviour
             FlipCharacter(directionToPlayer);
         }
 
-        // 공격 애니메이션 재생 및 발사 (이 작업이 끝나야 다음 상태로 감)
-        await PlayAttackAndFireAsync(false, token);
-
-        // 공격 후 쿨다운
-        await UniTask.Delay(TimeSpan.FromSeconds(m_attackCooldown), cancellationToken: token).SuppressCancellationThrow();
-
-        SetState(EnemyState.Idle); // 공격 완료 후 Idle로 돌아가 재평가
+        try
+        {
+            // 공격 애니메이션 재생 및 발사 (이 작업이 끝나야 다음 상태로 감)
+            await PlayAttackAndFireAsync(false, token);
+            // 공격 후 쿨다운
+            await UniTask.Delay(TimeSpan.FromSeconds(m_attackCooldown), cancellationToken: token);
+        }
+        catch (OperationCanceledException) { /* 쿨다운 중 취소될 수 있음 */ }
+        finally
+        {
+            if (!m_isDead && CurrentState == EnemyState.Attacking)
+                SetState(EnemyState.Idle); // 공격 완료 후 Idle로 돌아가 재평가
+        }
     }
 
     private async UniTask OnSkillAttackingStateAsync(CancellationToken token)
@@ -718,11 +724,17 @@ public class Enemy : MonoBehaviour
             FlipCharacter(directionToPlayer);
         }
 
-        // 스킬 사용
-        await PlayAttackAndFireAsync(true, token);
-
-        // 스킬 사용 후에는 즉시 Idle로 돌아가 다음 행동을 결정합니다.
-        SetState(EnemyState.Idle);
+        try
+        {
+            // 스킬 사용
+            await PlayAttackAndFireAsync(true, token);
+        }
+        catch (OperationCanceledException) { /* 스킬 사용 중 취소될 수 있음 */ }
+        finally
+        {
+            if (!m_isDead && CurrentState == EnemyState.SkillAttacking)
+                SetState(EnemyState.Idle); // 스킬 사용 후에는 즉시 Idle로 돌아가 다음 행동을 결정합니다.
+        }
     }
 
     private async UniTask OnHealingStateAsync(CancellationToken token)
