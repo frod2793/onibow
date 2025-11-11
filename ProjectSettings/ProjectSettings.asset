@@ -558,6 +558,9 @@ PlayerSettings:
   - serializedVersion: 3
     m_BuildTarget: Android
     m_Formats: 03000000
+  - serializedVersion: 3
+    m_BuildTarget: WebGL
+    m_Formats: 05000000
   playModeTestRunnerEnabled: 0
   runPlayModeTestAsEditModeTest: 0
   actionOnDotNetUnhandledException: 1
@@ -824,7 +827,7 @@ PlayerSettings:
   webWasm2023: 0
   webEnableSubmoduleStrippingCompatibility: 0
   scriptingDefineSymbols:
-    Android: DOTWEEN;APP_UI_EDITOR_ONLY;UNITY_POST_PROCESSING_STACK_V2
+    Android: DOTWEEN;APP_UI_EDITOR_ONLY;UNITY_POST_PROCESSING_STACK_V2;UNITASK_DOTWEEN_SUPPORT
     EmbeddedLinux: DOTWEEN;UNITY_POST_PROCESSING_STACK_V2
     GameCoreScarlett: DOTWEEN;UNITY_POST_PROCESSING_STACK_V2
     GameCoreXboxOne: DOTWEEN;UNITY_POST_PROCESSING_STACK_V2
@@ -837,7 +840,7 @@ PlayerSettings:
     ReservedCFE: DOTWEEN;UNITY_POST_PROCESSING_STACK_V2
     Standalone: DOTWEEN;APP_UI_EDITOR_ONLY;UNITY_POST_PROCESSING_STACK_V2
     VisionOS: DOTWEEN;UNITY_POST_PROCESSING_STACK_V2
-    WebGL: DOTWEEN;UNITY_POST_PROCESSING_STACK_V2;APP_UI_EDITOR_ONLY
+    WebGL: DOTWEEN;UNITY_POST_PROCESSING_STACK_V2;APP_UI_EDITOR_ONLY;UNITASK_DOTWEEN_SUPPORT
     Windows Store Apps: DOTWEEN
     XboxOne: DOTWEEN;UNITY_POST_PROCESSING_STACK_V2
     iPhone: DOTWEEN

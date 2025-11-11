@@ -2,6 +2,8 @@ using UnityEngine;
 using Cysharp.Threading.Tasks;
 using System.Threading;
 using System;
+using System.Linq;
+using UnityEngine.Serialization;
 
 /// <summary>
 /// 플레이어를 공격하는 적 AI 클래스입니다.
@@ -27,97 +29,103 @@ public class Enemy : MonoBehaviour
     }
 
     [Header("체력 설정")]
-    [SerializeField] private int maxHp = 150;
+    [SerializeField] private int m_maxHp = 150;
     [Tooltip("예비 체력이 현재 체력을 따라잡기 시작하는 시간 (초)")]
-    [SerializeField] private float tempHpDecreaseDelay = 3f;
+    [SerializeField] private float m_tempHpDecreaseDelay = 3f;
     [Tooltip("예비 체력이 현재 체력을 따라잡는 속도 (초당 체력)")]
-    [SerializeField] private float tempHpCatchUpSpeed = 50f;
-    private int _currentHp;
-    private int _tempHp;
-    private float _lastDamageTime;
+    [SerializeField] private float m_tempHpCatchUpSpeed = 50f;
+    private int m_currentHp;
+    private int m_tempHp;
+    private float m_lastDamageTime;
     public event Action<int, int, int> OnHpChanged; // (현재, 예비, 최대)
 
     [Header("AI 설정")]
-    public EnemyState currentState = EnemyState.Idle;
-    public Transform player;
-    public float moveSpeed = 3f;
+    public EnemyState CurrentState { get; private set; } = EnemyState.Idle;
+    [SerializeField] private Transform m_player;
+    [SerializeField] private float m_moveSpeed = 3f;
     [Tooltip("공격 위치로 간주할 거리의 허용 오차 범위입니다.")]
-    [SerializeField] private float distanceTolerance = 0.5f;
+    [SerializeField] private float m_distanceTolerance = 0.5f;
 
     [Header("지형 설정")]
     [Tooltip("지면을 감지할 레이어 마스크")]
-    [SerializeField] private LayerMask groundLayer;
-    private float _minXPosition;
-    private float _maxXPosition;
-    private float _cameraMinX;
-    private float _cameraMaxX;
-    private float _effectiveMinX;
-    private float _effectiveMaxX;
+    [SerializeField] private LayerMask m_groundLayer;
+    private float m_minXPosition;
+    private float m_maxXPosition;
+    private float m_cameraMinX;
+    private float m_cameraMaxX;
+    private float m_effectiveMinX;
+    private float m_effectiveMaxX;
 
     [Header("공격 설정")]
     [Tooltip("발사할 화살 프리팹")]
-    [SerializeField] private GameObject arrowPrefab;
-    [SerializeField] private Transform firePoint;
+    [SerializeField] private GameObject m_arrowPrefab;
+    [SerializeField] private Transform m_firePoint;
     [Tooltip("화살이 날아가는 고정 거리. 적의 이동 및 공격 위치 선정의 기준이 됩니다.")]
-    [SerializeField] private float fireDistance = 7f;
-    [SerializeField] private float fireArcHeight = 3f;
-    [SerializeField] private float fireDuration = 1f;
-    [SerializeField] private float attackCooldown = 2f;
+    [SerializeField] private float m_fireDistance = 7f;
+    [SerializeField] private float m_fireArcHeight = 3f;
+    [SerializeField] private float m_fireDuration = 1f;
+    [SerializeField] private float m_attackCooldown = 2f;
 
     [Header("스킬 설정")]
-    [SerializeField] private float skillCooldown = 10f;
+    [SerializeField] private float m_skillCooldown = 10f;
     [Range(0, 1)]
-    [SerializeField] private float skillChance = 0.3f; // 30% 확률로 스킬 사용
-    [SerializeField] private Transform skillHandPoint; // 스킬 무기가 장착될 손 위치
-    private float _lastSkillUseTime = -999f;
-    [SerializeField] private float healSkillCooldown = 20f;
-    [SerializeField, Range(0, 1)] private float healHealthThreshold = 0.4f; // 체력이 40% 이하일 때 회복 시도
-    private float _lastHealTime = -999f;
+    [SerializeField] private float m_skillChance = 0.3f; // 30% 확률로 스킬 사용
+    [SerializeField] private Transform m_skillHandPoint; // 스킬 무기가 장착될 손 위치
+    private float m_lastSkillUseTime = -999f;
+    [SerializeField] private float m_healSkillCooldown = 20f;
+    [SerializeField, Range(0, 1)] private float m_healHealthThreshold = 0.4f; // 체력이 40% 이하일 때 회복 시도
+    private float m_lastHealTime = -999f;
 
     [Header("회피 설정")]
     [Tooltip("플레이어의 공격을 회피할 확률 (0.0 ~ 1.0)")]
     [Range(0, 1)]
-    [SerializeField] private float evadeChance = 0.3f;
+    [SerializeField] private float m_evadeChance = 0.3f;
     [Tooltip("회피 대쉬 속도")]
-    [SerializeField] private float evadeDashSpeed = 15f;
+    [SerializeField] private float m_evadeDashSpeed = 15f;
     [Tooltip("회피 대쉬 최대 지속 시간")]
-    [SerializeField] private float evadeDashDuration = 0.25f;
+    [SerializeField] private float m_evadeDashDuration = 0.25f;
     [Tooltip("회피가 발동되기 위한 최소 대쉬 거리")]
-    [SerializeField] private float minEvadeDistance = 2f;
+    [SerializeField] private float m_minEvadeDistance = 2f;
 
-    private SPUM_Prefabs _enemyAnimation;
-    private Rigidbody2D _rigidbody2D;
-    private Collider2D _collider;
-    private AfterimageEffect _afterimageEffect;
-    private CancellationTokenSource _aiTaskCts;
-    private bool _isDead;
-    public bool IsDead => _isDead;
+    private SPUM_Prefabs m_enemyAnimation;
+    private Rigidbody2D m_rigidbody2D;
+    private Collider2D m_collider;
+    private AfterimageEffect m_afterimageEffect;
+    private CancellationTokenSource m_aiTaskCts;
+    private bool m_isDead;
+    public bool IsDead => m_isDead;
+    
+    // 상수
+    private const string k_PlayerTag = "Player";
+    private const string k_ArrowTag = "Arrow";
+
     #endregion
 
     #region MonoBehaviour 콜백
     private void Awake()
     {
-        _rigidbody2D = GetComponent<Rigidbody2D>();
-        _collider = GetComponent<Collider2D>();
-        _afterimageEffect = GetComponent<AfterimageEffect>();
-        if (_afterimageEffect == null)
+        m_rigidbody2D = GetComponent<Rigidbody2D>();
+        m_collider = GetComponent<Collider2D>();
+        m_afterimageEffect = GetComponent<AfterimageEffect>();
+        if (m_afterimageEffect == null)
         {
             Debug.LogWarning("Enemy에 AfterimageEffect 컴포넌트가 없습니다. 회피 잔상 효과가 동작하지 않습니다.");
         }
-        _enemyAnimation = GetComponent<SPUM_Prefabs>();
-        _rigidbody2D.gravityScale = 1;
-        _rigidbody2D.constraints = RigidbodyConstraints2D.FreezeRotation;
-        _currentHp = maxHp;
-        _tempHp = maxHp;
+        m_enemyAnimation = GetComponentInChildren<SPUM_Prefabs>();
+        m_rigidbody2D.gravityScale = 1;
+        m_rigidbody2D.constraints = RigidbodyConstraints2D.FreezeRotation;
+        
+        m_currentHp = m_maxHp;
+        m_tempHp = m_maxHp;
 
-        if (_enemyAnimation != null)
+        if (m_enemyAnimation != null)
         {
-            if (!_enemyAnimation.allListsHaveItemsExist())
+            if (!m_enemyAnimation.allListsHaveItemsExist())
             {
-                _enemyAnimation.PopulateAnimationLists();
+                m_enemyAnimation.PopulateAnimationLists();
             }
-            _enemyAnimation.OverrideControllerInit();
-            if (_enemyAnimation._anim == null)
+            m_enemyAnimation.OverrideControllerInit();
+            if (m_enemyAnimation._anim == null)
             {
                 Debug.LogError("적의 SPUM_Prefabs에 Animator 참조가 없습니다!");
             }
@@ -130,31 +138,31 @@ public class Enemy : MonoBehaviour
 
     void Start()
     {
-        if (player == null)
+        if (m_player == null)
         {
-            var playerObject = GameObject.FindGameObjectWithTag("Player");
-            if (playerObject != null) player = playerObject.transform;
+            var playerObject = GameObject.FindGameObjectWithTag(k_PlayerTag);
+            if (playerObject != null) m_player = playerObject.transform;
         }
 
-        if (firePoint == null) firePoint = transform;
+        if (m_firePoint == null) m_firePoint = transform;
 
         DetectGroundAndCameraBoundaries();
         ForceUpdateHpUI();
 
-        _aiTaskCts = new CancellationTokenSource();
-        AI_LoopAsync(_aiTaskCts.Token).Forget();
+        m_aiTaskCts = new CancellationTokenSource();
+        AI_LoopAsync(m_aiTaskCts.Token).Forget();
     }
 
     private void Update()
     {
-        if (_isDead) return;
+        if (m_isDead) return;
 
         CheckIfOffScreen();
     }
 
     private void OnTriggerEnter2D(Collider2D other)
     {
-        if (!_isDead && (other.CompareTag("Arrow")))
+        if (!m_isDead && (other.CompareTag(k_ArrowTag)))
         {
             TakeDamage(10);
         }
@@ -162,9 +170,8 @@ public class Enemy : MonoBehaviour
 
     private void OnDestroy()
     {
-        _aiTaskCts?.Cancel();
-        _aiTaskCts?.Dispose();
-        OnEnemyDestroyed?.Invoke(this);
+        m_aiTaskCts?.Cancel();
+        m_aiTaskCts?.Dispose();
     }
     #endregion
 
@@ -172,11 +179,11 @@ public class Enemy : MonoBehaviour
     public async void TakeDamage(int damage)
     {
         // [회피 우선권] 회피, 피격, 사망 중에는 새로운 데미지나 회피를 처리하지 않음
-        if (_isDead || currentState == EnemyState.Evading || currentState == EnemyState.Damaged) return;
+        if (m_isDead || CurrentState == EnemyState.Evading || CurrentState == EnemyState.Damaged) return;
 
         // 회피 판정: 특정 상태(이동, 공격, 대기)일 때만 확률적으로 발동
-        bool canTryEvade = currentState == EnemyState.Moving || currentState == EnemyState.Attacking || currentState == EnemyState.Idle;
-        if (canTryEvade && UnityEngine.Random.value < evadeChance)
+        bool canTryEvade = CurrentState == EnemyState.Moving || CurrentState == EnemyState.Attacking || CurrentState == EnemyState.Idle;
+        if (canTryEvade && UnityEngine.Random.value < m_evadeChance)
         {
             Debug.Log("<color=orange>[AI-Evade]</color> 회피 시도!");
             // 회피를 시도하고, 성공 여부를 기다립니다.
@@ -191,23 +198,23 @@ public class Enemy : MonoBehaviour
 
         // 데미지를 받기 시작한 시점의 체력을 예비 체력으로 기록합니다.
         // 예비 체력 감소 딜레이 시간 내에 추가 타격을 받으면, 예비 체력은 갱신되지 않고 현재 체력만 감소합니다.
-        if (Time.time > _lastDamageTime + tempHpDecreaseDelay)
+        if (Time.time > m_lastDamageTime + m_tempHpDecreaseDelay)
         {
-            _tempHp = _currentHp;
+            m_tempHp = m_currentHp;
         }
 
-        _currentHp -= damage;
-        _currentHp = Mathf.Max(0, _currentHp);
-        _lastDamageTime = Time.time;
+        m_currentHp -= damage;
+        m_currentHp = Mathf.Max(0, m_currentHp);
+        m_lastDamageTime = Time.time;
 
-        OnHpChanged?.Invoke(_currentHp, _tempHp, maxHp);
+        OnHpChanged?.Invoke(m_currentHp, m_tempHp, m_maxHp);
 
         // 데미지 텍스트 표시 (캐릭터 머리 위)
         EffectManager.Instance.ShowDamageText(gameObject, damage);
 
-        if (_currentHp <= 0)
+        if (m_currentHp <= 0)
         {
-            // _currentHp is already clamped to 0
+            // m_currentHp is already clamped to 0
             Die();
         }
         else
@@ -218,7 +225,7 @@ public class Enemy : MonoBehaviour
 
     public void ForceUpdateHpUI()
     {
-        OnHpChanged?.Invoke(_currentHp, _tempHp, maxHp);
+        OnHpChanged?.Invoke(m_currentHp, m_tempHp, m_maxHp);
     }
 
     /// <summary>
@@ -226,13 +233,13 @@ public class Enemy : MonoBehaviour
     /// </summary>
     public void HealWithTempHp()
     {
-        if (_isDead) return;
-        int recoveryAmount = _tempHp - _currentHp;
+        if (m_isDead) return;
+        int recoveryAmount = m_tempHp - m_currentHp;
         if (recoveryAmount > 0)
         {
-            _currentHp += recoveryAmount;
-            _tempHp = _currentHp; // 회복 후에는 예비 체력과 현재 체력을 일치시킴
-            OnHpChanged?.Invoke(_currentHp, _tempHp, maxHp);
+            m_currentHp += recoveryAmount;
+            m_tempHp = m_currentHp; // 회복 후에는 예비 체력과 현재 체력을 일치시킴
+            OnHpChanged?.Invoke(m_currentHp, m_tempHp, m_maxHp);
             Debug.Log("적이 체력을 회복했습니다!");
         }
     }
@@ -242,27 +249,30 @@ public class Enemy : MonoBehaviour
 
     private void Die()
     {
-        _isDead = true;
-        _aiTaskCts?.Cancel();
-        _rigidbody2D.linearVelocity = Vector2.zero;
+        if (m_isDead) return;
+        m_isDead = true;
+        
+        m_aiTaskCts?.Cancel();
+        m_rigidbody2D.linearVelocity = Vector2.zero;
         GetComponent<Collider2D>().enabled = false;
-        currentState = EnemyState.Dead;
+        SetState(EnemyState.Dead);
  
         // 체력을 0으로 설정하고 UI를 업데이트합니다.
-        _currentHp = 0;
-        _tempHp = 0;
-        OnHpChanged?.Invoke(_currentHp, _tempHp, maxHp);
-
-        if (_enemyAnimation != null) _enemyAnimation.PlayAnimation(PlayerState.DEATH, 0);
+        m_currentHp = 0;
+        m_tempHp = 0;
+        OnHpChanged?.Invoke(m_currentHp, m_tempHp, m_maxHp);
+        
+        // OnDestroy가 아닌, 논리적 사망 시점에 이벤트를 호출하여 안정성을 높입니다.
+        OnEnemyDestroyed?.Invoke(this);
         
         Destroy(gameObject, 3f);
     }
 
     private async UniTaskVoid AI_LoopAsync(CancellationToken token)
     {
-        while (!token.IsCancellationRequested && !_isDead)
+        while (!token.IsCancellationRequested && !m_isDead)
         {
-            switch (currentState)
+            switch (CurrentState)
             {
                 case EnemyState.Idle:
                     await OnIdleStateAsync(token);
@@ -280,23 +290,23 @@ public class Enemy : MonoBehaviour
                     await OnHealingStateAsync(token);
                     break;
             }
-            await UniTask.Yield(PlayerLoopTiming.Update, token);
+            await UniTask.Yield(PlayerLoopTiming.Update, token).SuppressCancellationThrow();
         }
     }
 
     private async UniTask PlayAttackAndFireAsync(bool useSkill, CancellationToken token)
     {
-        _enemyAnimation.PlayAnimation(PlayerState.ATTACK, 0);
+        SetState(useSkill ? EnemyState.SkillAttacking : EnemyState.Attacking);
 
-        var attackClip = _enemyAnimation.ATTACK_List.Count > 0 ? _enemyAnimation.ATTACK_List[0] : null;
+        var attackClip = m_enemyAnimation.ATTACK_List.Count > 0 ? m_enemyAnimation.ATTACK_List[0] : null;
         try
         {
             if (useSkill)
             {
-                _lastSkillUseTime = Time.time;
+                m_lastSkillUseTime = Time.time;
                 Debug.Log("Enemy uses AK47 Skill!");
                 // 스킬 실행을 기다립니다. 이 시간 동안 공격 애니메이션이 재생됩니다.
-                await SkillManager.Instance.ExecuteEnemyMultiShot(skillHandPoint, player);
+                await SkillManager.Instance.ExecuteEnemyMultiShot(m_skillHandPoint, m_player);
             }
             else
             {
@@ -306,7 +316,7 @@ public class Enemy : MonoBehaviour
                     float fireDelay = attackClip.length * 0.5f;
                     await UniTask.Delay(TimeSpan.FromSeconds(fireDelay), cancellationToken: token);
 
-                    if (_isDead) return;
+                    if (m_isDead) return;
                     PerformArrowLaunch();
 
                     await UniTask.Delay(TimeSpan.FromSeconds(attackClip.length - fireDelay), cancellationToken: token);
@@ -314,47 +324,43 @@ public class Enemy : MonoBehaviour
                 else // 애니메이션 클립이 없는 경우 기본 딜레이 후 발사
                 {
                     await UniTask.Delay(TimeSpan.FromSeconds(0.5f), cancellationToken: token);
-                    if (_isDead) return;
+                    if (m_isDead) return;
                     PerformArrowLaunch();
                     await UniTask.Delay(TimeSpan.FromSeconds(0.5f), cancellationToken: token);
                 }
             }
         }
         catch (OperationCanceledException) { /* 예외 발생 시에도 finally가 실행되도록 보장 */ }
-        finally
-        {
-            // 상태 전환은 각 상태 핸들러(OnAttackingStateAsync 등)에서 책임지도록 변경합니다.
-        }
+    
     }
 
     private async UniTaskVoid PlayDamagedAnimationAsync()
     {
-        if (_isDead || _enemyAnimation == null) return;
+        if (m_isDead || m_enemyAnimation == null) return;
 
-        _aiTaskCts?.Cancel();
-        currentState = EnemyState.Damaged;
-        _rigidbody2D.linearVelocity = Vector2.zero;
+        m_aiTaskCts?.Cancel();
+        SetState(EnemyState.Damaged);
+        m_rigidbody2D.linearVelocity = Vector2.zero;
 
-        _enemyAnimation.PlayAnimation(PlayerState.DAMAGED, 0);
-
-        var damagedClip = _enemyAnimation.DAMAGED_List.Count > 0 ? _enemyAnimation.DAMAGED_List[0] : null;
+        var damagedClip = m_enemyAnimation.DAMAGED_List.Count > 0 ? m_enemyAnimation.DAMAGED_List[0] : null;
         if (damagedClip != null)
         {
             try
             {
-                await UniTask.Delay(TimeSpan.FromSeconds(damagedClip.length), cancellationToken: this.GetCancellationTokenOnDestroy());
+                await UniTask.Delay(TimeSpan.FromSeconds(damagedClip.length), cancellationToken: this.GetCancellationTokenOnDestroy()).SuppressCancellationThrow();
             }
             catch (OperationCanceledException)
             {
                 return;
             }
         }
-
-        if (!_isDead)
+        
+        // 피격 애니메이션이 끝난 후, 사망 상태가 아니라면 다시 AI 루프를 시작합니다.
+        if (!m_isDead)
         {
-            currentState = EnemyState.Idle;
-            _aiTaskCts = new CancellationTokenSource();
-            AI_LoopAsync(_aiTaskCts.Token).Forget();
+            SetState(EnemyState.Idle);
+            m_aiTaskCts = new CancellationTokenSource();
+            AI_LoopAsync(m_aiTaskCts.Token).Forget();
         }
     }
 
@@ -364,12 +370,13 @@ public class Enemy : MonoBehaviour
 
     private void CheckIfOffScreen()
     {
-        if (GameManager.Instance != null && GameManager.Instance.mainCamera != null)
+        Vector3 currentTransformPosition = transform.position;
+        if (GameManager.Instance != null && GameManager.Instance.MainCamera != null) // GameManager와 MainCamera가 유효한지 확인
         {
-            float cameraBottom = GameManager.Instance.mainCamera.ViewportToWorldPoint(new Vector3(0, 0, 0)).y;
+            float cameraBottom = GameManager.Instance.MainCamera.ViewportToWorldPoint(new Vector3(0, 0, 0)).y;
             float destroyThreshold = cameraBottom - 2f;
 
-            if (transform.position.y < destroyThreshold)
+            if (currentTransformPosition.y < destroyThreshold)
             {
                 Destroy(gameObject);
             }
@@ -378,23 +385,22 @@ public class Enemy : MonoBehaviour
 
     private void ClampPosition()
     {
-        Vector2 clampedPosition = _rigidbody2D.position;
-        clampedPosition.x = Mathf.Clamp(clampedPosition.x, _effectiveMinX, _effectiveMaxX);
-        _rigidbody2D.position = clampedPosition;
+        Vector2 clampedPosition = m_rigidbody2D.position;
+        clampedPosition.x = Mathf.Clamp(clampedPosition.x, m_effectiveMinX, m_effectiveMaxX);
+        m_rigidbody2D.position = clampedPosition;
     }
 
     private void PerformArrowLaunch()
     {
-        if (_isDead || ObjectPoolManager.Instance == null || player == null) return;
+        if (m_isDead || ObjectPoolManager.Instance == null || m_player == null) return;
+        Vector3 startPos = m_firePoint.position;
+        Vector2 direction = (m_player.position - startPos).normalized;
+        Vector3 endPos = startPos + new Vector3(direction.x, direction.y, 0).normalized * m_fireDistance;
 
-        Vector3 startPos = firePoint.position;
-        Vector2 direction = (player.position - startPos).normalized;
-        Vector3 endPos = startPos + new Vector3(direction.x, direction.y, 0).normalized * fireDistance;
-
-        Vector3 apex = (startPos + endPos) / 2f + Vector3.up * fireArcHeight;
+        Vector3 apex = (startPos + endPos) / 2f + Vector3.up * m_fireArcHeight;
         Vector3 controlPoint = 2 * apex - (startPos + endPos) / 2f;
 
-        GameObject arrowObject = ObjectPoolManager.Instance.Get(arrowPrefab);
+        GameObject arrowObject = ObjectPoolManager.Instance.Get(m_arrowPrefab);
         if (arrowObject == null) return;
 
         arrowObject.transform.SetPositionAndRotation(startPos, Quaternion.identity);
@@ -402,7 +408,7 @@ public class Enemy : MonoBehaviour
         if (arrowController != null)
         {
             arrowController.Owner = ArrowController.ArrowOwner.Enemy;
-            arrowController.Launch(startPos, controlPoint, endPos, fireDuration);
+            arrowController.Launch(startPos, controlPoint, endPos, m_fireDuration);
         }
         else
         {
@@ -412,97 +418,129 @@ public class Enemy : MonoBehaviour
 
     private void DetectGroundAndCameraBoundaries()
     {
+        Vector3 currentTransformPosition = transform.position;
         // 캐릭터 너비의 절반 (중심에서 가장자리까지의 거리)
-        float enemyWidth = _collider.bounds.extents.x;
+        Bounds enemyBounds = m_collider.bounds;
+        float enemyWidth = enemyBounds.extents.x;
 
         // 1. 지면 경계 감지 (Probing 방식)
         // 타일맵의 틈으로 인해 Raycast가 실패하는 문제를 방지하기 위해 BoxCast를 사용합니다.
         // 또한, 탐색 정밀도를 높여 더 정확한 경계를 찾습니다.
 
         float maxProbeDistance = 20f; // 양쪽으로 탐색할 최대 거리
-        int probeSteps = 100;         // 탐색 정밀도 (높을수록 정확하지만 비용 증가)
+        int probeSteps = 100; // 탐색 정밀도 (높을수록 정확하지만 비용 증가)
         float stepDistance = maxProbeDistance / probeSteps;
         
         // 캐릭터의 발 위치를 기준으로 탐색을 시작합니다.
-        Vector2 characterFeet = (Vector2)transform.position - new Vector2(0, _collider.bounds.extents.y);
+        Vector2 characterFeet = (Vector2)currentTransformPosition - new Vector2(0, enemyBounds.extents.y);
         Vector2 boxCastSize = new Vector2(stepDistance, 0.1f); // 탐색 간격만큼의 너비를 가진 작은 상자
 
         // --- 오른쪽 경계(절벽) 찾기 ---
-        float rightEdgeX = transform.position.x;
+        float rightEdgeX = currentTransformPosition.x;
         for (int i = 1; i <= probeSteps; i++)
         {
             // 현재 위치에서 오른쪽으로 한 스텝 이동한 지점
-            Vector2 probeOrigin = new Vector2(transform.position.x + i * stepDistance, characterFeet.y);
+            Vector2 probeOrigin = new Vector2(currentTransformPosition.x + i * stepDistance, characterFeet.y);
             
             // 해당 지점 바로 아래에 땅이 있는지 확인합니다.
-            RaycastHit2D hit = Physics2D.BoxCast(probeOrigin, boxCastSize, 0f, Vector2.down, 0.2f, groundLayer);
+            RaycastHit2D hit = Physics2D.BoxCast(probeOrigin, boxCastSize, 0f, Vector2.down, 0.2f, m_groundLayer);
             
             if (hit.collider == null)
             {
                 // 땅이 없으면, 바로 이전 지점이 절벽의 가장자리입니다.
-                rightEdgeX = transform.position.x + (i - 1) * stepDistance;
+                rightEdgeX = currentTransformPosition.x + (i - 1) * stepDistance;
                 break;
             }
             
             // 탐색이 끝까지 도달했다면, 최대 탐색 거리를 경계로 간주합니다.
-            if (i == probeSteps) rightEdgeX = transform.position.x + maxProbeDistance;
+            if (i == probeSteps) rightEdgeX = currentTransformPosition.x + maxProbeDistance;
         }
-        _maxXPosition = rightEdgeX;
+        m_maxXPosition = rightEdgeX;
 
         // --- 왼쪽 경계(절벽) 찾기 ---
-        float leftEdgeX = transform.position.x;
+        float leftEdgeX = currentTransformPosition.x;
         for (int i = 1; i <= probeSteps; i++)
         {
-            Vector2 probeOrigin = new Vector2(transform.position.x - i * stepDistance, characterFeet.y);
-            RaycastHit2D hit = Physics2D.BoxCast(probeOrigin, boxCastSize, 0f, Vector2.down, 0.2f, groundLayer);
+            Vector2 probeOrigin = new Vector2(currentTransformPosition.x - i * stepDistance, characterFeet.y);
+            RaycastHit2D hit = Physics2D.BoxCast(probeOrigin, boxCastSize, 0f, Vector2.down, 0.2f, m_groundLayer);
             
             if (hit.collider == null)
             {
-                leftEdgeX = transform.position.x - (i - 1) * stepDistance;
+                leftEdgeX = currentTransformPosition.x - (i - 1) * stepDistance;
                 break;
             }
-
-            if (i == probeSteps) leftEdgeX = transform.position.x - maxProbeDistance;
+            if (i == probeSteps) leftEdgeX = currentTransformPosition.x - maxProbeDistance;
         }
-        _minXPosition = leftEdgeX;
+        m_minXPosition = leftEdgeX; // 왼쪽 경계 설정
 
         // 2. 카메라 경계 감지
-        if (GameManager.Instance != null && GameManager.Instance.mainCamera != null)
+        if (GameManager.Instance != null && GameManager.Instance.MainCamera != null)
         {
-            Camera cam = GameManager.Instance.mainCamera;
-            _cameraMinX = cam.ViewportToWorldPoint(new Vector3(0, 0, 0)).x;
-            _cameraMaxX = cam.ViewportToWorldPoint(new Vector3(1, 0, 0)).x;
+            Camera cam = GameManager.Instance.MainCamera;
+            m_cameraMinX = cam.ViewportToWorldPoint(new Vector3(0, 0, 0)).x;
+            m_cameraMaxX = cam.ViewportToWorldPoint(new Vector3(1, 0, 0)).x;
         }
         else
         {
-            _cameraMinX = -Mathf.Infinity;
-            _cameraMaxX = Mathf.Infinity;
+            m_cameraMinX = -Mathf.Infinity;
+            m_cameraMaxX = Mathf.Infinity;
         }
 
         // 3. 최종 유효 이동 범위 계산 (지면과 카메라 경계의 교집합)
         // 캐릭터의 중심이 이동할 수 있는 최종 범위를 계산합니다.
         // 캐릭터가 플랫폼과 카메라 뷰 밖으로 완전히 나가지 않도록 너비만큼 보정합니다.
-        _effectiveMinX = Mathf.Max(_minXPosition, _cameraMinX) + enemyWidth;
-        _effectiveMaxX = Mathf.Min(_maxXPosition, _cameraMaxX) - enemyWidth;
+        m_effectiveMinX = Mathf.Max(m_minXPosition, m_cameraMinX) + enemyWidth;
+        m_effectiveMaxX = Mathf.Min(m_maxXPosition, m_cameraMaxX) - enemyWidth;
     }
 
-    private void FlipSprite(float horizontalDirection)
+    private void FlipCharacter(float horizontalDirection)
     {
         if (Mathf.Abs(horizontalDirection) < 0.01f) return;
+        if (m_enemyAnimation == null) return;
 
-        // 로컬 스케일의 x값을 조절하여 스프라이트의 방향을 전환합니다.
-        // 기본적으로 왼쪽을 보고 있다고 가정합니다 (localScale.x > 0).
-        // horizontalDirection이 0보다 크면(오른쪽으로 이동) 오른쪽을 보도록 localScale.x를 음수로 만듭니다.
-        Vector3 localScale = transform.localScale;
-        if (horizontalDirection > 0)
+        // PlayerControl과 동일한 로직으로, SPUM_Prefabs의 자식 오브젝트를 회전시킵니다.
+        // 오른쪽을 볼 때 Y축 회전값이 180, 왼쪽을 볼 때 0이 되도록 설정합니다.
+        m_enemyAnimation.transform.rotation = Quaternion.Euler(0f, horizontalDirection > 0 ? 180f : 0f, 0f);
+    }
+
+    /// <summary>
+    /// 적의 상태를 변경하고, 상태에 맞는 애니메이션을 재생합니다.
+    /// </summary>
+    private void SetState(EnemyState newState)
+    {
+        if (CurrentState == newState) return;
+        
+        CurrentState = newState;
+
+        if (m_enemyAnimation == null) return;
+
+        PlayerState animState;
+        switch (newState)
         {
-            localScale.x = -Mathf.Abs(localScale.x);
+            case EnemyState.Idle:
+                animState = PlayerState.IDLE;
+                break;
+            case EnemyState.Moving:
+                animState = PlayerState.MOVE;
+                break;
+            case EnemyState.Attacking:
+            case EnemyState.SkillAttacking: // SkillAttacking도 ATTACK 애니메이션 사용
+                animState = PlayerState.ATTACK;
+                break;
+            case EnemyState.Damaged:
+                animState = PlayerState.DAMAGED;
+                break;
+            case EnemyState.Dead:
+                animState = PlayerState.DEATH;
+                break;
+            case EnemyState.Healing:
+            case EnemyState.Evading:
+            default: // 기타 상태는 OTHER 애니메이션 사용
+                animState = PlayerState.OTHER;
+                break;
         }
-        else
-        {
-            localScale.x = Mathf.Abs(localScale.x);
-        }
-        transform.localScale = localScale;
+        
+        m_enemyAnimation.PlayAnimation(animState, 0);
     }
 
     #if UNITY_EDITOR
@@ -518,7 +556,7 @@ public class Enemy : MonoBehaviour
             return;
         }
 
-        if (player == null || SkillManager.Instance == null)
+        if (m_player == null || SkillManager.Instance == null)
         {
             Debug.LogError("스킬 테스트에 필요한 Player 또는 SkillManager 참조가 없습니다.");
             return;
@@ -526,11 +564,11 @@ public class Enemy : MonoBehaviour
 
         Debug.Log("--- SKILL TEST: 적 다발 사격 스킬 실행 ---");
         // 테스트 시 자연스럽게 보이도록 플레이어 방향으로 몸을 돌립니다.
-        float directionToPlayer = player.position.x - transform.position.x;
-        FlipSprite(directionToPlayer);
+        float directionToPlayer = m_player.position.x - transform.position.x;
+        FlipCharacter(directionToPlayer);
 
         // SkillManager를 통해 스킬을 직접 실행합니다.
-        await SkillManager.Instance.ExecuteEnemyMultiShot(skillHandPoint, player);
+        await SkillManager.Instance.ExecuteEnemyMultiShot(m_skillHandPoint, m_player);
         Debug.Log("--- SKILL TEST: 완료 ---");
     }
     #endif
@@ -541,77 +579,79 @@ public class Enemy : MonoBehaviour
 
     private async UniTask OnIdleStateAsync(CancellationToken token)
     {
-        if (_isDead) return;
+        if (m_isDead) return;
 
-        _enemyAnimation.PlayAnimation(PlayerState.IDLE, 0);
-        _rigidbody2D.linearVelocity = Vector2.zero;
+        SetState(EnemyState.Idle);
+        m_rigidbody2D.linearVelocity = Vector2.zero;
 
-        if (player == null) return;
+        if (m_player == null) return;
 
         // [우선순위 1: 회복]
-        bool canHeal = Time.time >= _lastHealTime + healSkillCooldown;
-        bool shouldHeal = (float)_currentHp / maxHp <= healHealthThreshold;
-        if (canHeal && shouldHeal && (_tempHp > _currentHp))
+        bool canHeal = Time.time >= m_lastHealTime + m_healSkillCooldown;
+        bool shouldHeal = (float)m_currentHp / m_maxHp <= m_healHealthThreshold;
+        if (canHeal && shouldHeal && (m_tempHp > m_currentHp))
         {
-            currentState = EnemyState.Healing;
+            SetState(EnemyState.Healing);
             return;
         }
 
         // [우선순위 2: 위치 조정 또는 공격]
-        float horizontalDistanceToPlayer = Mathf.Abs(player.position.x - transform.position.x);
-        if (Mathf.Abs(horizontalDistanceToPlayer - fireDistance) > distanceTolerance)
+        float horizontalDistanceToPlayer = Mathf.Abs(m_player.position.x - transform.position.x);
+        if (Mathf.Abs(horizontalDistanceToPlayer - m_fireDistance) > m_distanceTolerance)
         {
-            currentState = EnemyState.Moving;
+            SetState(EnemyState.Moving);
         }
         else
         {
             // 공격 범위 내에 있을 경우, 스킬 사용 여부를 결정합니다.
-            bool canUseSkill = Time.time >= _lastSkillUseTime + skillCooldown;
-            bool willUseSkill = canUseSkill && UnityEngine.Random.value < skillChance;
+            bool canUseSkill = Time.time >= m_lastSkillUseTime + m_skillCooldown;
+            bool willUseSkill = canUseSkill && UnityEngine.Random.value < m_skillChance;
             if (willUseSkill)
             {
-                currentState = EnemyState.SkillAttacking;
+                SetState(EnemyState.SkillAttacking);
             }
             else
             {
-                currentState = EnemyState.Attacking;
+                SetState(EnemyState.Attacking);
             }
         }
-        await UniTask.Yield(token);
+        await UniTask.Yield(token).SuppressCancellationThrow();
     }
 
     private async UniTask OnMovingStateAsync(CancellationToken token)
     {
-        if (_isDead) return;
+        if (m_isDead) return;
 
-        while (!token.IsCancellationRequested && !_isDead)
+        while (!token.IsCancellationRequested && !m_isDead)
         {
-            if (player == null)
+            if (m_player == null)
             {
-                currentState = EnemyState.Idle;
+                SetState(EnemyState.Idle);
                 return;
             }
 
-            float horizontalDistanceToPlayer = Mathf.Abs(player.position.x - transform.position.x);
-            if (Mathf.Abs(horizontalDistanceToPlayer - fireDistance) <= distanceTolerance)
+            Vector3 currentTransformPosition = transform.position;
+            float horizontalDistanceToPlayer = Mathf.Abs(m_player.position.x - currentTransformPosition.x);
+            if (Mathf.Abs(horizontalDistanceToPlayer - m_fireDistance) <= m_distanceTolerance)
             {
-                currentState = EnemyState.Idle; // 목표 도달, 상태 재평가
+                SetState(EnemyState.Idle); // 목표 도달, 상태 재평가
                 return;
             }
-
-            float xDirection = Mathf.Sign(player.position.x - transform.position.x);
-            float moveDirection = (horizontalDistanceToPlayer > fireDistance) ? 1f : -1f;
-            float targetXVelocity = xDirection * moveSpeed * moveDirection;
+            
+            float xDirection = Mathf.Sign(m_player.position.x - currentTransformPosition.x);
+            float moveDirection = (horizontalDistanceToPlayer > m_fireDistance) ? 1f : -1f;
+            float targetXVelocity = xDirection * m_moveSpeed * moveDirection;
 
             // --- 절벽 감지 로직 추가 ---
             float moveSign = Mathf.Sign(targetXVelocity);
             if (moveSign != 0)
             {
                 // 캐릭터의 앞쪽, 발밑을 확인하기 위한 위치. 캐릭터의 전방 가장자리 바로 아래를 확인합니다.
-                Vector2 groundCheckOrigin = (Vector2)_collider.bounds.center + new Vector2(moveSign * _collider.bounds.extents.x, -_collider.bounds.extents.y - 0.05f);
+                Bounds enemyBounds = m_collider.bounds;
+                Vector2 groundCheckOrigin = (Vector2)enemyBounds.center + new Vector2(moveSign * enemyBounds.extents.x, -enemyBounds.extents.y - 0.05f);
                 
                 // 아래 방향으로 짧은 Raycast를 실행하여 발밑에 땅이 있는지 확인
-                RaycastHit2D groundHit = Physics2D.Raycast(groundCheckOrigin, Vector2.down, 0.2f, groundLayer);
+                RaycastHit2D groundHit = Physics2D.Raycast(groundCheckOrigin, Vector2.down, 0.2f, m_groundLayer);
 
                 if (groundHit.collider == null)
                 {
@@ -621,7 +661,7 @@ public class Enemy : MonoBehaviour
             }
 
             // --- 경계 감지 로직 (지면 + 카메라) ---
-            if ((transform.position.x <= _effectiveMinX && targetXVelocity < 0) || (transform.position.x >= _effectiveMaxX && targetXVelocity > 0))
+            if ((currentTransformPosition.x <= m_effectiveMinX && targetXVelocity < 0) || (currentTransformPosition.x >= m_effectiveMaxX && targetXVelocity > 0))
             {
                 targetXVelocity = 0;
             }
@@ -629,74 +669,76 @@ public class Enemy : MonoBehaviour
             // --- 애니메이션 및 이동 처리 ---
             if (Mathf.Abs(targetXVelocity) > 0.01f)
             {
-                _enemyAnimation.PlayAnimation(PlayerState.MOVE, 0);
-                FlipSprite(targetXVelocity);
-                _rigidbody2D.linearVelocity = new Vector2(targetXVelocity, _rigidbody2D.linearVelocity.y);
+                SetState(EnemyState.Moving);
+                FlipCharacter(targetXVelocity);
+                m_rigidbody2D.linearVelocity = new Vector2(targetXVelocity, m_rigidbody2D.linearVelocity.y);
             }
             else
             {
                 // 이동할 수 없으면 IDLE 애니메이션 재생 및 정지
-                _enemyAnimation.PlayAnimation(PlayerState.IDLE, 0);
-                _rigidbody2D.linearVelocity = new Vector2(0, _rigidbody2D.linearVelocity.y);
+                SetState(EnemyState.Idle);
+                m_rigidbody2D.linearVelocity = new Vector2(0, m_rigidbody2D.linearVelocity.y);
             }
 
             ClampPosition();
-            await UniTask.Yield(PlayerLoopTiming.FixedUpdate, token);
+            await UniTask.Yield(PlayerLoopTiming.FixedUpdate, token).SuppressCancellationThrow();
         }
     }
 
     private async UniTask OnAttackingStateAsync(CancellationToken token)
     {
-        if (_isDead) return;
+        if (m_isDead) return;
 
         // 공격 방향으로 몸 돌리기
-        if (player != null)
+        Vector3 currentTransformPosition = transform.position;
+        if (m_player != null) // 플레이어가 유효한지 확인
         {
-            float directionToPlayer = player.position.x - transform.position.x;
-            FlipSprite(directionToPlayer);
+            float directionToPlayer = m_player.position.x - currentTransformPosition.x;
+            FlipCharacter(directionToPlayer);
         }
 
         // 공격 애니메이션 재생 및 발사 (이 작업이 끝나야 다음 상태로 감)
         await PlayAttackAndFireAsync(false, token);
 
         // 공격 후 쿨다운
-        await UniTask.Delay(TimeSpan.FromSeconds(attackCooldown), cancellationToken: token);
+        await UniTask.Delay(TimeSpan.FromSeconds(m_attackCooldown), cancellationToken: token).SuppressCancellationThrow();
 
-        currentState = EnemyState.Idle; // 공격 완료 후 Idle로 돌아가 재평가
+        SetState(EnemyState.Idle); // 공격 완료 후 Idle로 돌아가 재평가
     }
 
     private async UniTask OnSkillAttackingStateAsync(CancellationToken token)
     {
-        if (_isDead) return;
+        if (m_isDead) return;
 
         // 공격 방향으로 몸 돌리기
-        if (player != null)
+        Vector3 currentTransformPosition = transform.position;
+        if (m_player != null) // 플레이어가 유효한지 확인
         {
-            float directionToPlayer = player.position.x - transform.position.x;
-            FlipSprite(directionToPlayer);
+            float directionToPlayer = m_player.position.x - currentTransformPosition.x;
+            FlipCharacter(directionToPlayer);
         }
 
         // 스킬 사용
         await PlayAttackAndFireAsync(true, token);
 
         // 스킬 사용 후에는 즉시 Idle로 돌아가 다음 행동을 결정합니다.
-        currentState = EnemyState.Idle;
+        SetState(EnemyState.Idle);
     }
 
     private async UniTask OnHealingStateAsync(CancellationToken token)
     {
-        if (_isDead) return;
+        if (m_isDead) return;
 
         Debug.Log("적이 회복을 시전합니다.");
-        _lastHealTime = Time.time;
+        m_lastHealTime = Time.time;
 
         // TODO: 회복 애니메이션/이펙트 재생
         await UniTask.Delay(TimeSpan.FromSeconds(1.0f), cancellationToken: token);
 
-        if (token.IsCancellationRequested || _isDead) return;
+        if (token.IsCancellationRequested || m_isDead) return;
 
         HealWithTempHp();
-        currentState = EnemyState.Idle;
+        SetState(EnemyState.Idle);
     }
 
     #endregion
@@ -708,32 +750,34 @@ public class Enemy : MonoBehaviour
     /// </summary>
     private async UniTask<bool> EvadeAsync()
     {
-        if (_isDead) return false;
+        if (m_isDead) return false;
 
         // 회피를 시도하는 시점에서 현재 서 있는 땅과 카메라 경계를 다시 계산하여
         // 항상 정확한 정보를 바탕으로 판단하도록 합니다.
         DetectGroundAndCameraBoundaries();
 
         // 1. 더 넓은 공간이 있는 방향으로 회피 방향 결정
-        float currentX = _rigidbody2D.position.x;
-        float spaceToLeft = currentX - _effectiveMinX;
-        float spaceToRight = _effectiveMaxX - currentX;
+        Vector2 currentRigidbodyPosition = m_rigidbody2D.position;
+        float currentX = currentRigidbodyPosition.x;
+        float spaceToLeft = currentX - m_effectiveMinX;
+        float spaceToRight = m_effectiveMaxX - currentX;
         float direction = (spaceToRight > spaceToLeft) ? 1f : -1f;
         string directionString = direction > 0 ? "오른쪽" : "왼쪽";
         Debug.Log($"<color=orange>[AI-Evade]</color> 회피 방향 결정. 왼쪽 공간: {spaceToLeft:F2}, 오른쪽 공간: {spaceToRight:F2}. 선택: {directionString}");
 
         // --- 안전한 대쉬 거리 계산 (PlayerControl의 Dash 로직 차용) ---
-        float maxDashDistance = evadeDashSpeed * evadeDashDuration;
+        float maxDashDistance = m_evadeDashSpeed * m_evadeDashDuration;
 
         // 2. 벽에 의해 제한되는 최대 대쉬 거리를 계산합니다.
+        Bounds enemyBounds = m_collider.bounds;
         float wallLimitedDistance = maxDashDistance;
         RaycastHit2D wallHit = Physics2D.BoxCast(
-            (Vector2)transform.position + _collider.offset,
-            new Vector2(_collider.bounds.size.x, _collider.bounds.size.y * 0.9f),
+            (Vector2)transform.position + m_collider.offset, // transform.position은 Physics2D.BoxCast의 인자로 한 번만 사용되므로 캐싱 불필요
+            new Vector2(enemyBounds.size.x, enemyBounds.size.y * 0.9f),
             0f,
             new Vector2(direction, 0),
             maxDashDistance,
-            groundLayer
+            m_groundLayer
         );
         if (wallHit.collider != null)
         {
@@ -749,12 +793,12 @@ public class Enemy : MonoBehaviour
         {
             float checkDistance = i * stepDistance;
             // 캐릭터의 중심이 이동할 위치를 기준으로 BoxCast를 수행합니다.
-            Vector2 checkPos = new Vector2(currentX + direction * checkDistance, _collider.bounds.center.y);
+            Vector2 checkPos = new Vector2(currentX + direction * checkDistance, enemyBounds.center.y);
 
             RaycastHit2D groundUnderneath = Physics2D.BoxCast(
                 checkPos,
-                new Vector2(_collider.bounds.size.x * 0.9f, 0.1f), // 약간의 여유를 둔 너비로 체크
-                0f, Vector2.down, _collider.bounds.extents.y + 0.5f, groundLayer // 발밑으로 충분한 거리 체크
+                new Vector2(enemyBounds.size.x * 0.9f, 0.1f), // 약간의 여유를 둔 너비로 체크
+                0f, Vector2.down, enemyBounds.extents.y + 0.5f, m_groundLayer // 발밑으로 충분한 거리 체크
             );
 
             if (groundUnderneath.collider == null)
@@ -764,51 +808,68 @@ public class Enemy : MonoBehaviour
             }
         }
 
-        finalDashDistance = Mathf.Max(0, finalDashDistance - _collider.bounds.extents.x); // 여유 공간 (캐릭터 너비의 절반만큼)
+        finalDashDistance = Mathf.Max(0, finalDashDistance - enemyBounds.extents.x); // 여유 공간 (캐릭터 너비의 절반만큼)
 
         // 최종 목표 지점을 유효 경계 내로 제한합니다.
-        float finalTargetX = Mathf.Clamp(currentX + direction * finalDashDistance, _effectiveMinX, _effectiveMaxX);
+        float finalTargetX = Mathf.Clamp(currentX + direction * finalDashDistance, m_effectiveMinX, m_effectiveMaxX);
         float actualDashDistance = Mathf.Abs(finalTargetX - currentX);
-        float actualDuration = actualDashDistance / evadeDashSpeed;
+        float actualDuration = actualDashDistance / m_evadeDashSpeed;
         
         Debug.Log($"<color=orange>[AI-Evade]</color> 계산된 실제 회피 가능 거리: {actualDashDistance:F2}");
 
-        if (actualDashDistance < minEvadeDistance)
+        if (actualDashDistance < m_minEvadeDistance)
         {
-            Debug.Log($"<color=orange>[AI-Evade]</color> 회피 실패: 이동 가능 거리({actualDashDistance:F2})가 최소 회피 거리({minEvadeDistance})보다 짧습니다.");
+            Debug.Log($"<color=orange>[AI-Evade]</color> 회피 실패: 이동 가능 거리({actualDashDistance:F2})가 최소 회피 거리({m_minEvadeDistance})보다 짧습니다.");
             return false;
         }
 
         // --- 대쉬 실행 ---
         Debug.Log($"<color=green>[AI-Evade]</color> 회피 성공! {actualDashDistance:F2}만큼 {directionString}으로 대쉬합니다.");
-        _aiTaskCts?.Cancel(); // 현재 AI 행동 중지
-        currentState = EnemyState.Evading;
-        _rigidbody2D.linearVelocity = Vector2.zero;
+        m_aiTaskCts?.Cancel(); // 현재 AI 행동 중지
+        SetState(EnemyState.Evading);
+        m_rigidbody2D.linearVelocity = Vector2.zero;
 
-        FlipSprite(direction);
-        _afterimageEffect?.StartEffect(actualDuration);
+        FlipCharacter(direction);
+        m_afterimageEffect?.StartEffect(actualDuration);
 
-        float startY = _rigidbody2D.position.y;
-        float originalGravity = _rigidbody2D.gravityScale;
-        _rigidbody2D.gravityScale = 0;
-        _rigidbody2D.linearVelocity = new Vector2(direction * evadeDashSpeed, 0);
+        // CancellationToken을 생성하여 회피 중 다른 행동(예: 피격)으로 취소될 수 있도록 합니다.
+        var evadeCts = new CancellationTokenSource();
+        var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(evadeCts.Token, this.GetCancellationTokenOnDestroy());
 
-        await UniTask.Delay(TimeSpan.FromSeconds(actualDuration));
+        try
+        { // 회피 동작 시작
+            Vector2 startPos = m_rigidbody2D.position;
+            m_rigidbody2D.linearVelocity = Vector2.zero;
 
-        _rigidbody2D.gravityScale = originalGravity;
-        _rigidbody2D.linearVelocity = Vector2.zero;
-        _rigidbody2D.position = new Vector2(finalTargetX, startY);
+            float elapsedTime = 0f;
+            while (elapsedTime < actualDuration)
+            {
+                await UniTask.Yield(PlayerLoopTiming.FixedUpdate, linkedCts.Token);
+                elapsedTime += Time.fixedDeltaTime;
 
-        // 회피 후 잠시 대기하여 다음 행동까지 딜레이를 줍니다.
-        await UniTask.Delay(TimeSpan.FromSeconds(1.0f));
+                // MoveTowards를 사용하여 프레임마다 부드럽게 위치를 이동시킵니다.
+                float newX = Mathf.MoveTowards(m_rigidbody2D.position.x, finalTargetX, m_evadeDashSpeed * Time.fixedDeltaTime);
+                m_rigidbody2D.position = new Vector2(newX, startPos.y);
 
-        currentState = EnemyState.Idle;
+                if (Mathf.Approximately(m_rigidbody2D.position.x, finalTargetX))
+                {
+                    break; // 목표 지점 도달 시 루프 종료
+                }
+            }
 
-        // AI 루프 재시작
-        if (!_isDead)
+            // 회피 후 잠시 대기하여 다음 행동까지 딜레이를 줍니다.
+            await UniTask.Delay(TimeSpan.FromSeconds(1.0f), cancellationToken: linkedCts.Token);
+        }
+        catch (OperationCanceledException) { /* 회피 중 취소됨 */ }
+        finally
         {
-            _aiTaskCts = new CancellationTokenSource();
-            AI_LoopAsync(_aiTaskCts.Token).Forget();
+            // AI 루프 재시작
+            if (!m_isDead)
+            {
+                SetState(EnemyState.Idle);
+                m_aiTaskCts = new CancellationTokenSource();
+                AI_LoopAsync(m_aiTaskCts.Token).Forget();
+            }
         }
 
         return true; // 회피 성공

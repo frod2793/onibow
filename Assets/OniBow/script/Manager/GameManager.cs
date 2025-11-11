@@ -10,27 +10,40 @@ public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
 
-    public Camera mainCamera;
+    public Camera MainCamera => m_mainCamera;
 
+    [Header("카메라 참조")]
+    [SerializeField] private Camera m_mainCamera;
     [Header("게임 진행 UI")]
-    [SerializeField] private GameObject titleScreen; // 타이틀 화면 전체
-    [SerializeField] private Button startButton; // 시작 버튼
-    [SerializeField] private Image titleBackground; // 타이틀 배경 이미지 (페이드 아웃용)
-    [SerializeField] private Image leftDoorImage; // 왼쪽 문 이미지
-    [SerializeField] private Image rightDoorImage; // 오른쪽 문 이미지
-    [SerializeField] private TMP_Text countdownText; // 카운트다운 텍스트
-    [SerializeField] private GameObject gameOverScreen; // 게임 오버 화면
-    [SerializeField] private GameObject gameClearScreen; // 게임 클리어 화면
+    [SerializeField] private GameObject m_titleScreen;
+    [SerializeField] private Button m_startButton;
+    [SerializeField] private Image m_titleBackground;
+    [SerializeField] private Image m_leftDoorImage;
+    [SerializeField] private Image m_rightDoorImage;
+    [SerializeField] private TMP_Text m_countdownText;
+    [SerializeField] private GameObject m_gameOverScreen;
+    [SerializeField] private GameObject m_gameClearScreen;
 
     [Header("게임 오브젝트 참조")]
-    [SerializeField] private GameObject playerObject; // 플레이어 오브젝트
-    [SerializeField] private GameObject enemyObject; // 적 오브젝트
+    [SerializeField] private GameObject m_playerObject;
+    [SerializeField] private GameObject m_enemyObject;
 
     [Header("개발자 설정")]
-    [SerializeField] private bool developerMode = false; // 개발자 모드 활성화 토글
+    [SerializeField] private bool m_developerMode = false;
 
-    private PlayerControl _playerControl;
-    private Enemy _enemy;
+    [Header("전환 효과 설정")]
+    [Tooltip("시작 버튼 클릭 후 문이 열리기까지의 대기 시간")]
+    [SerializeField] private float m_initialDelay = 1f;
+    [Tooltip("문이 열리는 데 걸리는 시간")]
+    [SerializeField] private float m_doorOpenDuration = 1.0f;
+    [Tooltip("타이틀 배경이 사라지는 데 걸리는 시간")]
+    [SerializeField] private float m_backgroundFadeDuration = 1.0f;
+    [Tooltip("게임 시작 전 카운트다운 시작 숫자")]
+    [SerializeField] private int m_countdownStart = 5;
+
+    private PlayerControl m_playerControl;
+    private Vector3 m_initialCameraPosition;
+    private Enemy m_enemy;
 
     public enum GameState
     {
@@ -41,7 +54,7 @@ public class GameManager : MonoBehaviour
         GameClear
     }
 
-    private GameState _currentGameState = GameState.Title;
+    private GameState m_currentGameState = GameState.Title;
 
     public event Action OnGameOver;
     public event Action OnGameClear;
@@ -58,66 +71,37 @@ public class GameManager : MonoBehaviour
             Destroy(gameObject);
         }
 
-        if (mainCamera == null)
+        if (m_mainCamera == null)
         {
-            mainCamera = Camera.main;
+            m_mainCamera = Camera.main;
         }
 
-        _playerControl = playerObject.GetComponent<PlayerControl>();
-        _enemy = enemyObject.GetComponent<Enemy>();
-
-        if (developerMode)
+        if (m_mainCamera != null)
         {
-            // 개발자 모드: 타이틀 시퀀스를 건너뛰고 바로 게임을 시작합니다.
-            titleScreen?.SetActive(false);
-            countdownText.gameObject.SetActive(false);
-            SetGameActive(true);
-            _currentGameState = GameState.Playing;
-            Debug.Log("개발자 모드로 게임을 시작합니다.");
+            m_initialCameraPosition = m_mainCamera.transform.position;
+        }
+
+        InitializeReferences();
+
+        if (m_developerMode)
+        {
+            SetupForDeveloperMode();
         }
         else
         {
-            // 일반 모드: 타이틀 화면부터 시작합니다.
-            SetGameActive(false);
-            countdownText.gameObject.SetActive(false);
-           // gameOverScreen?.SetActive(false);
-          //  gameClearScreen?.SetActive(false);
-
-            // 시작 버튼 이벤트 연결
-            startButton?.onClick.AddListener(StartGame);
-
-            // 시작 버튼의 자식 이미지 오브젝트가 부드럽게 페이드 인/아웃 되는 효과 추가
-            if (startButton != null)
-            {
-                // GetComponentsInChildren는 부모를 포함하므로, LINQ를 사용해 자식의 Image 컴포넌트만 선택합니다.
-                var childImages = startButton.GetComponentsInChildren<Image>()
-                                             .Where(img => img.gameObject != startButton.gameObject);
-
-                foreach (var image in childImages)
-                {
-                    // 반투명 상태까지 갔다가 다시 원래대로 돌아오는 것을 반복합니다.
-                    image.DOFade(0.5f, 1.5f).SetEase(Ease.InOutSine).SetLoops(-1, LoopType.Yoyo);
-                }
-            }
+            SetupForNormalMode();
         }
     }
 
     private void OnEnable()
     {
-        if (_playerControl != null)
-        {
-            _playerControl.OnPlayerDied += HandlePlayerDeath;
-        }
-        // Enemy.OnEnemyDestroyed는 static 이벤트이므로 OnEnable/OnDisable에서 구독/해지
+        if (m_playerControl != null) m_playerControl.OnPlayerDied += HandlePlayerDeath;
         Enemy.OnEnemyDestroyed += HandleEnemyDeath;
     }
 
     private void OnDisable()
     {
-        if (_playerControl != null)
-        {
-            _playerControl.OnPlayerDied -= HandlePlayerDeath;
-        }
+        if (m_playerControl != null) m_playerControl.OnPlayerDied -= HandlePlayerDeath;
         Enemy.OnEnemyDestroyed -= HandleEnemyDeath;
     }
 
@@ -130,9 +114,19 @@ public class GameManager : MonoBehaviour
     /// <param name="randomness">무작위성</param>
     public void ShakeCamera(float duration, float strength, int vibrato = 10, float randomness = 90)
     {
-        if (mainCamera != null)
+        if (MainCamera != null)
         {
-            mainCamera.transform.DOShakePosition(duration, strength, vibrato, randomness);
+            // 이전에 진행 중이던 카메라 트윈을 모두 중단합니다.
+            MainCamera.transform.DOKill(true);
+
+            MainCamera.transform.DOShakePosition(duration, strength, vibrato, randomness)
+                .SetLoops(1, LoopType.Restart) // 쉐이크가 한 번 완료되면 OnComplete를 호출하도록 설정
+                .OnComplete(() =>
+                {
+                    // 쉐이크 후 카메라 위치가 초기 위치와 다를 경우, 부드럽게 원래 위치로 이동시킵니다.
+                    if (MainCamera.transform.position != m_initialCameraPosition)
+                        MainCamera.transform.DOMove(m_initialCameraPosition, 0.2f).SetEase(Ease.OutQuad);
+                });
         }
         else
         {
@@ -145,124 +139,173 @@ public class GameManager : MonoBehaviour
     /// </summary>
     private void StartGame()
     {
-        if (_currentGameState != GameState.Title) return;
+        if (m_currentGameState != GameState.Title) return;
 
-        startButton.interactable = false; // 중복 클릭 방지
+        m_startButton.interactable = false; // 중복 클릭 방지
 
-        // 버튼 클릭 시 페이드 효과를 멈추고, 버튼을 완전히 투명하게 만들어 사라지게 합니다.
-        Image startButtonImage = startButton?.GetComponent<Image>();
-        if (startButtonImage != null)
-        {
-            startButtonImage.DOKill(); // 진행 중인 페이드 루프 중지
-            // 0.2초 동안 완전히 투명해지면서 사라집니다.
-            startButtonImage.DOFade(0f, 0.2f);
-        }
+        FadeOutButton(m_startButton, 0.2f);
 
-        _currentGameState = GameState.Transitioning;
+        m_currentGameState = GameState.Transitioning;
         StartGameSequenceAsync().Forget();
+    }
+
+    private void FadeOutButton(Button button, float duration)
+    {
+        if (button == null) return;
+
+        // 버튼 자신을 포함한 모든 자식 Image 컴포넌트를 가져옵니다.
+        Image[] allImages = button.GetComponentsInChildren<Image>();
+        foreach (var image in allImages)
+        {
+            image.DOKill();
+            image.DOFade(0f, duration);
+        }
+    }
+
+    private void InitializeReferences()
+    {
+        // 참조가 할당되었는지 확인 후 컴포넌트를 가져와 NullReferenceException을 방지합니다.
+        if (m_playerObject != null) m_playerControl = m_playerObject.GetComponent<PlayerControl>();
+        if (m_enemyObject != null) m_enemy = m_enemyObject.GetComponent<Enemy>();
+    }
+
+    private void SetupForDeveloperMode()
+    {
+        m_titleScreen?.SetActive(false);
+        m_countdownText.gameObject.SetActive(false);
+        SetGameActive(true);
+        m_currentGameState = GameState.Playing;
+        Debug.Log("개발자 모드로 게임을 시작합니다.");
+    }
+
+    private void SetupForNormalMode()
+    {
+        SetGameActive(false);
+        m_countdownText.gameObject.SetActive(false);
+      //  m_gameOverScreen?.SetActive(false);
+     //   m_gameClearScreen?.SetActive(false);
+
+        m_startButton?.onClick.AddListener(StartGame);
+
+        if (m_startButton != null)
+        {
+            var childImages = m_startButton.GetComponentsInChildren<Image>()
+                                         .Where(img => img.gameObject != m_startButton.gameObject);
+
+            foreach (var image in childImages)
+            {
+                image.DOFade(0.5f, 1.5f).SetEase(Ease.InOutSine).SetLoops(-1, LoopType.Yoyo);
+            }
+        }
     }
 
     private async UniTaskVoid StartGameSequenceAsync()
     {
-        await UniTask.Delay(TimeSpan.FromSeconds(1f));
+        await UniTask.Delay(TimeSpan.FromSeconds(m_initialDelay));
 
-        // --- 1. 문 열림 애니메이션 ---
-        float doorOpenDuration = 1.0f; // 문 열리는 시간
+        await TransitionToGameAsync();
 
-        if (leftDoorImage != null)
+        await RunCountdownAsync();
+
+        SetGameActive(true);
+        m_currentGameState = GameState.Playing;
+        Debug.Log("게임 시작!");
+    }
+
+    private async UniTask TransitionToGameAsync()
+    {
+        // 문 열림 애니메이션과 배경 페이드 아웃을 동시에 시작
+        var doorTask = AnimateDoorsAsync();
+        var backgroundTask = FadeOutTitleAsync();
+
+        // 두 애니메이션이 모두 끝날 때까지 대기
+        await UniTask.WhenAll(doorTask, backgroundTask);
+
+        if (m_titleScreen != null) m_titleScreen.SetActive(false);
+    }
+
+    private async UniTask AnimateDoorsAsync()
+    {
+        if (m_leftDoorImage != null)
         {
-            // 현재 위치에서 자신의 너비만큼 왼쪽으로 상대적으로 이동하여 화면 밖으로 완전히 사라지게 합니다.
-            // 이 방식은 앵커나 피봇 위치에 관계없이 안정적으로 동작합니다.
-            leftDoorImage.rectTransform.DOAnchorPos(new Vector2(-leftDoorImage.rectTransform.rect.width, 0), doorOpenDuration)
+            m_leftDoorImage.rectTransform.DOAnchorPos(new Vector2(-m_leftDoorImage.rectTransform.rect.width, 0), m_doorOpenDuration)
                 .SetRelative(true)
                 .SetEase(Ease.OutQuad);
         }
-        if (rightDoorImage != null)
+        if (m_rightDoorImage != null)
         {
-            // 현재 위치에서 자신의 너비만큼 오른쪽으로 상대적으로 이동합니다.
-            rightDoorImage.rectTransform.DOAnchorPos(new Vector2(rightDoorImage.rectTransform.rect.width, 0), doorOpenDuration)
+            m_rightDoorImage.rectTransform.DOAnchorPos(new Vector2(m_rightDoorImage.rectTransform.rect.width, 0), m_doorOpenDuration)
                 .SetRelative(true)
                 .SetEase(Ease.OutQuad);
         }
 
-        // 문이 열릴 때까지 대기
-        await UniTask.Delay(TimeSpan.FromSeconds(doorOpenDuration));
+        await UniTask.Delay(TimeSpan.FromSeconds(m_doorOpenDuration));
 
-        // --- 2. 문 제거 ---
-        if (leftDoorImage != null) leftDoorImage.gameObject.SetActive(false);
-        if (rightDoorImage != null) rightDoorImage.gameObject.SetActive(false);
+        if (m_leftDoorImage != null) m_leftDoorImage.gameObject.SetActive(false);
+        if (m_rightDoorImage != null) m_rightDoorImage.gameObject.SetActive(false);
+    }
 
-        // --- 3. 타이틀 배경 페이드 아웃 ---
-        float backgroundFadeDuration = 1.0f;
-        if (titleBackground != null)
+    private async UniTask FadeOutTitleAsync()
+    {
+        if (m_titleBackground != null)
         {
-            titleBackground.DOFade(0, backgroundFadeDuration).SetEase(Ease.OutQuad);
+            await m_titleBackground.DOFade(0, m_backgroundFadeDuration).SetEase(Ease.OutQuad);
         }
-        
-        // 배경 페이드 아웃 완료 대기
-        await UniTask.Delay(TimeSpan.FromSeconds(backgroundFadeDuration));
+    }
 
-        // 페이드 아웃 후 타이틀 화면 전체 비활성화
-        if (titleScreen != null) titleScreen.SetActive(false);
-
-        // --- 4. 카운트다운 시작 ---
-        if (countdownText != null)
+    private async UniTask RunCountdownAsync()
+    {
+        if (m_countdownText != null)
         {
-            countdownText.gameObject.SetActive(true);
-            for (int i = 5; i > 0; i--)
+            m_countdownText.gameObject.SetActive(true);
+            for (int i = m_countdownStart; i > 0; i--)
             {
-                countdownText.text = i.ToString();
+                m_countdownText.text = i.ToString();
+                m_countdownText.transform.localScale = Vector3.one * 2f;
+                m_countdownText.alpha = 1f;
 
-                // 카운트다운 텍스트 애니메이션: 커졌다가 작아지며 사라지는 효과
-                countdownText.transform.localScale = Vector3.one * 2f; // 시작 시 크기를 키움
-                countdownText.alpha = 1f; // 시작 시 완전히 보이게 함
-
-                // 1초 동안 원래 크기로 돌아오면서 사라지는 애니메이션을 동시에 실행
-                countdownText.transform.DOScale(1f, 1f).SetEase(Ease.OutCubic);
-                countdownText.DOFade(0f, 1f).SetEase(Ease.InCubic);
+                m_countdownText.transform.DOScale(1f, 1f).SetEase(Ease.OutCubic);
+                m_countdownText.DOFade(0f, 1f).SetEase(Ease.InCubic);
 
                 await UniTask.Delay(TimeSpan.FromSeconds(1.0f));
             }
 
-            // "GO!" 텍스트 애니메이션
-            countdownText.text = "Fight!";
-            countdownText.alpha = 1f;
-            countdownText.transform.localScale = Vector3.one;
-            countdownText.transform.DOPunchScale(new Vector3(0.5f, 0.5f, 0.5f), 0.5f, 10, 1);
+            m_countdownText.text = "Fight!";
+            m_countdownText.alpha = 1f;
+            m_countdownText.transform.localScale = Vector3.one;
+            m_countdownText.transform.DOPunchScale(new Vector3(0.5f, 0.5f, 0.5f), 0.5f, 10, 1);
 
             await UniTask.Delay(TimeSpan.FromSeconds(1.0f));
-            countdownText.gameObject.SetActive(false);
+            m_countdownText.gameObject.SetActive(false);
         }
-
-        // --- 5. 플레이어와 적 활성화, 게임 상태 변경 ---
-        SetGameActive(true);
-        _currentGameState = GameState.Playing;
-        Debug.Log("게임 시작!");
     }
 
     private void SetGameActive(bool isActive)
     {
-        if (playerObject != null) playerObject.SetActive(isActive);
-        if (enemyObject != null) enemyObject.SetActive(isActive);
+        if (m_playerObject != null) m_playerObject.SetActive(isActive);
+        if (m_enemyObject != null) m_enemyObject.SetActive(isActive);
     }
 
     private void HandlePlayerDeath()
     {
-        if (_currentGameState != GameState.Playing) return;
-
-        _currentGameState = GameState.GameOver;
-        Debug.Log("게임 오버!");
-        OnGameOver?.Invoke();
-        gameOverScreen?.SetActive(true);
+        EndGame(GameState.GameOver, "게임 오버!", OnGameOver, m_gameOverScreen);
     }
 
     private void HandleEnemyDeath(Enemy enemy)
     {
-        if (_currentGameState != GameState.Playing) return;
+        EndGame(GameState.GameClear, "게임 클리어!", OnGameClear, m_gameClearScreen);
+    }
 
-        _currentGameState = GameState.GameClear;
-        Debug.Log("게임 클리어!");
-        OnGameClear?.Invoke();
-        gameClearScreen?.SetActive(true);
+    /// <summary>
+    /// 게임 종료(게임 오버 또는 클리어) 시 공통 로직을 처리합니다.
+    /// </summary>
+    private void EndGame(GameState endState, string logMessage, Action endEvent, GameObject endScreen)
+    {
+        if (m_currentGameState != GameState.Playing) return;
+
+        m_currentGameState = endState;
+        Debug.Log(logMessage);
+        endEvent?.Invoke();
+        if (endScreen != null) endScreen.SetActive(true);
     }
 }
