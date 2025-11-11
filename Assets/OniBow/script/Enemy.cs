@@ -62,7 +62,6 @@ public class Enemy : MonoBehaviour
     [SerializeField] private float fireDistance = 7f;
     [SerializeField] private float fireArcHeight = 3f;
     [SerializeField] private float fireDuration = 1f;
-    [SerializeField] private AnimationCurve fireEaseCurve = new AnimationCurve(new Keyframe(0, 0, 0, 2f), new Keyframe(0.5f, 0.5f, 0, 0), new Keyframe(1, 1, 2f, 0));
     [SerializeField] private float attackCooldown = 2f;
 
     [Header("스킬 설정")]
@@ -403,7 +402,7 @@ public class Enemy : MonoBehaviour
         if (arrowController != null)
         {
             arrowController.Owner = ArrowController.ArrowOwner.Enemy;
-            arrowController.Launch(startPos, controlPoint, endPos, fireDuration, fireEaseCurve);
+            arrowController.Launch(startPos, controlPoint, endPos, fireDuration);
         }
         else
         {

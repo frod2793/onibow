@@ -4,6 +4,7 @@ using Cysharp.Threading.Tasks;
 using TMPro;
 using UnityEngine.UI;
 using System;
+using System.Linq;
 
 public class GameManager : MonoBehaviour
 {
@@ -85,12 +86,18 @@ public class GameManager : MonoBehaviour
             // 시작 버튼 이벤트 연결
             startButton?.onClick.AddListener(StartGame);
 
-            // 시작 버튼이 부드럽게 페이드 인/아웃 되는 효과 추가
-            Image startButtonImage = startButton?.GetComponent<Image>();
-            if (startButtonImage != null)
+            // 시작 버튼의 자식 이미지 오브젝트가 부드럽게 페이드 인/아웃 되는 효과 추가
+            if (startButton != null)
             {
-                // 반투명 상태까지 갔다가 다시 원래대로 돌아오는 것을 반복합니다.
-                startButtonImage.DOFade(0.5f, 1.5f).SetEase(Ease.InOutSine).SetLoops(-1, LoopType.Yoyo);
+                // GetComponentsInChildren는 부모를 포함하므로, LINQ를 사용해 자식의 Image 컴포넌트만 선택합니다.
+                var childImages = startButton.GetComponentsInChildren<Image>()
+                                             .Where(img => img.gameObject != startButton.gameObject);
+
+                foreach (var image in childImages)
+                {
+                    // 반투명 상태까지 갔다가 다시 원래대로 돌아오는 것을 반복합니다.
+                    image.DOFade(0.5f, 1.5f).SetEase(Ease.InOutSine).SetLoops(-1, LoopType.Yoyo);
+                }
             }
         }
     }
