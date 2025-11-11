@@ -49,8 +49,6 @@ public class PlayerControl : MonoBehaviour
     [SerializeField] private float fireArcHeight = 3f;
     [Tooltip("화살이 목표 지점까지 도달하는 시간")]
     [SerializeField] private float fireDuration = 1f;
-    [Tooltip("포물선 운동의 속도 변화를 제어하는 커브")]
-    [SerializeField] private AnimationCurve fireEaseCurve = new AnimationCurve(new Keyframe(0, 0, 0, 2f), new Keyframe(0.5f, 0.5f, 0, 0), new Keyframe(1, 1, 2f, 0));
     [Tooltip("정지 후 반복 발사 간격")]
     [SerializeField] private float fireInterval = 2f;
 
@@ -555,7 +553,7 @@ public class PlayerControl : MonoBehaviour
             if (arrowController != null)
             {
                 arrowController.Owner = ArrowController.ArrowOwner.Player;
-                arrowController.Launch(startPos, controlPoint, endPos, fireDuration, fireEaseCurve);
+                arrowController.Launch(startPos, controlPoint, endPos, fireDuration);
             }
             else
             {

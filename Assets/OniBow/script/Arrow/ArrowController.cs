@@ -15,7 +15,7 @@ public class ArrowController : MonoBehaviour
     /// <summary>
     /// 지정된 궤적을 따라 화살을 발사합니다. (포물선)
     /// </summary>
-    public void Launch(Vector3 startPos, Vector3 controlPoint, Vector3 endPos, float duration, AnimationCurve easeCurve)
+    public void Launch(Vector3 startPos, Vector3 controlPoint, Vector3 endPos, float duration)
     {
         _moveTween?.Kill();
 
@@ -42,7 +42,7 @@ public class ArrowController : MonoBehaviour
             }
             previousPos = newPos;
         }, 1f, duration)
-        .SetEase(easeCurve)
+        .SetEase(Ease.Linear)
         .OnComplete(ReturnToPool);
     }
 

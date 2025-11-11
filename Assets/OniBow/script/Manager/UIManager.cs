@@ -1,8 +1,21 @@
 using DG.Tweening;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.EventSystems;
 using TMPro;
+using System.Collections.Generic;
+using System.Collections;
+using UnityEngine.EventSystems;
+
+/// <summary>
+/// 스킬 UI 요소들을 그룹화하는 구조체입니다.
+/// </summary>
+[System.Serializable]
+public struct SkillUIElements
+{
+    public Button Button;
+    public TMP_Text CooldownText;
+    public Image CooldownMask;
+}
 
 /// <summary>
 /// UI 요소들의 이벤트와 상태를 관리합니다.
@@ -12,86 +25,73 @@ public class UIManager : MonoBehaviour
 {
     [Header("참조 컴포넌트")]
     [Tooltip("플레이어 컨트롤러 참조. 인스펙터에서 할당합니다.")]
-    [SerializeField] private PlayerControl playerControl;
+    [SerializeField] private PlayerControl m_playerControl;
     [Tooltip("스킬 매니저 참조. 인스펙터에서 할당합니다.")]
-    [SerializeField] private SkillManager skillManager;
+    [SerializeField] private SkillManager m_skillManager;
     [Tooltip("UI가 추적할 적. 인스펙터에서 할당합니다.")]
-    [SerializeField] private Enemy enemy;
+    [SerializeField] private Enemy m_enemy;
     
     [Header("체력 바 애니메이션 설정")]
     [Tooltip("예비 체력이 감소를 시작하기까지의 대기 시간 (초)")]
-    [SerializeField] private float tempHpDecreaseDelay = 1.0f;
+    [SerializeField] private float m_tempHpDecreaseDelay = 1.0f;
     [Tooltip("예비 체력이 1초당 감소하는 속도 (체력 바 기준, 0~1)")]
-    [SerializeField] private float tempHpDecreaseSpeed = 0.5f;
+    [SerializeField] private float m_tempHpDecreaseSpeed = 0.5f;
     
-    [Header("UI 요소")]
-    [SerializeField] private Slider PlayerHpbar;//본체력 
-    [SerializeField] private Slider PlayerTempHpbar;// 예비 체력 
-    [SerializeField] private TMP_Text PlayerHpText;
-    [SerializeField] private Slider EnemyHpBar;
-    [SerializeField] private Slider EnemyTempHpBar;
-    [SerializeField] private TMP_Text EnemyHPText;
-    [SerializeField] private Button skill1Button;
-    [SerializeField] private Button skill2Button;
-    [SerializeField] private Button skill3Button;
-    [SerializeField] private Button skill4Button;
-    [SerializeField] private Button rightMoveButton;
-    [SerializeField] private Button leftMoveButton;
+    [Header("플레이어 체력 UI")]
+    [SerializeField] private Slider m_playerHpBar;
+    [SerializeField] private Slider m_playerTempHpBar;
+    [SerializeField] private TMP_Text m_playerHpText;
 
-    private Tween _playerTempHpTween;
-    private Tween _enemyTempHpTween;
-    private TMP_Text _skill1CooldownText;
-    private Image _skill1CooldownMask;
-    private TMP_Text _skill2CooldownText;
-    private Image _skill2CooldownMask;
-    private TMP_Text _skill3CooldownText;
-    private Image _skill3CooldownMask;
-    private TMP_Text _skill4CooldownText;
-    private Image _skill4CooldownMask;
+    [Header("적 체력 UI")]
+    [SerializeField] private Slider m_enemyHpBar;
+    [SerializeField] private Slider m_enemyTempHpBar;
+    [SerializeField] private TMP_Text m_enemyHpText;
 
-    private float _leftButtonClickTime = -1f;
-    private float _rightButtonClickTime = -1f;
-    private const float DOUBLE_CLICK_TIME = 0.3f;
+    [Header("스킬 UI")]
+    [SerializeField] private SkillUIElements[] m_skillUIElements = new SkillUIElements[4];
+
+    [Header("이동 및 대쉬 UI")]
+    [SerializeField] private Button m_rightMoveButton;
+    [SerializeField] private Button m_leftMoveButton;
+
+    [Header("설정 팝업 UI")]
+    [SerializeField] private GameObject m_settingsPopup;
+    [SerializeField] private Button m_openSettingsButton;
+    [SerializeField] private Button m_closeSettingsButton;
+    [SerializeField] private Slider m_bgmVolumeSlider;
+    [SerializeField] private Slider m_sfxVolumeSlider;
+    [SerializeField] private Toggle m_bgmMuteToggle;
+    [SerializeField] private Toggle m_sfxMuteToggle;
+
+    private Tween m_playerTempHpTween;
+    private Tween m_enemyTempHpTween;
+
+    private float m_leftButtonClickTime = -1f;
+    private float m_rightButtonClickTime = -1f;
+    private const float k_DoubleClickTime = 0.3f;
+
+    private Coroutine m_cooldownUICoroutine;
 
     private void Start()
     {
-        if (playerControl == null) Debug.LogError("PlayerControl 참조가 UIManager에 할당되지 않았습니다!", this);
-        if (skillManager == null) Debug.LogError("SkillManager 참조가 UIManager에 할당되지 않았습니다!", this);
-        if (enemy == null) Debug.LogError("Enemy 참조가 UIManager에 할당되지 않았습니다!", this);
-
-        if (skill1Button != null)
-        {
-            _skill1CooldownText = skill1Button.GetComponentInChildren<TMP_Text>();
-            _skill1CooldownMask = skill1Button.transform.Find("CoolTimeMask")?.GetComponent<Image>();
-        }
-        if (skill2Button != null)
-        {
-            _skill2CooldownText = skill2Button.GetComponentInChildren<TMP_Text>();
-            _skill2CooldownMask = skill2Button.transform.Find("CoolTimeMask")?.GetComponent<Image>();
-        }
-        if (skill3Button != null)
-        {
-            _skill3CooldownText = skill3Button.GetComponentInChildren<TMP_Text>();
-            _skill3CooldownMask = skill3Button.transform.Find("CoolTimeMask")?.GetComponent<Image>();
-        }
-        if (skill4Button != null)
-        {
-            _skill4CooldownText = skill4Button.GetComponentInChildren<TMP_Text>();
-            _skill4CooldownMask = skill4Button.transform.Find("CoolTimeMask")?.GetComponent<Image>();
-        }
-
+        InitializeUIComponents();
         BindButtonEvents();
-        BindHealthBarEvents();
+        InitializeSettingsPopup();
     }
 
-    private void OnDestroy()
+    private void OnEnable()
+    {
+        BindEvents();
+    }
+
+    private void OnDisable()
     {
         // 메모리 누수 방지를 위해 이벤트 구독 해지
-        if (playerControl != null)
+        if (m_playerControl != null)
         {
-            playerControl.OnHealthUpdated -= UpdatePlayerHpUI;
+            m_playerControl.OnHealthUpdated -= UpdatePlayerHpUI;
         }
-        if (enemy != null) enemy.OnHpChanged -= UpdateEnemyHpUI;
+        if (m_enemy != null) m_enemy.OnHpChanged -= UpdateEnemyHpUI;
 
         // GameManager는 DontDestroyOnLoad일 수 있으므로, 인스턴스가 살아있는지 확인
         if (GameManager.Instance != null)
@@ -99,33 +99,55 @@ public class UIManager : MonoBehaviour
             GameManager.Instance.OnGameOver -= HandleGameOver;
             GameManager.Instance.OnGameClear -= HandleGameClear;
         }
+
+        if (m_cooldownUICoroutine != null)
+        {
+            StopCoroutine(m_cooldownUICoroutine);
+        }
     }
 
-    private void Update()
+    private void InitializeUIComponents()
     {
-        UpdateCooldownUI();
+        if (m_playerControl == null) Debug.LogError("PlayerControl 참조가 UIManager에 할당되지 않았습니다!", this);
+        if (m_skillManager == null) Debug.LogError("SkillManager 참조가 UIManager에 할당되지 않았습니다!", this);
+        if (m_enemy == null) Debug.LogError("Enemy 참조가 UIManager에 할당되지 않았습니다!", this);
+
+        // 스킬 UI 요소 자동 할당 (자식 오브젝트에서 찾기)
+        for (int i = 0; i < m_skillUIElements.Length; i++)
+        {
+            if (m_skillUIElements[i].Button != null)
+            {
+                m_skillUIElements[i].CooldownText = m_skillUIElements[i].Button.GetComponentInChildren<TMP_Text>();
+                m_skillUIElements[i].CooldownMask = m_skillUIElements[i].Button.transform.Find("CoolTimeMask")?.GetComponent<Image>();
+            }
+        }
     }
 
     /// <summary>
-    /// 체력 바 이벤트를 구독합니다.
+    /// 각종 이벤트들을 구독합니다.
     /// </summary>
-    private void BindHealthBarEvents()
+    private void BindEvents()
     {
-        if (playerControl != null)
+        if (m_playerControl != null)
         {
-            playerControl.OnHealthUpdated += UpdatePlayerHpUI;
-            playerControl.ForceUpdateHpUI(); // 초기값 설정
+            m_playerControl.OnHealthUpdated += UpdatePlayerHpUI;
+            m_playerControl.ForceUpdateHpUI(); // 초기값 설정
         }
-        if (enemy != null)
+        if (m_enemy != null)
         {
-            enemy.OnHpChanged += UpdateEnemyHpUI;
-            enemy.ForceUpdateHpUI(); // 초기값 설정
+            m_enemy.OnHpChanged += UpdateEnemyHpUI;
+            m_enemy.ForceUpdateHpUI(); // 초기값 설정
         }
 
         if (GameManager.Instance != null)
         {
             GameManager.Instance.OnGameOver += HandleGameOver;
             GameManager.Instance.OnGameClear += HandleGameClear;
+        }
+
+        if (m_cooldownUICoroutine == null)
+        {
+            m_cooldownUICoroutine = StartCoroutine(CooldownUICoroutine());
         }
     }
 
@@ -143,48 +165,47 @@ public class UIManager : MonoBehaviour
 
     private void SetAllButtonsInteractable(bool isInteractable)
     {
-        skill1Button.interactable = isInteractable;
-        skill2Button.interactable = isInteractable;
-        skill3Button.interactable = isInteractable;
-        skill4Button.interactable = isInteractable;
-        rightMoveButton.interactable = isInteractable;
-        leftMoveButton.interactable = isInteractable;
+        foreach (var ui in m_skillUIElements)
+        {
+            if (ui.Button != null) ui.Button.interactable = isInteractable;
+        }
+        if (m_rightMoveButton != null) m_rightMoveButton.interactable = isInteractable;
+        if (m_leftMoveButton != null) m_leftMoveButton.interactable = isInteractable;
+        if (m_openSettingsButton != null) m_openSettingsButton.interactable = isInteractable;
     }
 
     private void UpdatePlayerHpUI(int currentHp, int tempHp, int maxHp)
     {
         // 진행 중인 예비 체력 감소 애니메이션이 있다면 중단합니다.
-        // 이는 플레이어가 짧은 간격으로 연속해서 피격당했을 때, 이전 애니메이션을 멈추고
-        // 새로운 상태에서 애니메이션을 다시 시작하기 위함입니다.
-        _playerTempHpTween?.Kill();
+        m_playerTempHpTween?.Kill();
 
         float currentHpRatio = (float)currentHp / maxHp;
         float tempHpRatio = (float)tempHp / maxHp;
 
-        if (PlayerHpbar != null)
+        if (m_playerHpBar != null)
         {
             // 메인 체력 바는 즉시 업데이트하여 피격감을 줍니다.
-            PlayerHpbar.value = currentHpRatio;
+            m_playerHpBar.value = currentHpRatio;
         }
 
-        if (PlayerTempHpbar != null)
+        if (m_playerTempHpBar != null)
         {
             // 예비 체력 바는 먼저 데미지 입기 전 체력으로 즉시 업데이트됩니다.
-            PlayerTempHpbar.value = tempHpRatio;
+            m_playerTempHpBar.value = tempHpRatio;
 
             float diffRatio = tempHpRatio - currentHpRatio;
             if (diffRatio > 0.001f)
             {
                 // 지속 시간 = 거리 / 속도. 일정한 속도로 체력 바가 줄어들도록 합니다.
-                float duration = diffRatio / tempHpDecreaseSpeed;
-                _playerTempHpTween = PlayerTempHpbar.DOValue(currentHpRatio, duration)
-                    .SetDelay(tempHpDecreaseDelay)
+                float duration = diffRatio / m_tempHpDecreaseSpeed;
+                m_playerTempHpTween = m_playerTempHpBar.DOValue(currentHpRatio, duration)
+                    .SetDelay(m_tempHpDecreaseDelay)
                     .SetEase(Ease.Linear);
             }
         }
-        if (PlayerHpText != null)
+        if (m_playerHpText != null)
         {
-            PlayerHpText.text = $"{currentHp}";
+            m_playerHpText.text = $"{currentHp}";
         }
 
         // 체력 상태에 따라 화면 효과를 업데이트하도록 EffectManager에 알립니다.
@@ -196,125 +217,168 @@ public class UIManager : MonoBehaviour
 
     private void UpdateEnemyHpUI(int currentHp, int tempHp, int maxHp)
     {
-        _enemyTempHpTween?.Kill();
+        m_enemyTempHpTween?.Kill();
 
         float currentHpRatio = (float)currentHp / maxHp;
         float tempHpRatio = (float)tempHp / maxHp;
 
-        if (EnemyHpBar != null)
+        if (m_enemyHpBar != null)
         {
-            EnemyHpBar.value = currentHpRatio;
+            m_enemyHpBar.value = currentHpRatio;
         }
-        if (EnemyTempHpBar != null)
+        if (m_enemyTempHpBar != null)
         {
-            EnemyTempHpBar.value = tempHpRatio;
+            m_enemyTempHpBar.value = tempHpRatio;
 
             float diffRatio = tempHpRatio - currentHpRatio;
             if (diffRatio > 0.001f)
             {
-                float duration = diffRatio / tempHpDecreaseSpeed;
-                _enemyTempHpTween = EnemyTempHpBar.DOValue(currentHpRatio, duration)
-                    .SetDelay(tempHpDecreaseDelay)
+                float duration = diffRatio / m_tempHpDecreaseSpeed;
+                m_enemyTempHpTween = m_enemyTempHpBar.DOValue(currentHpRatio, duration)
+                    .SetDelay(m_tempHpDecreaseDelay)
                     .SetEase(Ease.Linear);
             }
         }
-        if (EnemyHPText != null)
+        if (m_enemyHpText != null)
         {
-            EnemyHPText.text = $"{currentHp}";
+            m_enemyHpText.text = $"{currentHp}";
         }
     }
 
     private void BindButtonEvents()
     {
-        if (rightMoveButton != null && playerControl != null)
+        if (m_rightMoveButton != null && m_playerControl != null)
         {
-            AddEventTrigger(rightMoveButton.gameObject, OnRightButtonDown, playerControl.StopMoving);
+            AddEventTrigger(m_rightMoveButton.gameObject, OnRightButtonDown, m_playerControl.StopMoving);
         }
-        if (leftMoveButton != null && playerControl != null)
+        if (m_leftMoveButton != null && m_playerControl != null)
         {
-            AddEventTrigger(leftMoveButton.gameObject, OnLeftButtonDown, playerControl.StopMoving);
+            AddEventTrigger(m_leftMoveButton.gameObject, OnLeftButtonDown, m_playerControl.StopMoving);
         }
 
-        if (skillManager != null)
+        if (m_skillManager != null)
         {
-            skill1Button?.onClick.AddListener(skillManager.UseSkill1);
-            skill2Button?.onClick.AddListener(skillManager.UseSkill2);
-            skill3Button?.onClick.AddListener(skillManager.UseSkill3);
-            skill4Button?.onClick.AddListener(skillManager.UseSkill4);
+            m_skillUIElements[0].Button?.onClick.AddListener(m_skillManager.UseSkill1);
+            m_skillUIElements[1].Button?.onClick.AddListener(m_skillManager.UseSkill2);
+            m_skillUIElements[2].Button?.onClick.AddListener(m_skillManager.UseSkill3);
+            m_skillUIElements[3].Button?.onClick.AddListener(m_skillManager.UseSkill4);
         }
     }
 
     private void OnLeftButtonDown()
     {
-        if (Time.time - _leftButtonClickTime < DOUBLE_CLICK_TIME)
+        if (Time.time - m_leftButtonClickTime < k_DoubleClickTime)
         {
-            playerControl.Dash(-1f);
-            _leftButtonClickTime = -1f; // 더블 클릭 후 타이머 초기화
+            m_playerControl.Dash(-1f);
+            m_leftButtonClickTime = -1f; // 더블 클릭 후 타이머 초기화
         }
         else
         {
-            playerControl.StartMoving(-1f);
-            _leftButtonClickTime = Time.time;
+            m_playerControl.StartMoving(-1f);
+            m_leftButtonClickTime = Time.time;
         }
     }
 
     private void OnRightButtonDown()
     {
-        if (Time.time - _rightButtonClickTime < DOUBLE_CLICK_TIME)
+        if (Time.time - m_rightButtonClickTime < k_DoubleClickTime)
         {
-            playerControl.Dash(1f);
-            _rightButtonClickTime = -1f; // 더블 클릭 후 타이머 초기화
+            m_playerControl.Dash(1f);
+            m_rightButtonClickTime = -1f; // 더블 클릭 후 타이머 초기화
         }
         else
         {
-            playerControl.StartMoving(1f);
-            _rightButtonClickTime = Time.time;
+            m_playerControl.StartMoving(1f);
+            m_rightButtonClickTime = Time.time;
         }
     }
 
-    private void UpdateCooldownUI()
+    private IEnumerator CooldownUICoroutine()
     {
-        if (skillManager == null) return;
-
-        UpdateSingleSkillUI(_skill1CooldownText, _skill1CooldownMask, skillManager.Skill1_RemainingCooldown, skillManager.PlayerSkill1_Cooldown);
-        UpdateSingleSkillUI(_skill2CooldownText, _skill2CooldownMask, skillManager.Skill2_RemainingCooldown, skillManager.PlayerSkill2_Cooldown);
-        UpdateSingleSkillUI(_skill3CooldownText, _skill3CooldownMask, skillManager.Skill3_RemainingCooldown, skillManager.PlayerSkill3_Cooldown);
-        UpdateSingleSkillUI(_skill4CooldownText, _skill4CooldownMask, skillManager.Skill4_RemainingCooldown, skillManager.PlayerSkill4_Cooldown);
+        while (true)
+        {
+            if (m_skillManager != null)
+            {
+                UpdateSingleSkillUI(m_skillUIElements[0], m_skillManager.Skill1_RemainingCooldown, m_skillManager.PlayerSkill1_Cooldown);
+                UpdateSingleSkillUI(m_skillUIElements[1], m_skillManager.Skill2_RemainingCooldown, m_skillManager.PlayerSkill2_Cooldown);
+                UpdateSingleSkillUI(m_skillUIElements[2], m_skillManager.Skill3_RemainingCooldown, m_skillManager.PlayerSkill3_Cooldown);
+                UpdateSingleSkillUI(m_skillUIElements[3], m_skillManager.Skill4_RemainingCooldown, m_skillManager.PlayerSkill4_Cooldown);
+            }
+            yield return null;
+        }
     }
 
-    private void UpdateSingleSkillUI(TMP_Text textElement, Image maskImage, float remainingTime, float totalCooldown)
+    private void UpdateSingleSkillUI(SkillUIElements ui, float remainingTime, float totalCooldown)
     {
         bool isOnCooldown = remainingTime > 0;
 
         // 쿨타임 텍스트 업데이트
-        if (textElement != null)
+        if (ui.CooldownText != null)
         {
-            textElement.gameObject.SetActive(isOnCooldown);
+            ui.CooldownText.gameObject.SetActive(isOnCooldown);
             if (isOnCooldown)
             {
-                textElement.text = remainingTime.ToString("F1");
+                ui.CooldownText.text = remainingTime.ToString("F1");
             }
         }
 
         // 쿨타임 마스크 이미지 업데이트
-        if (maskImage != null)
+        if (ui.CooldownMask != null)
         {
-            maskImage.gameObject.SetActive(isOnCooldown);
+            ui.CooldownMask.gameObject.SetActive(isOnCooldown);
             if (isOnCooldown && totalCooldown > 0)
             {
-                maskImage.fillAmount = remainingTime / totalCooldown;
+                ui.CooldownMask.fillAmount = remainingTime / totalCooldown;
             }
         }
-
     }
 
+    #region 설정 팝업 관련 로직
+
+    private void InitializeSettingsPopup()
+    {
+        if (m_settingsPopup != null) m_settingsPopup.SetActive(false);
+
+        m_openSettingsButton?.onClick.AddListener(OpenSettingsPopup);
+        m_closeSettingsButton?.onClick.AddListener(CloseSettingsPopup);
+
+        if (SoundManager.Instance != null)
+        {
+            m_bgmVolumeSlider?.onValueChanged.AddListener(SoundManager.Instance.SetBGMVolume);
+            m_sfxVolumeSlider?.onValueChanged.AddListener(SoundManager.Instance.SetSFXVolume);
+            m_bgmMuteToggle?.onValueChanged.AddListener(SoundManager.Instance.SetBGMMute);
+            m_sfxMuteToggle?.onValueChanged.AddListener(SoundManager.Instance.SetSFXMute);
+        }
+    }
+
+    public void OpenSettingsPopup()
+    {
+        if (m_settingsPopup == null || SoundManager.Instance == null) return;
+
+        m_settingsPopup.SetActive(true);
+        Time.timeScale = 0f; // 게임 일시 정지
+
+        // 현재 설정 값으로 UI 초기화
+        m_bgmVolumeSlider.value = SoundManager.Instance.GetBGMVolume();
+        m_sfxVolumeSlider.value = SoundManager.Instance.GetSFXVolume();
+        m_bgmMuteToggle.isOn = SoundManager.Instance.IsBGMMuted();
+        m_sfxMuteToggle.isOn = SoundManager.Instance.IsSFXMuted();
+    }
+
+    public void CloseSettingsPopup()
+    {
+        if (m_settingsPopup == null) return;
+
+        m_settingsPopup.SetActive(false);
+        Time.timeScale = 1f; // 게임 재개
+    }
+
+    #endregion
+
+    #region 유틸리티 메서드
     private void AddEventTrigger(GameObject target, System.Action onPointerDown, System.Action onPointerUp)
     {
-        EventTrigger trigger = target.GetComponent<EventTrigger>();
-        if (trigger == null)
-        {
-            trigger = target.AddComponent<EventTrigger>();
-        }
+        EventTrigger trigger = target.GetComponent<EventTrigger>() ?? target.AddComponent<EventTrigger>();
         trigger.triggers.Clear();
 
         var pointerDownEntry = new EventTrigger.Entry { eventID = EventTriggerType.PointerDown };
@@ -329,4 +393,6 @@ public class UIManager : MonoBehaviour
         pointerExitEntry.callback.AddListener((data) => onPointerUp?.Invoke());
         trigger.triggers.Add(pointerExitEntry);
     }
+
+    #endregion
 }
