@@ -1,6 +1,8 @@
 using UnityEngine;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using DG.Tweening;
 
 /// <summary>
@@ -38,7 +40,7 @@ public class SoundManager : MonoBehaviour
     [Header("SFX 플레이어 풀")]
     [Tooltip("동시에 재생 가능한 최대 효과음 수")]
     [SerializeField] private int m_sfxPoolSize = 15;
-    private List<AudioSource> m_sfxPlayerPool;
+    private ConcurrentQueue<AudioSource> m_sfxPlayerPool;
 
     // 빠른 접근을 위한 딕셔너리
     private Dictionary<string, Sound> m_sfxDictionary;
@@ -49,7 +51,7 @@ public class SoundManager : MonoBehaviour
     private bool m_isBgm_muted = false;
     private bool m_isSfx_muted = false;
 
-    void Awake()
+    private void Awake()
     {
         if (Instance == null)
         {
@@ -84,27 +86,25 @@ public class SoundManager : MonoBehaviour
         }
 
         // SFX 딕셔너리 초기화
-        m_sfxDictionary = new Dictionary<string, Sound>();
-        foreach (Sound sound in m_sfxSounds)
-        {
-            if (!m_sfxDictionary.ContainsKey(sound.name))
-            {
-                m_sfxDictionary.Add(sound.name, sound);
-            }
-        }
+        m_sfxDictionary = m_sfxSounds.ToDictionary(sound => sound.name, sound => sound);
 
         // SFX 플레이어 풀 생성
-        m_sfxPlayerPool = new List<AudioSource>();
+        m_sfxPlayerPool = new ConcurrentQueue<AudioSource>();
         for (int i = 0; i < m_sfxPoolSize; i++)
         {
-            GameObject sfxPlayerObject = new GameObject($"SFXPlayer_{i}");
-            sfxPlayerObject.transform.SetParent(transform);
-            AudioSource source = sfxPlayerObject.AddComponent<AudioSource>();
-            source.playOnAwake = false;
-            m_sfxPlayerPool.Add(source);
+            CreateSfxPlayer();
         }
 
         LoadSoundSettings();
+    }
+
+    private void CreateSfxPlayer()
+    {
+        GameObject sfxPlayerObject = new GameObject($"SFXPlayer_{m_sfxPlayerPool.Count}");
+        sfxPlayerObject.transform.SetParent(transform);
+        AudioSource source = sfxPlayerObject.AddComponent<AudioSource>();
+        source.playOnAwake = false;
+        m_sfxPlayerPool.Enqueue(source);
     }
 
     /// <summary>
@@ -124,7 +124,7 @@ public class SoundManager : MonoBehaviour
             m_bgmPlayer.loop = sound.loop;
             m_bgmPlayer.pitch = sound.pitch;
             m_bgmPlayer.Play();
-            m_bgmPlayer.DOFade(m_isBgm_muted ? 0 : sound.volume * m_bgmVolume, fadeDuration);
+            m_bgmPlayer.DOFade(sound.volume * m_bgmVolume, fadeDuration);
         }
         else
         {
@@ -138,7 +138,7 @@ public class SoundManager : MonoBehaviour
     /// <param name="fadeDuration">페이드 아웃에 걸리는 시간</param>
     public void StopBGM(float fadeDuration = 1.0f)
     {
-        m_bgmPlayer.DOKill();
+        m_bgmPlayer.DOKill(); // Kill the tween
         m_bgmPlayer.DOFade(0, fadeDuration).OnComplete(() => {
             m_bgmPlayer.Stop();
         });
@@ -152,33 +152,38 @@ public class SoundManager : MonoBehaviour
     {
         if (m_isSfx_muted) return;
 
-        if (m_sfxDictionary.TryGetValue(name, out Sound sound))
+        if (m_sfxDictionary != null && m_sfxDictionary.TryGetValue(name, out Sound sound))
         {
-            // 풀에서 사용 가능한 플레이어를 찾아 즉시 재생합니다.
-            foreach (var player in m_sfxPlayerPool)
+            if (m_sfxPlayerPool.TryDequeue(out AudioSource player))
             {
-                if (!player.isPlaying)
-                {
-                    player.PlayOneShot(sound.clip, sound.volume * m_sfxVolume);
-                    return;
-                }
+                player.PlayOneShot(sound.clip, sound.volume * m_sfxVolume);
+                m_sfxPlayerPool.Enqueue(player);
+                return;
             }
+
             // 모든 플레이어가 사용 중이면, 예비 플레이어를 사용합니다.
             m_sfxPlayer.PlayOneShot(sound.clip, sound.volume * m_sfxVolume);
         }
         else
         {
-            Debug.LogWarning($"SFX '{name}'을(를) 찾을 수 없습니다.");
+             Debug.LogWarning($"SFX '{name}'을(를) 찾을 수 없습니다.");
         }
     }
 
     #region 볼륨 및 음소거 제어 (UI 연동용)
 
+    private void ApplyBGMVolume()
+    {
+         m_bgmPlayer.volume = m_bgmVolume;
+    }
+
     public void SetBGMVolume(float volume)
     {
-        m_bgmVolume = Mathf.Clamp01(volume);
-        m_bgmPlayer.volume = m_isBgm_muted ? 0 : m_bgmVolume;
-        PlayerPrefs.SetFloat("BGMVolume", m_bgmVolume);
+        volume = Mathf.Clamp01(volume);
+        if (Math.Abs(m_bgmVolume - volume) > 0.01f) // check the volume is changed
+            PlayerPrefs.SetFloat("BGMVolume", volume);
+        m_bgmVolume = volume;
+        ApplyBGMVolume();
     }
 
     public void SetSFXVolume(float volume)
@@ -190,14 +195,15 @@ public class SoundManager : MonoBehaviour
     public void SetBGMMute(bool mute)
     {
         m_isBgm_muted = mute;
-        m_bgmPlayer.volume = m_isBgm_muted ? 0 : m_bgmVolume;
-        PlayerPrefs.SetInt("BGMMuted", m_isBgm_muted ? 1 : 0);
+        PlayerPrefs.SetInt("BGMMuted", mute ? 1 : 0);
+        ApplyBGMVolume();
     }
 
     public void SetSFXMute(bool mute)
     {
         m_isSfx_muted = mute;
-        PlayerPrefs.SetInt("SFXMuted", m_isSfx_muted ? 1 : 0);
+        PlayerPrefs.SetInt("SFXMuted", mute ? 1 : 0);
+
     }
 
     /// <summary>
@@ -210,8 +216,7 @@ public class SoundManager : MonoBehaviour
         m_isBgm_muted = PlayerPrefs.GetInt("BGMMuted", 0) == 1;
         m_isSfx_muted = PlayerPrefs.GetInt("SFXMuted", 0) == 1;
 
-        // 불러온 설정 적용
-        m_bgmPlayer.volume = m_isBgm_muted ? 0 : m_bgmVolume;
+         ApplyBGMVolume();
     }
 
     // UI 초기화를 위한 Getter
@@ -236,4 +241,5 @@ public class SoundManager : MonoBehaviour
     }
 
     #endregion
+
 }

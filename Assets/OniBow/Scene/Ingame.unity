@@ -2709,7 +2709,7 @@ MonoBehaviour:
   m_gameClearScreen: {fileID: 0}
   m_playerObject: {fileID: 259783681}
   m_enemyObject: {fileID: 320094555}
-  m_developerMode: 1
+  m_developerMode: 0
   m_initialDelay: 1
   m_doorOpenDuration: 1
   m_backgroundFadeDuration: 1
