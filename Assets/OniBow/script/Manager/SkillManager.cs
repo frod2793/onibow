@@ -183,7 +183,7 @@ public class SkillManager : MonoBehaviour
     /// </summary>
     private async UniTaskVoid PlayerSkill1_BarrierAsync(CancellationToken token)
     {
-        playerControl.SetSkillUsageState(true);
+        playerControl.SetSkillUsageState(true, false); // 이동을 멈추지 않음
         playerControl.SetInvulnerable(true); // 무적 상태 시작
 
         GameObject barrierInstance = null;
@@ -225,7 +225,7 @@ public class SkillManager : MonoBehaviour
             }
             
             playerControl.SetInvulnerable(false); // 무적 상태 해제
-            playerControl.SetSkillUsageState(false);
+            playerControl.SetSkillUsageState(false, false);
         }
     }
 
@@ -288,7 +288,7 @@ public class SkillManager : MonoBehaviour
     {
         if (playerControl == null) return;
 
-        playerControl.SetSkillUsageState(true);
+        playerControl.SetSkillUsageState(true, false); // 이동을 멈추지 않음
         GameObject healEffectInstance = null;
         
         try
@@ -328,7 +328,7 @@ public class SkillManager : MonoBehaviour
         finally
         {
             if (healEffectInstance != null) Destroy(healEffectInstance);
-            playerControl.SetSkillUsageState(false);
+            playerControl.SetSkillUsageState(false, false);
         }
     }
 
@@ -371,7 +371,7 @@ public class SkillManager : MonoBehaviour
     private async UniTaskVoid PlayerSkill3_HomingMissilesAsync(Transform target, CancellationToken token)
     {
         if (playerControl == null) return;
-        playerControl.SetSkillUsageState(true); // 스킬 사용 시작
+        playerControl.SetSkillUsageState(true, false); // 이동을 멈추지 않음
         try
         {
             for (int i = 0; i < homingMissileCount; i++)
@@ -391,7 +391,7 @@ public class SkillManager : MonoBehaviour
         }
         finally
         {
-            playerControl.SetSkillUsageState(false); 
+            playerControl.SetSkillUsageState(false, false);
         }
     }
 

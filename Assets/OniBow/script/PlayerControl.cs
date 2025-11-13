@@ -78,6 +78,7 @@ public class PlayerControl : MonoBehaviour
     private PlayerState m_currentState = PlayerState.IDLE; // 현재 플레이어 상태
     private bool m_isDashing = false; // 대쉬 중인지 확인하는 플래그
     private bool m_isInvulnerable = false; // 무적 상태인지 확인하는 플래그
+    private bool m_isMovementAllowedWhileSkill = false; // 스킬 사용 중 이동이 허용되는지 확인하는 플래그
     
     // 카메라 경계
     private float m_cameraMinX;
@@ -278,12 +279,21 @@ public class PlayerControl : MonoBehaviour
     /// SkillManager에서 호출합니다.
     /// </summary>
     /// <param name="isUsing">스킬을 사용 중이면 true, 아니면 false.</param>
-    public void SetSkillUsageState(bool isUsing)
+    /// <param name="stopMovement">스킬 사용 시 이동을 강제로 멈출지 여부.</param>
+    public void SetSkillUsageState(bool isUsing, bool stopMovement = true)
     {
+        m_isMovementAllowedWhileSkill = isUsing && !stopMovement;
         if (isUsing)
         {
-            // 스킬 사용 시작 시, 다른 모든 행동을 중단하고 상태를 변경합니다.
-            CancelAllActions();
+            // 이동 정지가 필요한 스킬일 경우에만 모든 행동을 중단합니다.
+            if (stopMovement)
+            {
+                CancelAllActions();
+            }
+            else // 이동을 허용하는 스킬의 경우, 공격만 중단합니다.
+            {
+                m_fireCts?.Cancel();
+            }
             SetState(PlayerState.OTHER);
         }
         else
@@ -606,9 +616,11 @@ public class PlayerControl : MonoBehaviour
     /// <returns>행동 가능 여부</returns>
     private bool IsActionableState()
     {
+        // 스킬 사용 중 이동이 허용된 상태라면, 다른 제약(사망, 피격 등)이 없는 한 행동 가능으로 판단합니다.
+        if (m_isMovementAllowedWhileSkill) return m_currentState != PlayerState.DEATH && m_currentState != PlayerState.DAMAGED && !m_isDashing;
+
         // 사망, 피격, 스킬 사용, 대쉬 중에는 새로운 행동을 시작할 수 없습니다.
-        return m_currentState != PlayerState.DEATH &&
-               m_currentState != PlayerState.DAMAGED &&
+        return m_currentState != PlayerState.DEATH && m_currentState != PlayerState.DAMAGED &&
                m_currentState != PlayerState.OTHER &&
                !m_isDashing;
     }

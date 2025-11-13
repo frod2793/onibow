@@ -5,6 +5,7 @@ using TMPro;
 using System.Collections.Generic;
 using System.Collections;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 
 /// <summary>
 /// 스킬 UI 요소들을 그룹화하는 구조체입니다.
@@ -75,11 +76,20 @@ public class UIManager : MonoBehaviour
 
     private Coroutine m_cooldownUICoroutine;
 
+    // 키보드 입력을 위한 변수
+    private float m_leftKeyDownTime = -1f;
+    private float m_rightKeyDownTime = -1f;
+
     private void Start()
     {
         InitializeUIComponents();
         BindButtonEvents();
         InitializeSettingsPopup();
+    }
+
+    private void Update()
+    {
+        HandleKeyboardInput();
     }
 
     private void OnEnable()
@@ -302,6 +312,60 @@ public class UIManager : MonoBehaviour
         {
             m_playerControl.StartMoving(1f);
             m_rightButtonClickTime = Time.time;
+        }
+    }
+
+    /// <summary>
+    /// 키보드 입력을 처리하여 플레이어의 이동 및 대쉬를 제어합니다.
+    /// WebGL 환경을 고려하여 Update에서 키 입력을 받습니다.
+    /// </summary>
+    private void HandleKeyboardInput()
+    {
+        if (m_playerControl == null) return;
+
+        // Input System이 사용 가능한지 확인합니다.
+        var keyboard = Keyboard.current;
+        if (keyboard == null) return;
+
+        // 오른쪽 이동 (D 또는 오른쪽 화살표)
+        if (keyboard.dKey.wasPressedThisFrame || keyboard.rightArrowKey.wasPressedThisFrame)
+        {
+            if (Time.time - m_rightKeyDownTime < k_DoubleClickTime)
+            {
+                m_playerControl.Dash(1f);
+                m_rightKeyDownTime = -1f; // 더블 탭 후 타이머 초기화
+            }
+            else
+            {
+                m_playerControl.StartMoving(1f);
+                m_rightKeyDownTime = Time.time;
+            }
+        }
+
+        // 왼쪽 이동 (A 또는 왼쪽 화살표)
+        if (keyboard.aKey.wasPressedThisFrame || keyboard.leftArrowKey.wasPressedThisFrame)
+        {
+            if (Time.time - m_leftKeyDownTime < k_DoubleClickTime)
+            {
+                m_playerControl.Dash(-1f);
+                m_leftKeyDownTime = -1f; // 더블 탭 후 타이머 초기화
+            }
+            else
+            {
+                m_playerControl.StartMoving(-1f);
+                m_leftKeyDownTime = Time.time;
+            }
+        }
+
+        // 키를 뗐을 때 정지 (양쪽 키가 모두 떼어졌을 때만 정지)
+        bool anyKeyReleased = keyboard.dKey.wasReleasedThisFrame || keyboard.rightArrowKey.wasReleasedThisFrame ||
+                              keyboard.aKey.wasReleasedThisFrame || keyboard.leftArrowKey.wasReleasedThisFrame;
+        bool anyKeyPressed = keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed ||
+                             keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed;
+
+        if (anyKeyReleased && !anyKeyPressed)
+        {
+            m_playerControl.StopMoving();
         }
     }
 
