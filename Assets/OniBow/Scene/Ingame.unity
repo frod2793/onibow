@@ -497,33 +497,88 @@ MonoBehaviour:
     volume: 1
     pitch: 1
     loop: 0
+  - name: opening-door-411632
+    clip: {fileID: 8300000, guid: 865f82d7dd1c4437a93c813b08e80504, type: 3}
+    volume: 1
+    pitch: 1
+    loop: 0
+  - name: countdown
+    clip: {fileID: 8300000, guid: 6da73c46b2c8c4e0285612ae6a362a70, type: 3}
+    volume: 1
+    pitch: 1
+    loop: 0
+  - name: dash
+    clip: {fileID: 8300000, guid: 0e72e625d52784dd0b8a808cf45525a6, type: 3}
+    volume: 1
+    pitch: 1
+    loop: 0
+  - name: hit
+    clip: {fileID: 8300000, guid: 90554dc02a79d40e49e13852c5951cad, type: 3}
+    volume: 1
+    pitch: 1
+    loop: 0
+  - name: losegame
+    clip: {fileID: 8300000, guid: 0ced81fd56049487284964009f88f697, type: 3}
+    volume: 1
+    pitch: 1
+    loop: 0
+  - name: wingame
+    clip: {fileID: 8300000, guid: 6d6797499397140dfb301abbc516f1c1, type: 3}
+    volume: 1
+    pitch: 1
+    loop: 0
+  - name: button-124476
+    clip: {fileID: 8300000, guid: a8a4c50176b2d4683ba1c3402c82314b, type: 3}
+    volume: 1
+    pitch: 1
+    loop: 0
+  - name: ak
+    clip: {fileID: 8300000, guid: 0b1bab17a6d2d4fd0ac5baca958936ef, type: 3}
+    volume: 1
+    pitch: 1
+    loop: 0
+  - name: bazzoka
+    clip: {fileID: 8300000, guid: 953084d1dcbbf43c6971f4a8e7297e4b, type: 3}
+    volume: 1
+    pitch: 1
+    loop: 0
+  - name: button-124476 1
+    clip: {fileID: 8300000, guid: 77890ad087bfa4f179b6e9efbc6bc9ec, type: 3}
+    volume: 1
+    pitch: 1
+    loop: 0
+  - name: h0mming
+    clip: {fileID: 8300000, guid: d79debeddc74f4c0c9c295cdea0cf5a3, type: 3}
+    volume: 1
+    pitch: 1
+    loop: 0
   m_bgmPlayer: {fileID: 0}
   m_sfxPlayer: {fileID: 0}
   m_sfxPoolSize: 15
   <TitleBgm>k__BackingField: time_for_adventure
   <GameplayBgm>k__BackingField: BGM
-  <DoorOpenSfx>k__BackingField: Game_DoorOpen
-  <CountdownTickSfx>k__BackingField: Game_CountdownTick
+  <DoorOpenSfx>k__BackingField: opening-door-411632
+  <CountdownTickSfx>k__BackingField: countdown
   <PlayerFireSfx>k__BackingField: Arrow
-  <PlayerDashSfx>k__BackingField: Player_Dash
-  <PlayerDamagedSfx>k__BackingField: Player_Damaged
-  <PlayerDeathSfx>k__BackingField: Player_Death
+  <PlayerDashSfx>k__BackingField: dash
+  <PlayerDamagedSfx>k__BackingField: hit
+  <PlayerDeathSfx>k__BackingField: losegame
   <PlayerHealSfx>k__BackingField: heal
-  <GenericButtonClickSfx>k__BackingField: UI_Button_Click
+  <GenericButtonClickSfx>k__BackingField: button-124476
   <PopupOpenSfx>k__BackingField: UI_Popup_Open
   <PopupCloseSfx>k__BackingField: UI_Popup_Close
-  <SliderChangedSfx>k__BackingField: UI_Slider_Tick
-  <ToggleChangedSfx>k__BackingField: UI_Toggle_Switch
-  <AKFireSfx>k__BackingField: AK_Fire
+  <SliderChangedSfx>k__BackingField: button-124476
+  <ToggleChangedSfx>k__BackingField: button-124476
+  <AKFireSfx>k__BackingField: ak
   <AKHitSfx>k__BackingField: HomingImpact
-  <MissileLaunchSfx>k__BackingField: Missile_Launch
+  <MissileLaunchSfx>k__BackingField: h0mming
   <MissileExplosionSfx>k__BackingField: HomingImpact
-  <RoketLaunchSfx>k__BackingField: Roket_Launch
+  <RoketLaunchSfx>k__BackingField: bazzoka
   <RoketExplosionSfx>k__BackingField: BazookaBoom
   <EnemyAttackSfx>k__BackingField: Arrow
-  <EnemyDamagedSfx>k__BackingField: Enemy_Damaged
-  <EnemyDeathSfx>k__BackingField: Enemy_Death
-  <EnemyEvadeSfx>k__BackingField: Enemy_Evade
+  <EnemyDamagedSfx>k__BackingField: hit
+  <EnemyDeathSfx>k__BackingField: wingame
+  <EnemyEvadeSfx>k__BackingField: dash
   <EnemyHealSfx>k__BackingField: heal
 --- !u!114 &245737706 stripped
 MonoBehaviour:
@@ -624,7 +679,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerControl
   m_maxHp: 1000
   m_tempHpDecreaseDelay: 1.5
-  m_tempHpCatchUpSpeed: 50
   m_maxSpeed: 1
   m_accelerationTime: 0.2
   m_decelerationTime: 0.1
@@ -1120,7 +1174,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Enemy
   m_maxHp: 1500
   m_tempHpDecreaseDelay: 1.5
-  m_tempHpCatchUpSpeed: 50
   m_player: {fileID: 259783682}
   m_moveSpeed: 1
   m_distanceTolerance: 0.1
