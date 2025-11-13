@@ -2440,6 +2440,7 @@ GameObject:
   m_Component:
   - component: {fileID: 639961935}
   - component: {fileID: 639961936}
+  - component: {fileID: 639961937}
   m_Layer: 0
   m_Name: '[ - BackGroundManager - ]'
   m_TagString: Untagged
@@ -2508,6 +2509,19 @@ MonoBehaviour:
   mainScrollSpeed: 0.1
   m_camera: {fileID: 1268412190}
   fadeDuration: 1.5
+--- !u!114 &639961937
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 639961934}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dd3a088881b54414b2e9de560bfadf81, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ScreenResolutionManager
+  m_mainCamera: {fileID: 1268412190}
 --- !u!1 &651444262
 GameObject:
   m_ObjectHideFlags: 0
@@ -5633,8 +5647,8 @@ MonoBehaviour:
   m_AssetsPPU: 100
   m_RefResolutionX: 320
   m_RefResolutionY: 180
-  m_CropFrame: 0
-  m_GridSnapping: 1
+  m_CropFrame: 4
+  m_GridSnapping: 0
   m_FilterMode: 0
   m_UpscaleRT: 0
   m_PixelSnapping: 0
@@ -5669,14 +5683,14 @@ Camera:
   m_NormalizedViewPortRect:
     serializedVersion: 2
     x: 0
-    y: 0
+    y: 0.13876651
     width: 1
-    height: 1
+    height: 0.72232926
   near clip plane: 0.3
   far clip plane: 1000
   field of view: 60
   orthographic: 1
-  orthographic size: 1.77
+  orthographic size: 0.9
   m_Depth: 0
   m_CullingMask:
     serializedVersion: 2
