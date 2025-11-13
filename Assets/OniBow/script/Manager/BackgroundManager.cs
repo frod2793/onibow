@@ -13,7 +13,7 @@ using System.Collections.Generic;
 //    a. 배경으로 사용할 각 이미지(텍스처)의 Wrap Mode를 'Repeat'으로 설정해야 합니다.
 //    b. BackgroundManager의 'Background Themes' 리스트에 배경 세트를 만들고, 각 세트의 'Layer Textures'에 씬 레이어 순서에 맞는 텍스처를 할당합니다.
 
-public class BackgroundManager : MonoBehaviour
+public class BackgroundManager  : MonoBehaviour
 {
     #region 직렬화 가능 클래스
     [System.Serializable]
@@ -45,6 +45,10 @@ public class BackgroundManager : MonoBehaviour
     [Header("스크롤 속도")]
     public float mainScrollSpeed = 0.1f;
 
+    [Header("카메라 설정")]
+    [Tooltip("배경의 기준이 될 메인 카메라. 할당하지 않으면 Camera.main을 사용합니다.")]
+    [SerializeField] private Camera m_camera;
+
     [Header("전환 효과")]
     public float fadeDuration = 1.5f;
     #endregion
@@ -69,6 +73,12 @@ public class BackgroundManager : MonoBehaviour
             return;
         }
 
+        if (m_camera == null)
+        {
+            m_camera = Camera.main;
+        }
+
+        ResizeBackgroundsToFitScreen();
         InitializeLayers();
         SetInitialBackground();
     }
@@ -131,6 +141,31 @@ public class BackgroundManager : MonoBehaviour
     #endregion
 
     #region 비공개 메서드
+    /// <summary>
+    /// 화면 해상도와 카메라 뷰포트에 맞춰 모든 배경 레이어의 크기를 조절합니다.
+    /// ScreenResolutionManager에 의해 레터박스가 적용된 실제 게임 화면을 채우도록 계산합니다.
+    /// </summary>
+    private void ResizeBackgroundsToFitScreen()
+    {
+        if (m_camera == null)
+        {
+            Debug.LogError("카메라가 할당되지 않아 배경 크기를 조절할 수 없습니다.", this);
+            return;
+        }
+
+        // ScreenResolutionManager가 적용한 뷰포트(rect)를 고려하여 월드 크기를 계산합니다.
+        float screenHeightInWorld = m_camera.orthographicSize * 2.0f;
+        float screenWidthInWorld = screenHeightInWorld * m_camera.aspect;
+
+        // 실제 게임이 렌더링되는 영역의 크기를 계산합니다.
+        float viewportWidth = screenWidthInWorld * m_camera.rect.width;
+        float viewportHeight = screenHeightInWorld * m_camera.rect.height;
+
+        foreach (var layer in sceneLayers)
+        {
+            layer.meshRenderer.transform.localScale = new Vector3(viewportWidth, viewportHeight, 1f);
+        }
+    }
     private void InitializeLayers()
     {
         foreach (var layer in sceneLayers)
