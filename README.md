@@ -1,11 +1,10 @@
 # OniBow: 2D Side-Scrolling Action Game
 
 `OniBow`는 WebGL 및 Android 환경에 최적화된 고성능 2D 횡스크롤 액션 게임입니다.
-플레이어는 다양한 스킬과 고난도 이동 기술(대쉬, 점프)을 활용하여 적과 전투를 벌이며 스테이지를 클리어해 나갑니다.
+플레이어는 다양한 스킬과 고난도 이동 기술(대쉬, 점프)을 활용하여 적과 전투를 벌이며 클리어해 나갑니다.
 
-본 프로젝트는 단순한 기능 구현을 넘어, **UniTask를 활용한 비동기 상태 관리 최적화**와 수학적 알고리즘을 통한 **독자적인 물리 효과(베지에 곡선 투사체, 유도 미사일)** 구현에 중점을 두었습니다. 또한, **Jenkins CI/CD 파이프라인**을 구축하여 개발 생산성을 극대화했습니다.
+본 프로젝트는 단순한 기능 구현을 넘어, **UniTask를 활용한 비동기 상태 관리 최적화**와 수학적 알고리즘을 통한 독자적인 물리 효과(베지에 곡선 투사체, 유도 미사일) 구현에 중점을 두었습니다. 또한, Jenkins CI/CD 파이프라인을 구축하여 개발 생산성을 극대화했습니다.
 
-*(플레이 스크린샷 또는 GIF를 이곳에 삽입하세요)*
 
 ---
 
@@ -24,11 +23,10 @@
 
 | 항목 | 내용 |
 | :--- | :--- |
-| **Engine** | Unity 2022.3 LTS (2D) |
+| **Engine** | Unity 6 |
 | **Language** | C# |
 | **Platform** | WebGL, Android |
 | **Key Tech** | UniTask, DOTween, Jenkins CI/CD, Object Pooling |
-| **Period** | 202X.XX ~ 202X.XX (1인 개발) |
 
 ---
 
@@ -335,14 +333,6 @@ public class BuildScript
 }
 ```
 </details>
-
----
-
-## 📦 설치 방법 (Installation)
-
-*   **Web**: [Itch.io/OniBow 링크] (브라우저에서 즉시 플레이 가능)
-*   **Android**: `Builds/Android/OniBow.apk` 파일을 다운로드하여 안드로이드 기기에 설치
-
 ---
 
 Copyright © 2025 [Your Name/Organization]. All rights reserved.
