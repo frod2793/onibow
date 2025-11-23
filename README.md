@@ -51,129 +51,187 @@
 ## 💻 기술적 구현 (Technical Implementation)
 
 ### 1. 2차 베지에 곡선을 이용한 투사체 제어
-물리 엔진(Rigidbody)에 의존하지 않고, 수학적 공식을 통해 투사체의 궤적을 결정론적(Deterministic)으로 제어하여 정확한 타격감을 구현했습니다. `DOTween.To`를 활용하여 시간(t)에 따른 위치를 정밀하게 계산합니다.
+물리 엔진(Rigidbody)에 의존하지 않고, 수학적 공식을 통해 투사체의 궤적을 결정론적(Deterministic)으로 제어하여 정확한 타격감을 구현했습니다. `DOTween.To`를 활용하여 시간(t)에 따른 위치를 정밀하게 계산하고, 이동 방향에 맞춰 자연스럽게 회전시킵니다.
 
 <details>
-<summary><b>Code: ArrowController.cs (Optimized)</b></summary>
+<summary><b>Code: ArrowController.cs</b></summary>
 
 ```csharp
 /// <summary>
-/// 2차 베지에 곡선을 따라 포물선 이동을 처리하는 컨트롤러
+/// 화살의 포물선 이동과 생명 주기를 관리합니다.
 /// </summary>
 public class ArrowController : MonoBehaviour
 {
-    [SerializeField]
-    [Tooltip("곡선 이동에 소요되는 시간입니다.")]
-    private float m_duration = 1.0f;
+    public enum ArrowOwner { Player, Enemy }
+    public ArrowOwner Owner { get; set; }
 
-    [SerializeField]
-    [Tooltip("곡선의 휘어짐을 제어하는 포인트입니다.")]
-    private Vector3 m_controlPoint;
-
-    private Tween m_moveTween;
-    private Vector3 m_previousPosition;
-
-    public void Fire(Vector3 startPos, Vector3 endPos)
-    {
-        transform.position = startPos;
-        m_previousPosition = startPos;
-        float t = 0f;
-
-        m_moveTween = DOTween.To(() => t, value =>
-        {
-            t = value;
-            UpdatePositionAndRotation(t, startPos, endPos);
-        }, 1f, m_duration).SetEase(Ease.Linear);
-    }
+    private Tween _moveTween;
 
     /// <summary>
-    /// 베지에 곡선 공식에 따라 위치를 계산하고, 이동 방향으로 회전시킵니다.
+    /// 지정된 궤적을 따라 화살을 발사합니다. (포물선)
     /// </summary>
-    private void UpdatePositionAndRotation(float t, Vector3 start, Vector3 end)
+    public void Launch(Vector3 startPos, Vector3 controlPoint, Vector3 endPos, float duration)
     {
-        // B(t) = (1-t)^2 * P0 + 2(1-t)t * P1 + t^2 * P2
-        Vector3 newPosition = (1 - t) * (1 - t) * start
-                            + 2 * (1 - t) * t * m_controlPoint
-                            + t * t * end;
-        transform.position = newPosition;
+        _moveTween?.Kill();
 
-        // 부동 소수점 오차를 고려하여 이전 위치와 충분히 다를 때만 방향을 계산합니다.
-        if (Vector3.Distance(newPosition, m_previousPosition) > 1e-4f)
+        float t = 0f;
+        Vector3 previousPos = startPos;
+        transform.position = startPos;
+
+        _moveTween = DOTween.To(() => t, x =>
         {
-            Vector2 direction = (newPosition - m_previousPosition).normalized;
-            float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
-            transform.rotation = Quaternion.Euler(0, 0, angle);
+            t = x;
+            if (this == null || !gameObject.activeInHierarchy) return;
+
+            // B(t) = (1-t)^2 * P0 + 2(1-t)t * P1 + t^2 * P2
+            Vector3 newPos = (1 - t) * (1 - t) * startPos + 2 * (1 - t) * t * controlPoint + t * t * endPos;
+            transform.position = newPos;
+
+            if (newPos != previousPos)
+            {
+                Vector2 dir = (newPos - previousPos).normalized;
+                if (dir != Vector2.zero)
+                {
+                    float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
+                    transform.rotation = Quaternion.Euler(0, 0, angle);
+                }
+            }
+            previousPos = newPos;
+        }, 1f, duration)
+        .SetEase(Ease.Linear)
+        .OnComplete(ReturnToPool);
+    }
+
+    private void ReturnToPool()
+    {
+        if (ObjectPoolManager.Instance != null && gameObject.activeInHierarchy)
+        {
+            ObjectPoolManager.Instance.Return(gameObject);
         }
-        m_previousPosition = newPosition;
+        else
+        {
+            Destroy(gameObject);
+        }
+    }
+
+    private void OnDisable()
+    {
+        _moveTween?.Kill();
     }
 }
 ```
 </details>
 
 ### 2. 행렬(Matrix) 연산을 활용한 잔상 스냅샷 최적화
-캐릭터의 잔상을 생성할 때, `Instantiate`의 오버헤드를 줄이고 `lossyScale`로 인한 오차를 해결하기 위해 행렬 연산을 도입했습니다. 원본의 Transform을 잔상 컨테이너의 로컬 좌표계로 역산하여 매핑함으로써 정확하고 빠른 스냅샷을 생성합니다.
+캐릭터의 잔상을 생성할 때, `Instantiate`의 오버헤드를 줄이고 `lossyScale`로 인한 오차를 해결하기 위해 행렬 연산을 도입했습니다. 원본의 Transform을 잔상 컨테이너의 로컬 좌표계로 역산하여 매핑함으로써, 복잡한 부모-자식 계층 구조에 관계없이 정확하고 빠른 스냅샷을 생성합니다.
 
 <details>
-<summary><b>Code: AfterimageSnapshot.cs (Optimized)</b></summary>
+<summary><b>Code: AfterimageSnapshot.cs</b></summary>
 
 ```csharp
 /// <summary>
-/// 행렬 연산을 사용하여 원본 렌더러의 스냅샷을 생성합니다.
+/// 잔상 '스냅샷'의 생명 주기를 관리합니다.
 /// </summary>
 public class AfterimageSnapshot : MonoBehaviour
 {
-    /// <summary>
-    /// 원본 렌더러의 Transform을 스냅샷의 로컬 좌표계로 변환하여 적용합니다.
-    /// </summary>
-    /// <param name="sourceRenderer">스냅샷을 생성할 원본 렌더러</param>
-    /// <param name="partRenderer">스냅샷을 표시할 렌더러</param>
-    public void TakeSnapshot(Renderer sourceRenderer, Renderer partRenderer)
-    {
-        // 원본(World) -> 스냅샷 부모(Local)로 변환하는 행렬을 계산합니다.
-        // 이 연산을 통해 부모-자식 관계의 복잡한 Transform 상속을 한 번에 처리할 수 있습니다.
-        Matrix4x4 targetMatrix = transform.worldToLocalMatrix * sourceRenderer.transform.localToWorldMatrix;
+    private readonly List<SpriteRenderer> _partRenderers = new List<SpriteRenderer>();
 
-        // 계산된 행렬에서 위치, 회전, 크기 정보를 추출하여 적용합니다.
-        partRenderer.transform.localPosition = targetMatrix.GetColumn(3);
-        partRenderer.transform.localRotation = targetMatrix.rotation;
-        partRenderer.transform.localScale = targetMatrix.lossyScale;
+    private void Awake()
+    {
+        GetComponentsInChildren(true, _partRenderers);
+    }
+
+    /// <summary>
+    /// 원본 렌더러들의 상태를 복제하여 스냅샷을 활성화하고, 사라짐 효과를 시작합니다.
+    /// </summary>
+    public void Activate(List<SpriteRenderer> sourceRenderers, Color color, float fadeDuration, bool overrideSorting, int sortingOrderOverride)
+    {
+        // ... (트윈 정리 및 루프 준비)
+
+        for (int i = 0; i < sourceRenderers.Count; i++)
+        {
+            // ... (렌더러 준비 및 활성화 로직)
+            
+            var sourceRenderer = sourceRenderers[i];
+            if (sourceRenderer.gameObject.activeInHierarchy && sourceRenderer.sprite != null)
+            {
+                // ... (스프라이트, 정렬 순서 등 속성 복사)
+
+                // [핵심 로직]
+                // Matrix 연산을 통해 원본 렌더러의 모든 Transform 속성(위치, 회전, 크기)을
+                // 스냅샷 컨테이너(부모)에 상대적인 로컬 Transform으로 정확하게 변환합니다.
+                Matrix4x4 targetMatrix = transform.worldToLocalMatrix * sourceRenderer.transform.localToWorldMatrix;
+                partRenderer.transform.localPosition = targetMatrix.GetColumn(3);
+                partRenderer.transform.localRotation = targetMatrix.rotation;
+                partRenderer.transform.localScale = targetMatrix.lossyScale;
+
+                // 페이드 아웃 트윈 시작
+                partRenderer.color = new Color(color.r, color.g, color.b, 1f);
+                partRenderer.DOFade(0, fadeDuration).SetEase(Ease.InQuad)
+                    .OnComplete(ReturnToPool); // 마지막 트윈에만 연결하여 중복 호출 방지
+            }
+            // ...
+        }
+    }
+
+    private void ReturnToPool()
+    {
+        // ... (오브젝트 풀 반환 로직)
     }
 }
 ```
 </details>
 
 ### 3. UniTask와 CancellationToken을 활용한 안전한 비동기 FSM
-UniTask를 사용하여 적(Enemy)의 AI 로직을 비동기 루프로 구현했습니다. CancellationToken을 도입하여 오브젝트 파괴 시 발생할 수 있는 `MissingReferenceException`과 메모리 누수를 원천 차단하고, 안정적인 비동기 상태 머신을 구축했습니다.
+UniTask를 사용하여 적(Enemy)의 AI 로직을 비동기 루프로 구현했습니다. `CancellationToken`을 도입하여 피격, 회피, 사망 등 상태가 급격히 변할 때 기존 비동기 작업을 안전하게 취소하고 새로운 상태로 전환합니다. 이를 통해 `MissingReferenceException`과 메모리 누수를 원천 차단하고, 안정적인 비동기 상태 머신을 구축했습니다.
 
 <details>
-<summary><b>Code: Enemy.cs (Optimized)</b></summary>
+<summary><b>Code: Enemy.cs</b></summary>
 
 ```csharp
 public class Enemy : MonoBehaviour
 {
-    private bool m_isDead = false;
-    private EnemyState m_currentState;
-    private CancellationTokenSource m_cancellationTokenSource;
+    private CancellationTokenSource m_aiTaskCts;
+    private bool m_isDead;
+    public EnemyState CurrentState { get; private set; }
 
-    private void OnEnable()
+    void Start()
     {
-        m_cancellationTokenSource = new CancellationTokenSource();
-        AI_LoopAsync(m_cancellationTokenSource.Token).Forget();
+        // ...
+        m_aiTaskCts = new CancellationTokenSource();
+        AI_LoopAsync(m_aiTaskCts.Token).Forget();
     }
 
-    private void OnDisable()
+    private void OnDestroy()
     {
-        // 오브젝트 비활성화 또는 파괴 시 토큰을 취소하여 모든 비동기 작업을 안전하게 중단합니다.
-        m_cancellationTokenSource?.Cancel();
-        m_cancellationTokenSource?.Dispose();
+        m_aiTaskCts?.Cancel();
+        m_aiTaskCts?.Dispose();
+    }
+
+    public async void TakeDamage(int damage)
+    {
+        if (m_isDead || CurrentState == EnemyState.Evading || CurrentState == EnemyState.Damaged) return;
+
+        // ... (회피 로직)
+
+        // ... (체력 감소 및 UI 업데이트)
+
+        if (m_currentHp <= 0)
+        {
+            Die();
+        }
+        else
+        {
+            // 피격 애니메이션 재생 (기존 AI 루프는 취소됨)
+            PlayDamagedAnimationAsync().Forget();
+        }
     }
 
     private async UniTaskVoid AI_LoopAsync(CancellationToken token)
     {
-        // 토큰 취소 요청이 없을 때까지 메인 AI 루프를 실행합니다.
         while (!token.IsCancellationRequested && !m_isDead)
         {
-            switch (m_currentState)
+            switch (CurrentState)
             {
                 case EnemyState.Idle:
                     await OnIdleStateAsync(token);
@@ -183,8 +241,28 @@ public class Enemy : MonoBehaviour
                     break;
                 // ... (기타 상태 처리)
             }
-            // 다음 프레임까지 대기하여 Update 루프처럼 동작하게 합니다.
-            await UniTask.NextFrame(token);
+            await UniTask.Yield(PlayerLoopTiming.Update, token).SuppressCancellationThrow();
+        }
+    }
+
+    private async UniTaskVoid PlayDamagedAnimationAsync()
+    {
+        if (m_isDead) return;
+
+        // 현재 진행 중인 AI 행동(이동, 공격 등)을 즉시 취소
+        m_aiTaskCts?.Cancel();
+        SetState(EnemyState.Damaged);
+        
+        // ... (피격 애니메이션 재생)
+        var damagedClip = m_enemyAnimation.DAMAGED_List[0];
+        await UniTask.Delay(TimeSpan.FromSeconds(damagedClip.length), cancellationToken: this.GetCancellationTokenOnDestroy());
+
+        // 피격 애니메이션이 끝난 후, 사망 상태가 아니라면 새로운 토큰으로 AI 루프를 다시 시작
+        if (!m_isDead)
+        {
+            SetState(EnemyState.Idle);
+            m_aiTaskCts = new CancellationTokenSource();
+            AI_LoopAsync(m_aiTaskCts.Token).Forget();
         }
     }
     // ...
@@ -192,46 +270,67 @@ public class Enemy : MonoBehaviour
 ```
 </details>
 
-### 4. 벡터 연산을 통한 유도 미사일 조향 로직
-타겟을 향해 단순히 회전하는 것이 아니라, 수직 벡터(`Vector2.Perpendicular`)와 사인 파(`Mathf.Sin`)를 결합하여 S자 곡선을 그리며 날아가는 자연스러운 유도 미사일 알고리즘을 구현했습니다.
+### 4. 물리 기반 유도 미사일 조향 로직
+`Rigidbody2D`를 사용하여 미사일의 이동을 처리하되, 조향 로직은 수학적 계산을 통해 구현했습니다. 타겟 방향 벡터에 수직인 벡터(`Vector2.Perpendicular`)와 사인 파(`Mathf.Sin`)를 결합하여, S자 곡선을 그리며 날아가는 자연스러운 유도 알고리즘을 만들었습니다. `FixedUpdate`에서 물리 연산을 처리하여 안정적인 움직임을 보장합니다.
 
 <details>
-<summary><b>Code: HomingMissile.cs (Optimized)</b></summary>
+<summary><b>Code: HomingMissile.cs</b></summary>
 
 ```csharp
+[RequireComponent(typeof(Rigidbody2D))]
 public class HomingMissile : MonoBehaviour
 {
-    [SerializeField, Tooltip("파동의 진폭입니다.")]
-    private float m_waveAmplitude = 1.5f;
-    [SerializeField, Tooltip("파동의 빈도입니다.")]
-    private float m_waveFrequency = 2.0f;
-    [SerializeField, Tooltip("초당 회전 속도입니다.")]
-    private float m_rotateSpeed = 200f;
+    [SerializeField] private float speed = 4f;
+    [SerializeField] private float rotateSpeed = 200f;
+    [SerializeField] private float waveFrequency = 2f;
+    [SerializeField] private float waveAmplitude = 1.5f;
 
-    private float m_randomStartTime;
+    private Transform _target;
+    private Rigidbody2D _rigidbody2D;
+    private bool _isHoming = false;
 
-    private void Awake()
+    public void Launch(Transform target, Transform firePoint)
     {
-        m_randomStartTime = Random.Range(0f, 2f * Mathf.PI);
+        // ... (초기 위치/회전 설정)
+        _target = target;
+
+        // DOTween 시퀀스로 초기 발사 애니메이션 구현 (예: 위로 솟구치는 움직임)
+        Sequence launchSequence = DOTween.Sequence();
+        launchSequence.Append(transform.DOMoveY(transform.position.y + 1.5f, 0.3f).SetEase(Ease.OutSine));
+        launchSequence.OnComplete(() => {
+            _isHoming = true; // 시퀀스 완료 후 추적 시작
+        });
     }
 
-    private void Update()
+    private void FixedUpdate()
     {
-        // ... (targetPosition, directionToTarget, targetRotation 계산 로직)
+        if (!_isHoming || _target == null) return;
+        
+        HandleHoming();
+    }
 
-        // 타겟 방향에 대한 수직 벡터를 계산하여 S자 곡선의 기준 축으로 사용합니다.
+    private void HandleHoming()
+    {
+        Vector2 currentPosition = _rigidbody2D.position;
+        Vector2 targetPosition = _target.position;
+        
+        // 타겟 방향에 대한 수직 벡터를 계산하여 S자 곡선의 기준 축으로 사용
+        Vector2 directionToTarget = targetPosition - currentPosition;
         Vector2 perpendicular = Vector2.Perpendicular(directionToTarget).normalized;
 
-        // 사인 파동을 이용해 시간에 따른 오프셋을 계산하여 자연스러운 S자 움직임을 생성합니다.
-        float sineOffset = Mathf.Sin((Time.time + m_randomStartTime) * m_waveFrequency) * m_waveAmplitude;
+        // 사인 파동을 이용해 시간에 따른 오프셋을 계산하여 자연스러운 S자 움직임을 생성
+        float sineOffset = Mathf.Sin(Time.time * waveFrequency) * waveAmplitude;
 
-        // 최종 조준 지점을 보정하고, 목표 회전값으로 부드럽게 회전시킵니다.
-        Vector2 aimPoint = (Vector2)target.position + perpendicular * sineOffset;
-        Vector2 directionToAim = (aimPoint - (Vector2)transform.position).normalized;
-        Quaternion targetRotation = Quaternion.LookRotation(Vector3.forward, directionToAim);
+        // 최종 조준 지점을 보정하고, 목표 회전값으로 부드럽게 회전
+        Vector2 aimPoint = targetPosition + perpendicular * sineOffset;
+        Vector2 finalDirection = (aimPoint - currentPosition).normalized;
+        float targetAngle = Mathf.Atan2(finalDirection.y, finalDirection.x) * Mathf.Rad2Deg;
+        Quaternion targetRotation = Quaternion.Euler(0, 0, targetAngle);
         
-        // RotateTowards는 이미 프레임 속도에 독립적이므로 deltaTime을 곱하지 않습니다.
-        transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, m_rotateSpeed * Time.deltaTime);
+        transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, rotateSpeed * Time.fixedDeltaTime);
+        
+        // 최종적으로 계산된 방향으로 Rigidbody를 이동
+        _rigidbody2D.MovePosition(currentPosition + (Vector2)transform.right * speed * Time.fixedDeltaTime);
     }
 }
 ```
@@ -255,7 +354,7 @@ public class HomingMissile : MonoBehaviour
 
 ## 🚀 빌드 및 실행 (Build & Run)
 
-이 프로젝트는 Jenkins 파이프라인을 통해 WebGL 및 Android 빌드를 자동화할 수 있도록 `BuildScript.cs`를 구성하였습니다.
+이 프로젝트는 Jenkins 파이프라인을 통해 WebGL 및 Android 빌드를 자동화할 수 있도록 `BuildScript.cs`를 구성하였습니다. 커맨드 라인 인자를 통해 빌드 타겟, 출력 경로, 빌드 옵션 등을 동적으로 제어할 수 있습니다.
 
 ### Command Line Build Usage
 
@@ -290,7 +389,12 @@ public class HomingMissile : MonoBehaviour
 using UnityEditor;
 using System;
 using System.Linq;
+using UnityEditor.Build.Reporting;
+using UnityEngine;
 
+/// <summary>
+/// CI/CD 환경에서 커맨드 라인을 통해 Unity 프로젝트를 빌드하기 위한 스크립트입니다.
+/// </summary>
 public class BuildScript
 {
     public static void PerformBuild()
@@ -298,32 +402,48 @@ public class BuildScript
         var args = Environment.GetCommandLineArgs();
         
         // 커맨드 라인 인자에서 빌드 옵션 파싱
-        string buildTarget = GetArgumentValue(args, "-buildTarget");
-        string outputPath = GetArgumentValue(args, "-outputPath");
-        bool isCleanBuild = args.Contains("-cleanBuild");
+        string buildTargetStr = GetArgument(args, "-buildTarget");
+        string outputPath = GetArgument(args, "-outputPath");
+        bool cleanBuild = args.Any(arg => arg.Equals("-cleanBuild", StringComparison.OrdinalIgnoreCase));
         
-        // ... (androidBuildType 등 추가 인자 파싱)
+        if (!Enum.TryParse(buildTargetStr, out BuildTarget buildTarget))
+        {
+            Debug.LogError($"잘못된 빌드 타겟입니다: {buildTargetStr}");
+            EditorApplication.Exit(1);
+            return;
+        }
 
-        BuildPlayerOptions buildPlayerOptions = new BuildPlayerOptions();
-        buildPlayerOptions.scenes = EditorBuildSettings.scenes
-            .Where(s => s.enabled)
-            .Select(s => s.path)
-            .ToArray();
-        buildPlayerOptions.locationPathName = outputPath;
-        buildPlayerOptions.target = (BuildTarget)Enum.Parse(typeof(BuildTarget), buildTarget);
-        
-        BuildOptions options = isCleanBuild ? BuildOptions.CleanBuildCache : BuildOptions.None;
-        buildPlayerOptions.options = options;
+        // ... (Android 빌드 설정 등)
 
-        // 빌드 실행
-        BuildPipeline.BuildPlayer(buildPlayerOptions);
+        BuildPlayerOptions buildPlayerOptions = new BuildPlayerOptions
+        {
+            scenes = EditorBuildSettings.scenes.Where(s => s.enabled).Select(s => s.path).ToArray(),
+            locationPathName = outputPath,
+            target = buildTarget,
+            options = BuildOptions.None // CleanBuildCache는 더 이상 권장되지 않음
+        };
+
+        // 빌드 실행 및 리포트 분석
+        BuildReport report = BuildPipeline.BuildPlayer(buildPlayerOptions);
+        BuildSummary summary = report.summary;
+
+        if (summary.result == BuildResult.Succeeded)
+        {
+            Debug.Log($"빌드 성공: {summary.totalSize / 1024 / 1024} MB");
+            EditorApplication.Exit(0);
+        }
+        else
+        {
+            Debug.LogError($"빌드 실패: {summary.totalErrors} 개의 에러 발생");
+            EditorApplication.Exit(1);
+        }
     }
 
-    private static string GetArgumentValue(string[] args, string argName)
+    private static string GetArgument(string[] args, string key)
     {
         for (int i = 0; i < args.Length - 1; i++)
         {
-            if (args[i] == argName)
+            if (args[i].Equals(key, StringComparison.OrdinalIgnoreCase))
             {
                 return args[i + 1];
             }
