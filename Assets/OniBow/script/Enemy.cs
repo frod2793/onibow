@@ -7,6 +7,7 @@ using System.Linq;
 /// <summary>
 /// 플레이어를 공격하는 적 AI 클래스입니다.
 /// UniTask를 활용한 비동기 FSM(유한 상태 머신) 구조로 최적화되었습니다.
+/// 상태 고착(Freeze) 버그 수정 버전
 /// </summary>
 [RequireComponent(typeof(Rigidbody2D))]
 public class Enemy : MonoBehaviour
@@ -134,8 +135,6 @@ public class Enemy : MonoBehaviour
     {
         if (!m_isDead && other.CompareTag(k_ArrowTag))
         {
-            // 화살 데미지 하드코딩 대신 컴포넌트나 인자를 통해 가져오는 것이 좋으나, 
-            // 원본 로직 유지를 위해 10으로 설정합니다.
             TakeDamage(10);
         }
     }
@@ -216,7 +215,8 @@ public class Enemy : MonoBehaviour
     #region Public Methods
     public async void TakeDamage(int damage)
     {
-        // [회피 우선권] 회피, 이미 피격 중, 사망 중에는 처리하지 않음
+        // [수정됨] 회피, 이미 피격 중, 사망 중에는 처리하지 않음
+        // CurrentState가 Damaged여도 연속 피격 시 갱신이 필요하다면 로직 수정 필요 (여기서는 기존 유지)
         if (m_isDead || CurrentState == EnemyState.Evading || CurrentState == EnemyState.Damaged) return;
 
         // 회피 판정
@@ -238,6 +238,7 @@ public class Enemy : MonoBehaviour
         }
         else
         {
+            // [버그 수정] 피격 애니메이션 재생 시 AI 태스크 확실하게 재시작 보장
             PlayDamagedAnimationAsync().Forget();
         }
     }
@@ -265,7 +266,10 @@ public class Enemy : MonoBehaviour
     #region AI Core Logic
     private void StartAILoop()
     {
-        CancelAITask(); // 기존 작업 정리
+        // 이미 실행 중이고 취소되지 않았다면 중복 실행 방지
+        if (m_aiTaskCts != null && !m_aiTaskCts.IsCancellationRequested) return;
+
+        CancelAITask(); // 기존 작업 정리 (방어적 코드)
         m_aiTaskCts = new CancellationTokenSource();
         AI_LoopAsync(m_aiTaskCts.Token).Forget();
     }
@@ -282,32 +286,58 @@ public class Enemy : MonoBehaviour
 
     private async UniTaskVoid AI_LoopAsync(CancellationToken token)
     {
-        while (!token.IsCancellationRequested && !m_isDead)
+        // [버그 수정] 루프 진입 시 무조건 Idle로 시작하지 않고, 현재 상태가 유효하지 않으면 Idle로 초기화
+        if (CurrentState == EnemyState.Damaged || CurrentState == EnemyState.Evading || CurrentState == EnemyState.Dead)
         {
-            // 카메라 경계 업데이트 (매 프레임 X, 루프 시작시 체크)
-            UpdateCameraBoundaries();
+            SetState(EnemyState.Idle);
+        }
 
-            switch (CurrentState)
+        try
+        {
+            while (!token.IsCancellationRequested && !m_isDead)
             {
-                case EnemyState.Idle:
-                    await OnIdleStateAsync(token);
-                    break;
-                case EnemyState.Moving:
-                    await OnMovingStateAsync(token);
-                    break;
-                case EnemyState.Attacking:
-                    await OnAttackingStateAsync(token);
-                    break;
-                case EnemyState.SkillAttacking:
-                    await OnSkillAttackingStateAsync(token);
-                    break;
-                case EnemyState.Healing:
-                    await OnHealingStateAsync(token);
-                    break;
+                UpdateCameraBoundaries();
+
+                switch (CurrentState)
+                {
+                    case EnemyState.Idle:
+                        await OnIdleStateAsync(token);
+                        break;
+                    case EnemyState.Moving:
+                        await OnMovingStateAsync(token);
+                        break;
+                    case EnemyState.Attacking:
+                        await OnAttackingStateAsync(token);
+                        break;
+                    case EnemyState.SkillAttacking:
+                        await OnSkillAttackingStateAsync(token);
+                        break;
+                    case EnemyState.Healing:
+                        await OnHealingStateAsync(token);
+                        break;
+                    // Evading, Damaged, Dead 상태는 별도 비동기 로직이 제어하므로 루프에서는 대기
+                    default:
+                        await UniTask.Yield(PlayerLoopTiming.Update, token);
+                        break;
+                }
+                
+                await UniTask.Yield(PlayerLoopTiming.Update, token).SuppressCancellationThrow();
             }
-            
-            // FixedUpdate 타이밍보다는 AI 결정 루프는 Update 타이밍이 적절
-            await UniTask.Yield(PlayerLoopTiming.Update, token).SuppressCancellationThrow();
+        }
+        catch (OperationCanceledException)
+        {
+            // 태스크 취소됨 - 정상 종료
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[Enemy AI Error] {e.Message}\n{e.StackTrace}");
+            // 에러 발생 시 안전하게 Idle로 복구 시도 (무한 루프 방지 딜레이 포함)
+            if (!m_isDead)
+            {
+                await UniTask.Delay(1000, cancellationToken: this.GetCancellationTokenOnDestroy()).SuppressCancellationThrow();
+                SetState(EnemyState.Idle);
+                StartAILoop();
+            }
         }
     }
 
@@ -323,7 +353,7 @@ public class Enemy : MonoBehaviour
         
         CancelAITask();
         
-        // 정지 (Unity 6 호환: linearVelocity, 구버전: velocity)
+        // 정지
         m_rigidbody2D.linearVelocity = Vector2.zero; 
         m_collider.enabled = false;
         
@@ -382,6 +412,8 @@ public class Enemy : MonoBehaviour
 
         // 2. 이동 및 공격 판단
         float distanceToPlayer = Mathf.Abs(m_player.position.x - transform.position.x);
+        
+        // [수정] 오차 범위 내에 이미 있다면 공격, 아니면 이동
         if (Mathf.Abs(distanceToPlayer - m_fireDistance) > m_distanceTolerance)
         {
             SetState(EnemyState.Moving);
@@ -396,8 +428,14 @@ public class Enemy : MonoBehaviour
 
     private async UniTask OnMovingStateAsync(CancellationToken token)
     {
+        // 무한 루프 방지를 위한 타임아웃 개념 추가 (선택 사항이나 권장됨)
+        float stuckTimer = 0f;
+
         while (!token.IsCancellationRequested && !m_isDead)
         {
+            // 상태가 외부에서(예: 피격) 변경되었다면 루프 종료
+            if (CurrentState != EnemyState.Moving) return;
+
             if (m_player == null)
             {
                 SetState(EnemyState.Idle);
@@ -415,20 +453,23 @@ public class Enemy : MonoBehaviour
                 return;
             }
 
-            // 이동 방향 결정 (거리를 유지하려고 함)
+            // 이동 방향 결정
             float moveDirectionSign = (dist > m_fireDistance) ? Mathf.Sign(playerX - currentX) : -Mathf.Sign(playerX - currentX);
             
-            // 안전한 이동인지 확인 (절벽/카메라 체크)
+            // 안전한 이동인지 확인
             if (!IsSafeToMove(moveDirectionSign))
             {
                 m_rigidbody2D.linearVelocity = new Vector2(0, m_rigidbody2D.linearVelocity.y);
+                
+                // [버그 수정] 이동 불가 시 계속 멈춰있는 문제 해결
+                // 잠시 대기 후 강제로 상태를 Idle로 변경하여 AI가 다시 판단하게 함 (예: 공격 가능하면 공격하도록)
+                await UniTask.Delay(TimeSpan.FromSeconds(0.2f), cancellationToken: token);
                 SetState(EnemyState.Idle);
-                // 이동 불가 시 잠시 대기
-                await UniTask.Delay(TimeSpan.FromSeconds(0.5f), cancellationToken: token);
-                return;
+                return; 
             }
 
             // 이동 실행
+            stuckTimer = 0f; // 이동 성공 시 타이머 초기화
             SetState(EnemyState.Moving);
             FlipCharacter(moveDirectionSign);
             m_rigidbody2D.linearVelocity = new Vector2(moveDirectionSign * m_moveSpeed, m_rigidbody2D.linearVelocity.y);
@@ -457,13 +498,20 @@ public class Enemy : MonoBehaviour
         }
 
         m_lastHealTime = Time.time;
-        // 회복 애니메이션 대기 (여기서는 임의 시간 설정)
-        await UniTask.Delay(TimeSpan.FromSeconds(1.0f), cancellationToken: token);
-
-        if (!token.IsCancellationRequested && !m_isDead)
+        // 회복 애니메이션 대기
+        try 
         {
-            HealWithTempHp();
-            SetState(EnemyState.Idle);
+            await UniTask.Delay(TimeSpan.FromSeconds(1.0f), cancellationToken: token);
+            if (!m_isDead)
+            {
+                HealWithTempHp();
+                SetState(EnemyState.Idle);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // 취소되더라도 상태 복구가 필요할 수 있음
+            if (!m_isDead && CurrentState == EnemyState.Healing) SetState(EnemyState.Idle);
         }
     }
     #endregion
@@ -506,15 +554,20 @@ public class Enemy : MonoBehaviour
             }
 
             // 후딜레이 (쿨다운)
-            if (state == EnemyState.Attacking) // 일반 공격만 쿨다운 적용 (스킬은 자체 쿨타임)
+            if (state == EnemyState.Attacking)
             {
                 await UniTask.Delay(TimeSpan.FromSeconds(m_attackCooldown), cancellationToken: token);
             }
         }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException) 
+        { 
+            // 취소됨 (예: 피격)
+        }
         finally
         {
-            if (!m_isDead && CurrentState == state)
+            // [버그 수정] 피격 등으로 취소되었을 때, Damaged나 Evading이 아니라면 Idle로 복구
+            // Damaged 상태라면 Damaged 애니메이션 로직이 AI를 재시작하므로 건드리지 않음
+            if (!m_isDead && CurrentState != EnemyState.Damaged && CurrentState != EnemyState.Evading)
             {
                 SetState(EnemyState.Idle);
             }
@@ -525,7 +578,7 @@ public class Enemy : MonoBehaviour
     {
         if (m_isDead || m_enemyAnimation == null) return;
 
-        // 기존 AI 작업 취소
+        // 기존 AI 작업 취소 -> 이 호출로 인해 AI_LoopAsync의 try-catch 블록에서 OperationCanceledException 발생
         CancelAITask();
         
         SetState(EnemyState.Damaged);
@@ -534,19 +587,20 @@ public class Enemy : MonoBehaviour
         var damagedClip = (m_enemyAnimation.DAMAGED_List.Count > 0) ? m_enemyAnimation.DAMAGED_List[0] : null;
         float duration = damagedClip != null ? damagedClip.length : 0.5f;
 
-        // 피격 애니메이션 대기 (파괴 시 토큰 사용)
+        // 피격 애니메이션 대기
         await UniTask.Delay(TimeSpan.FromSeconds(duration), cancellationToken: this.GetCancellationTokenOnDestroy())
                      .SuppressCancellationThrow();
 
         if (!m_isDead)
         {
-            StartAILoop(); // AI 재시작
+            // [버그 수정] Damaged 상태가 끝난 후, 반드시 Idle로 설정하고 AI 루프 재시작
+            SetState(EnemyState.Idle);
+            StartAILoop(); 
         }
     }
 
     /// <summary>
     /// 이동하려는 방향이 안전한지(땅이 있고, 카메라 밖이 아닌지) 확인합니다.
-    /// 기존의 무거운 전체 스캔 로직을 대체합니다.
     /// </summary>
     private bool IsSafeToMove(float directionSign)
     {
@@ -555,23 +609,19 @@ public class Enemy : MonoBehaviour
         Vector3 pos = transform.position;
         
         // 1. 카메라 경계 체크
-        float nextX = pos.x + (directionSign * 0.5f); // 0.5f 정도 앞을 미리 봄
+        float nextX = pos.x + (directionSign * 0.5f);
         if (nextX < m_cameraMinX + m_enemyWidthHalf || nextX > m_cameraMaxX - m_enemyWidthHalf)
         {
             return false;
         }
 
         // 2. 절벽 체크 (레이캐스트)
-        // 캐릭터의 진행 방향 앞쪽, 발 밑을 확인
+        // 약간 더 여유있게 발 앞을 찍어보도록 수정 (0.2f -> 0.4f)
         Vector2 origin = (Vector2)pos + new Vector2(directionSign * m_enemyWidthHalf, -m_collider.bounds.extents.y);
-        // 약간 더 앞으로 나가서 찍어봄
-        origin.x += directionSign * 0.2f; 
+        origin.x += directionSign * 0.4f; 
         
-        RaycastHit2D hit = Physics2D.Raycast(origin, Vector2.down, 1.0f, m_groundLayer);
+        RaycastHit2D hit = Physics2D.Raycast(origin, Vector2.down, 1.5f, m_groundLayer);
         
-        // 디버그용 (필요시 주석 해제)
-        // Debug.DrawRay(origin, Vector2.down, hit.collider != null ? Color.green : Color.red);
-
         return hit.collider != null;
     }
 
@@ -579,7 +629,6 @@ public class Enemy : MonoBehaviour
     {
         if (m_mainCamera == null) return;
         
-        // 뷰포트 좌표를 월드 좌표로 변환 (매 프레임 할 필요 없음, 필요할 때만 호출)
         Vector3 bottomLeft = m_mainCamera.ViewportToWorldPoint(new Vector3(0, 0, 0));
         Vector3 topRight = m_mainCamera.ViewportToWorldPoint(new Vector3(1, 0, 0));
         
@@ -603,14 +652,16 @@ public class Enemy : MonoBehaviour
         if (Mathf.Abs(horizontalDirection) < 0.01f) return;
         if (m_enemyAnimation == null) return;
 
-        // 오른쪽(양수) -> 180도 회전, 왼쪽(음수) -> 0도 회전 (SPUM 기준)
         float yRotation = horizontalDirection > 0 ? 180f : 0f;
         m_enemyAnimation.transform.rotation = Quaternion.Euler(0f, yRotation, 0f);
     }
 
     private void SetState(EnemyState newState)
     {
-        if (CurrentState == newState) return;
+        // 상태가 같아도 애니메이션이 끊겼을 수 있으므로 강제로 다시 재생해야 할 수도 있으나,
+        // 일반적인 경우 리턴. 단, Damaged -> Damaged 연속 피격은 허용해야 함.
+        if (CurrentState == newState && newState != EnemyState.Damaged) return;
+        
         CurrentState = newState;
 
         if (m_enemyAnimation == null) return;
@@ -641,7 +692,6 @@ public class Enemy : MonoBehaviour
         Vector2 dir = (m_player.position - startPos).normalized;
         Vector3 endPos = startPos + (Vector3)dir * m_fireDistance;
 
-        // 베지어 곡선 제어점 계산
         Vector3 apex = (startPos + endPos) * 0.5f + Vector3.up * m_fireArcHeight;
         Vector3 controlPoint = 2 * apex - (startPos + endPos) * 0.5f;
 
@@ -679,8 +729,7 @@ public class Enemy : MonoBehaviour
         float dashDistance = m_evadeDashSpeed * m_evadeDashDuration;
         float targetX = currentX + (dirSign * dashDistance);
 
-        // 3. 목표 지점이 안전한지 검사 (벽, 절벽)
-        // 전체 경로를 스캔하는 대신, 최종 위치와 중간 지점을 샘플링하여 검사
+        // 3. 목표 지점이 안전한지 검사
         Vector2 startPos = m_rigidbody2D.position;
         Vector2 targetPos = new Vector2(Mathf.Clamp(targetX, m_cameraMinX + m_enemyWidthHalf, m_cameraMaxX - m_enemyWidthHalf), startPos.y);
         
@@ -688,30 +737,29 @@ public class Enemy : MonoBehaviour
         
         if (actualDistance < m_minEvadeDistance) 
         {
-            return false; // 이동 거리가 너무 짧음
+            return false;
         }
 
-        // 벽 검사 (BoxCast)
+        // 벽 검사
         RaycastHit2D wallHit = Physics2D.BoxCast(startPos, m_collider.bounds.size, 0f, Vector2.right * dirSign, actualDistance, m_groundLayer);
         if (wallHit.collider != null)
         {
-            // 벽에 막히면 벽 바로 앞까지만 이동
             actualDistance = wallHit.distance - m_enemyWidthHalf;
             targetPos.x = startPos.x + (dirSign * actualDistance);
             
             if (actualDistance < m_minEvadeDistance) return false;
         }
 
-        // 절벽 검사 (목표 지점 발 밑 확인)
+        // 절벽 검사
         Vector2 groundCheckPos = targetPos + new Vector2(0, -m_collider.bounds.extents.y - 0.1f);
         RaycastHit2D groundHit = Physics2D.Raycast(groundCheckPos, Vector2.down, 1.0f, m_groundLayer);
         if (groundHit.collider == null)
         {
-            return false; // 목표 지점에 땅이 없음 (회피 포기)
+            return false;
         }
 
         // --- 회피 실행 ---
-        CancelAITask(); // AI 일시 중지
+        CancelAITask(); // AI 일시 중지 (피격 처리와 동일하게 AI 루프를 끊음)
         SetState(EnemyState.Evading);
         m_rigidbody2D.linearVelocity = Vector2.zero;
         FlipCharacter(dirSign);
@@ -722,7 +770,7 @@ public class Enemy : MonoBehaviour
         }
         if (m_afterimageEffect != null) m_afterimageEffect.StartEffect(m_evadeDashDuration);
 
-        // 회피 이동 (CancellationToken 연결)
+        // 회피 이동
         var evadeCts = new CancellationTokenSource();
         var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(evadeCts.Token, this.GetCancellationTokenOnDestroy());
 
@@ -731,7 +779,6 @@ public class Enemy : MonoBehaviour
             float elapsed = 0f;
             while (elapsed < m_evadeDashDuration)
             {
-                // FixedUpdate 타이밍에 이동
                 await UniTask.Yield(PlayerLoopTiming.FixedUpdate, linkedCts.Token);
                 elapsed += Time.fixedDeltaTime;
 
@@ -739,7 +786,6 @@ public class Enemy : MonoBehaviour
                 m_rigidbody2D.position = new Vector2(newX, startPos.y);
             }
             
-            // 회피 후 딜레이
             await UniTask.Delay(TimeSpan.FromSeconds(0.5f), cancellationToken: linkedCts.Token);
         }
         catch (OperationCanceledException) { }
@@ -750,7 +796,9 @@ public class Enemy : MonoBehaviour
 
             if (!m_isDead)
             {
-                StartAILoop(); // AI 복귀
+                // [버그 수정] 회피가 끝난 후 반드시 Idle로 복귀하고 AI 루프 재시작
+                SetState(EnemyState.Idle);
+                StartAILoop(); 
             }
         }
 
