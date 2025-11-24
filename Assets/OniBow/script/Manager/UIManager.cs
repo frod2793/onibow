@@ -1,11 +1,12 @@
 using DG.Tweening;
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
-using System.Collections.Generic;
-using System.Collections;
+using TMPro; 
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using Cysharp.Threading.Tasks;
+using System.Threading;
+using UnityEngine.Serialization;
 
 /// <summary>
 /// 스킬 UI 요소들을 그룹화하는 구조체입니다.
@@ -14,11 +15,11 @@ using UnityEngine.InputSystem;
 public struct SkillUIElements
 {
     [Tooltip("스킬 버튼 참조")]
-    public Button Button;
+    [field: SerializeField] public Button Button { get; private set; }
     [Tooltip("쿨타임 텍스트 (TMP_Text) 참조")]
-    [SerializeField] public TMP_Text CooldownText;
+    [field: SerializeField, FormerlySerializedAs("CooldownText")] public TMP_Text CooldownText { get; private set; }
     [Tooltip("쿨타임 마스크 이미지 참조")]
-    [SerializeField] public Image CooldownMask;
+    [field: SerializeField, FormerlySerializedAs("CooldownMask")] public Image CooldownMask { get; private set; }
 }
 
 /// <summary>
@@ -67,29 +68,16 @@ public class UIManager : MonoBehaviour
     [SerializeField] private Toggle m_bgmMuteToggle;
     [SerializeField] private Toggle m_sfxMuteToggle;
 
-    private Tween m_playerTempHpTween;
-    private Tween m_enemyTempHpTween;
-
-    private float m_leftButtonClickTime = -1f;
-    private float m_rightButtonClickTime = -1f;
-    private const float k_DoubleClickTime = 0.3f;
-
-    private Coroutine m_cooldownUICoroutine;
-
-    // 키보드 입력을 위한 변수
-    private float m_leftKeyDownTime = -1f;
-    private float m_rightKeyDownTime = -1f;
+    private Sequence m_playerTempHpSequence;
+    private Sequence m_enemyTempHpSequence;
+    private CancellationTokenSource m_cooldownCts;
 
     private void Start()
     {
         InitializeUIComponents();
         BindButtonEvents();
         InitializeSettingsPopup();
-    }
-
-    private void Update()
-    {
-        HandleKeyboardInput();
+        BindEvents();
     }
 
     private void OnEnable()
@@ -113,10 +101,8 @@ public class UIManager : MonoBehaviour
             GameManager.Instance.OnGameClear -= HandleGameClear;
         }
 
-        if (m_cooldownUICoroutine != null)
-        {
-            StopCoroutine(m_cooldownUICoroutine);
-        }
+        m_cooldownCts?.Cancel();
+        m_cooldownCts?.Dispose();
     }
 
     private void InitializeUIComponents()
@@ -159,10 +145,9 @@ public class UIManager : MonoBehaviour
             GameManager.Instance.OnGameClear += HandleGameClear;
         }
 
-        if (m_cooldownUICoroutine == null)
-        {
-            m_cooldownUICoroutine = StartCoroutine(CooldownUICoroutine());
-        }
+        m_cooldownCts = new CancellationTokenSource();
+        UpdateAllCooldownsUIAsync(m_cooldownCts.Token).Forget();
+
     }
 
     private void HandleGameOver()
@@ -190,8 +175,8 @@ public class UIManager : MonoBehaviour
 
     private void UpdatePlayerHpUI(int currentHp, int tempHp, int maxHp)
     {
-        // 진행 중인 예비 체력 감소 애니메이션이 있다면 중단합니다.
-        m_playerTempHpTween?.Kill();
+        // 진행 중인 예비 체력 감소 시퀀스가 있다면 중단합니다.
+        m_playerTempHpSequence?.Kill();
 
         float currentHpRatio = (float)currentHp / maxHp;
         float tempHpRatio = (float)tempHp / maxHp;
@@ -212,9 +197,10 @@ public class UIManager : MonoBehaviour
             {
                 // 지속 시간 = 거리 / 속도. 일정한 속도로 체력 바가 줄어들도록 합니다.
                 float duration = diffRatio / m_tempHpDecreaseSpeed;
-                m_playerTempHpTween = m_playerTempHpBar.DOValue(currentHpRatio, duration)
-                    .SetDelay(m_tempHpDecreaseDelay)
-                    .SetEase(Ease.Linear);
+                m_playerTempHpSequence = DOTween.Sequence();
+                m_playerTempHpSequence.AppendInterval(m_tempHpDecreaseDelay)
+                                      .Append(m_playerTempHpBar.DOValue(currentHpRatio, duration)
+                                      .SetEase(Ease.Linear));
             }
         }
         if (m_playerHpText != null)
@@ -231,7 +217,7 @@ public class UIManager : MonoBehaviour
 
     private void UpdateEnemyHpUI(int currentHp, int tempHp, int maxHp)
     {
-        m_enemyTempHpTween?.Kill();
+        m_enemyTempHpSequence?.Kill();
 
         float currentHpRatio = (float)currentHp / maxHp;
         float tempHpRatio = (float)tempHp / maxHp;
@@ -248,9 +234,10 @@ public class UIManager : MonoBehaviour
             if (diffRatio > 0.001f)
             {
                 float duration = diffRatio / m_tempHpDecreaseSpeed;
-                m_enemyTempHpTween = m_enemyTempHpBar.DOValue(currentHpRatio, duration)
-                    .SetDelay(m_tempHpDecreaseDelay)
-                    .SetEase(Ease.Linear);
+                m_enemyTempHpSequence = DOTween.Sequence();
+                m_enemyTempHpSequence.AppendInterval(m_tempHpDecreaseDelay)
+                                     .Append(m_enemyTempHpBar.DOValue(currentHpRatio, duration)
+                                     .SetEase(Ease.Linear));
             }
         }
         if (m_enemyHpText != null)
@@ -263,11 +250,11 @@ public class UIManager : MonoBehaviour
     {
         if (m_rightMoveButton != null && m_playerControl != null)
         {
-            AddEventTrigger(m_rightMoveButton.gameObject, OnRightButtonDown, m_playerControl.StopMoving);
+            AddEventTrigger(m_rightMoveButton.gameObject, () => m_playerControl.OnMoveButtonDown(1), () => m_playerControl.OnMoveButtonUp());
         }
         if (m_leftMoveButton != null && m_playerControl != null)
         {
-            AddEventTrigger(m_leftMoveButton.gameObject, OnLeftButtonDown, m_playerControl.StopMoving);
+            AddEventTrigger(m_leftMoveButton.gameObject, () => m_playerControl.OnMoveButtonDown(-1), () => m_playerControl.OnMoveButtonUp());
         }
 
         if (m_skillManager != null)
@@ -283,104 +270,36 @@ public class UIManager : MonoBehaviour
         }
     }
 
-    private void OnLeftButtonDown()
+    private async UniTaskVoid UpdateAllCooldownsUIAsync(CancellationToken token)
     {
-        PlaySfx(SoundManager.Instance.GenericButtonClickSfx);
+        if (m_skillManager == null) return;
 
-        if (Time.time - m_leftButtonClickTime < k_DoubleClickTime)
-        {
-            m_playerControl.Dash(-1f);
-            m_leftButtonClickTime = -1f; // 더블 클릭 후 타이머 초기화
-        }
-        else
-        {
-            m_playerControl.StartMoving(-1f);
-            m_leftButtonClickTime = Time.time;
-        }
+        // 각 스킬의 쿨다운 UI를 비동기적으로 업데이트하는 UniTask들을 생성합니다.
+        var skill1_Task = UpdateCooldownUIAsync(m_skillUIElements[0], () => m_skillManager.Skill1_RemainingCooldown, m_skillManager.PlayerSkill1_Cooldown, token);
+        var skill2_Task = UpdateCooldownUIAsync(m_skillUIElements[1], () => m_skillManager.Skill2_RemainingCooldown, m_skillManager.PlayerSkill2_Cooldown, token);
+        var skill3_Task = UpdateCooldownUIAsync(m_skillUIElements[2], () => m_skillManager.Skill3_RemainingCooldown, m_skillManager.PlayerSkill3_Cooldown, token);
+        var skill4_Task = UpdateCooldownUIAsync(m_skillUIElements[3], () => m_skillManager.Skill4_RemainingCooldown, m_skillManager.PlayerSkill4_Cooldown, token);
+
+        // 모든 쿨다운 UI 업데이트가 완료될 때까지 기다립니다. (실질적으로는 게임 오브젝트가 파괴될 때까지)
+        await UniTask.WhenAll(skill1_Task, skill2_Task, skill3_Task, skill4_Task);
     }
 
-    private void OnRightButtonDown()
+    private async UniTask UpdateCooldownUIAsync(SkillUIElements ui, System.Func<float> getRemainingTime, float totalCooldown, CancellationToken token)
     {
-        PlaySfx(SoundManager.Instance.GenericButtonClickSfx);
-
-        if (Time.time - m_rightButtonClickTime < k_DoubleClickTime)
+        while (!token.IsCancellationRequested)
         {
-            m_playerControl.Dash(1f);
-            m_rightButtonClickTime = -1f; // 더블 클릭 후 타이머 초기화
-        }
-        else
-        {
-            m_playerControl.StartMoving(1f);
-            m_rightButtonClickTime = Time.time;
-        }
-    }
+            // 쿨다운이 끝날 때까지 매 프레임 기다립니다.
+            await UniTask.WaitUntil(() => getRemainingTime() > 0, cancellationToken: token);
 
-    /// <summary>
-    /// 키보드 입력을 처리하여 플레이어의 이동 및 대쉬를 제어합니다.
-    /// WebGL 환경을 고려하여 Update에서 키 입력을 받습니다.
-    /// </summary>
-    private void HandleKeyboardInput()
-    {
-        if (m_playerControl == null) return;
-
-        // Input System이 사용 가능한지 확인합니다.
-        var keyboard = Keyboard.current;
-        if (keyboard == null) return;
-
-        // 오른쪽 이동 (D 또는 오른쪽 화살표)
-        if (keyboard.dKey.wasPressedThisFrame || keyboard.rightArrowKey.wasPressedThisFrame)
-        {
-            if (Time.time - m_rightKeyDownTime < k_DoubleClickTime)
+            // 쿨다운이 시작되면 UI를 활성화하고 업데이트 루프를 시작합니다.
+            while (getRemainingTime() > 0 && !token.IsCancellationRequested)
             {
-                m_playerControl.Dash(1f);
-                m_rightKeyDownTime = -1f; // 더블 탭 후 타이머 초기화
+                UpdateSingleSkillUI(ui, getRemainingTime(), totalCooldown);
+                await UniTask.Yield(PlayerLoopTiming.Update, token);
             }
-            else
-            {
-                m_playerControl.StartMoving(1f);
-                m_rightKeyDownTime = Time.time;
-            }
-        }
 
-        // 왼쪽 이동 (A 또는 왼쪽 화살표)
-        if (keyboard.aKey.wasPressedThisFrame || keyboard.leftArrowKey.wasPressedThisFrame)
-        {
-            if (Time.time - m_leftKeyDownTime < k_DoubleClickTime)
-            {
-                m_playerControl.Dash(-1f);
-                m_leftKeyDownTime = -1f; // 더블 탭 후 타이머 초기화
-            }
-            else
-            {
-                m_playerControl.StartMoving(-1f);
-                m_leftKeyDownTime = Time.time;
-            }
-        }
-
-        // 키를 뗐을 때 정지 (양쪽 키가 모두 떼어졌을 때만 정지)
-        bool anyKeyReleased = keyboard.dKey.wasReleasedThisFrame || keyboard.rightArrowKey.wasReleasedThisFrame ||
-                              keyboard.aKey.wasReleasedThisFrame || keyboard.leftArrowKey.wasReleasedThisFrame;
-        bool anyKeyPressed = keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed ||
-                             keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed;
-
-        if (anyKeyReleased && !anyKeyPressed)
-        {
-            m_playerControl.StopMoving();
-        }
-    }
-
-    private IEnumerator CooldownUICoroutine()
-    {
-        while (true)
-        {
-            if (m_skillManager != null)
-            {
-                UpdateSingleSkillUI(m_skillUIElements[0], m_skillManager.Skill1_RemainingCooldown, m_skillManager.PlayerSkill1_Cooldown);
-                UpdateSingleSkillUI(m_skillUIElements[1], m_skillManager.Skill2_RemainingCooldown, m_skillManager.PlayerSkill2_Cooldown);
-                UpdateSingleSkillUI(m_skillUIElements[2], m_skillManager.Skill3_RemainingCooldown, m_skillManager.PlayerSkill3_Cooldown);
-                UpdateSingleSkillUI(m_skillUIElements[3], m_skillManager.Skill4_RemainingCooldown, m_skillManager.PlayerSkill4_Cooldown);
-            }
-            yield return null;
+            // 쿨다운이 종료되면 UI를 비활성화합니다.
+            UpdateSingleSkillUI(ui, 0, totalCooldown);
         }
     }
 

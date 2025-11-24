@@ -1,170 +1,142 @@
 using UnityEngine;
 using DG.Tweening;
+using Cysharp.Threading.Tasks;
 using System.Collections.Generic;
 
 /// <summary>
 /// 잔상 '스냅샷'의 생명 주기를 관리합니다.
-/// 단일 Tween을 사용하여 모든 자식 렌더러의 투명도를 효율적으로 제어합니다.
+/// 자신과 모든 자식 SpriteRenderer들의 투명도를 점차 0으로 만들어 사라지는 효과를 연출합니다.
 /// </summary>
 public class AfterimageSnapshot : MonoBehaviour
 {
-    #region Private Fields
-    // 풀링된 스프라이트 렌더러 파츠 목록
-    private readonly List<SpriteRenderer> m_partRenderers = new List<SpriteRenderer>();
-    
-    // 현재 활성화된 파츠의 개수 (전체 리스트 순회 방지용)
-    private int m_activePartCount = 0;
-    
-    // 알파값 제어를 위한 단일 Tween
-    private Tween m_fadeTween;
-    
-    // 초기 색상 (알파값 계산을 위해 캐싱)
-    private Color m_baseColor;
-    #endregion
+    // 이 리스트는 프리팹에 미리 포함된 자식 렌더러들로 채워집니다.
+    private readonly List<SpriteRenderer> _partRenderers = new List<SpriteRenderer>();
+    private readonly List<Tween> _fadeTweens = new List<Tween>();
 
-    #region MonoBehaviour Flow
     private void Awake()
     {
-        GetComponentsInChildren(true, m_partRenderers);
+        // 비활성화된 자식까지 포함하여 모든 파츠 렌더러를 미리 찾아 캐시합니다.
+        // 이 방식은 런타임에 GetComponentsInChildren를 호출하는 것을 방지합니다.
+        GetComponentsInChildren(true, _partRenderers);
     }
 
-    private void OnDisable()
-    {
-        // 오브젝트가 비활성화되면(풀 반환 등) 트윈을 즉시 정리합니다.
-        m_fadeTween?.Kill();
-    }
-    #endregion
-
-    #region Public Methods
     /// <summary>
-    /// 원본 렌더러들의 상태를 복제하여 스냅샷을 활성화합니다.
+    /// 원본 렌더러들의 상태를 복제하여 스냅샷을 활성화하고, 모든 파츠의 사라짐 효과를 시작합니다.
     /// </summary>
+    /// <param name="sourceRenderers">복제할 원본 렌더러 리스트</param>
+    /// <param name="color">잔상에 적용할 색상</param>
+    /// <param name="fadeDuration">사라지는 데 걸리는 시간</param>
+    /// <param name="overrideSorting">Sorting Order를 덮어쓸지 여부</param>
+    /// <param name="sortingOrderOverride">덮어쓸 Sorting Order 값</param>
     public void Activate(List<SpriteRenderer> sourceRenderers, Color color, float fadeDuration, bool overrideSorting, int sortingOrderOverride)
     {
-        // 이전 트윈이 혹시 남아있다면 제거
-        m_fadeTween?.Kill();
-        
-        m_baseColor = color;
-        m_activePartCount = 0;
-
-        // 원본과 잔상 파츠 매칭
-        int sourceCount = sourceRenderers.Count;
-        
-        // 1. 필요한 파츠 확보 (부족하면 생성 - 런타임 부하가 있지만 필수적인 방어 코드)
-        EnsurePartCapacity(sourceCount);
-
-        // 2. 속성 복사 (Copy Properties)
-        // 불필요한 transform 접근을 줄이기 위해 캐싱된 transform 사용
-        Transform myTransform = transform;
-        Matrix4x4 myWorldToLocal = myTransform.worldToLocalMatrix;
-
-        for (int i = 0; i < sourceCount; i++)
+        // 기존 트윈 정리
+        foreach (var tween in _fadeTweens)
         {
-            SpriteRenderer source = sourceRenderers[i];
+            tween?.Kill();
+        }
+        _fadeTweens.Clear();
 
-            // 유효하지 않거나 비활성화된 소스는 건너뜀
-            if (source == null || !source.gameObject.activeInHierarchy || source.sprite == null)
+        int activeRenderers = 0;
+        // 원본 캐릭터의 모든 파츠를 복제하려고 시도합니다.
+        for (int i = 0; i < sourceRenderers.Count; i++)
+        {
+            SpriteRenderer partRenderer;
+            // 잔상 프리팹에 준비된 파츠가 부족한 경우, 동적으로 생성합니다.
+            if (i >= _partRenderers.Count)
             {
-                m_partRenderers[i].gameObject.SetActive(false);
-                continue;
+                  var newPartObj = new GameObject($"Part_{i}");
+                newPartObj.transform.SetParent(transform, false);
+                partRenderer = newPartObj.AddComponent<SpriteRenderer>();
+                _partRenderers.Add(partRenderer);
+            }
+            else
+            {
+                partRenderer = _partRenderers[i];
             }
 
-            SpriteRenderer target = m_partRenderers[i];
-            target.gameObject.SetActive(true);
-            m_activePartCount++;
+            var sourceRenderer = sourceRenderers[i];
 
-            // 렌더링 속성 복사
-            target.sprite = source.sprite;
-            target.color = m_baseColor; // 알파값은 1로 시작
-            target.sortingLayerID = source.sortingLayerID;
-            target.sortingOrder = overrideSorting ? sortingOrderOverride : source.sortingOrder - 1;
-            
-            Matrix4x4 targetMatrix = myWorldToLocal * source.transform.localToWorldMatrix;
-            
-            Transform targetTransform = target.transform;
-            targetTransform.localPosition = targetMatrix.GetColumn(3);
-            targetTransform.localRotation = targetMatrix.rotation;
-            targetTransform.localScale = targetMatrix.lossyScale;
+            // 원본 파츠가 활성화 상태일 때만 잔상을 복제합니다.
+            if (sourceRenderer.gameObject.activeInHierarchy && sourceRenderer.sprite != null)
+            {
+                partRenderer.gameObject.SetActive(true);
+
+                // 속성 복사
+                partRenderer.sprite = sourceRenderer.sprite;
+                partRenderer.sortingLayerID = sourceRenderer.sortingLayerID;
+                partRenderer.sortingOrder = overrideSorting ? sortingOrderOverride : sourceRenderer.sortingOrder - 1;
+
+                // [개선된 방식]
+                // Matrix 연산을 통해 원본 렌더러의 모든 Transform 속성(위치, 회전, 크기)을
+                // 스냅샷 컨테이너(부모)에 상대적인 로컬 Transform으로 정확하게 변환합니다.
+                Matrix4x4 targetMatrix = transform.worldToLocalMatrix * sourceRenderer.transform.localToWorldMatrix;
+                partRenderer.transform.localPosition = targetMatrix.GetColumn(3);
+                partRenderer.transform.localRotation = targetMatrix.rotation;
+                
+                // [수정] lossyScale 대신, 행렬의 각 축(column) 벡터의 크기(magnitude)를 직접 계산하여 정확한 스케일 값을 추출합니다.
+                // 이 방식은 복잡한 계층 구조에서도 스케일 왜곡 없이 1:1 비율을 보장합니다.
+                partRenderer.transform.localScale = new Vector3(
+                    targetMatrix.GetColumn(0).magnitude,
+                    targetMatrix.GetColumn(1).magnitude,
+                    targetMatrix.GetColumn(2).magnitude
+                );
+
+                // 시작 색상 및 투명도 설정 후 페이드 아웃 트윈 시작
+                partRenderer.color = new Color(color.r, color.g, color.b, 1f);
+                Tween fade = partRenderer.DOFade(0, fadeDuration).SetEase(Ease.InQuad);
+                _fadeTweens.Add(fade);
+                activeRenderers++;
+            }
+            else
+            {
+                // 원본 파츠가 비활성이면, 잔상 파츠도 비활성화합니다.
+                partRenderer.gameObject.SetActive(false);
+            }
         }
 
-        // 3. 사용하지 않는 나머지 파츠 비활성화
-        for (int i = sourceCount; i < m_partRenderers.Count; i++)
+        // 복제하고 남은 잔상 프리팹의 파츠들을 비활성화합니다.
+        for (int i = sourceRenderers.Count; i < _partRenderers.Count; i++)
         {
-            if (m_partRenderers[i].gameObject.activeSelf)
-                m_partRenderers[i].gameObject.SetActive(false);
+            _partRenderers[i].gameObject.SetActive(false);
         }
 
-        // 4. 단일 트윈 시작 (Batch Tweening)
-        // 활성화된 파츠가 하나라도 있을 때만 트윈 실행
-        if (m_activePartCount > 0)
+        // 활성화된 렌더러가 하나라도 있으면, 마지막 트윈 완료 시 풀로 반환하도록 설정합니다.
+        if (activeRenderers > 0 && _fadeTweens.Count > 0)
         {
-            m_fadeTween = DOVirtual.Float(1f, 0f, fadeDuration, OnUpdateAlpha)
-                .SetEase(Ease.InQuad)
-                .OnComplete(ReturnToPool);
+            // OnComplete은 마지막 트윈에만 연결하여 중복 호출을 방지합니다.
+            _fadeTweens[_fadeTweens.Count - 1].OnComplete(ReturnToPool);
         }
         else
         {
-            ReturnToPool();
-        }
-    }
-    #endregion
-
-    #region Internal Logic
-    /// <summary>
-    /// Tween의 Update 콜백입니다. 모든 활성 파츠의 투명도를 조절합니다.
-    /// </summary>
-    /// <param name="alpha">현재 알파 값 (0.0 ~ 1.0)</param>
-    private void OnUpdateAlpha(float alpha)
-    {
-        // 현재 사용 중인 파츠까지만 순회하여 성능 최적화
-        // Color 구조체 생성을 최소화하기 위해 r,g,b는 미리 캐싱된 값을 사용
-        Color newColor = new Color(m_baseColor.r, m_baseColor.g, m_baseColor.b, alpha);
-        
-        for (int i = 0; i < m_activePartCount; i++)
-        {
-            // Activate 단계에서 활성화된 파츠만 앞쪽에 배치되므로 
-            // activeSelf 체크 없이 순회 가능하나, 안전을 위해 추가할 수도 있음.
-            // 여기서는 Activate 로직을 신뢰하고 바로 접근.
-            if (m_partRenderers[i].gameObject.activeSelf)
-            {
-                m_partRenderers[i].color = newColor;
-            }
-        }
-    }
-
-    /// <summary>
-    /// 잔상 파츠 리스트의 용량을 확보합니다. 부족할 경우 새로 생성합니다.
-    /// </summary>
-    private void EnsurePartCapacity(int requiredCount)
-    {
-        int currentCount = m_partRenderers.Count;
-        if (requiredCount <= currentCount) return;
-
-        for (int i = currentCount; i < requiredCount; i++)
-        {
-            GameObject newPartObj = new GameObject($"Part_{i}");
-            newPartObj.transform.SetParent(transform, false);
-            
-            SpriteRenderer renderer = newPartObj.AddComponent<SpriteRenderer>();
-            m_partRenderers.Add(renderer);
+            // 활성화된 렌더러가 없으면 즉시 풀로 반환합니다.
+            // UniTask.NextFrame()을 사용하여 현재 프레임의 로직이 모두 끝난 후 반환하도록 합니다.
+            // 이는 Get -> Activate -> Return이 한 프레임에 일어날 때 발생할 수 있는 문제를 방지합니다.
+            UniTask.NextFrame().ContinueWith(ReturnToPool).Forget();
         }
     }
 
     private void ReturnToPool()
     {
-        m_fadeTween?.Kill(); // 안전 장치
-
         if (ObjectPoolManager.Instance != null)
         {
-            if (gameObject.activeInHierarchy)
-            {
+            // 중복 반환을 막기 위해 오브젝트가 아직 활성 상태일 때만 반환합니다.
+            if(gameObject.activeInHierarchy)
                 ObjectPoolManager.Instance.Return(gameObject);
-            }
         }
-        else
+        else // 풀 매니저가 없다면(씬 종료 등) 오브젝트를 파괴하여 메모리 누수를 방지합니다.
         {
             Destroy(gameObject);
         }
     }
-    #endregion
+
+    private void OnDisable()
+    {
+        // 비활성화될 때(풀에 반환될 때) 모든 트윈을 확실히 정리합니다.
+        foreach (var tween in _fadeTweens)
+        {
+            tween?.Kill();
+        }
+        _fadeTweens.Clear();
+    }
 }

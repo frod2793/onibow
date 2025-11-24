@@ -169,6 +169,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ExplosiveArrow
   speed: 5
-  explosionRadius: 5
-  lifeTime: 5
-  explosionEffectPrefab: {fileID: -2253911629886400664, guid: 50b5589adc8d24db4984400455f910d9, type: 3}
+  explosionDamage: 100
+  shakeDuration: 0.3
+  shakeStrength: 0.5
+  collisionTags:
+  - Enemy

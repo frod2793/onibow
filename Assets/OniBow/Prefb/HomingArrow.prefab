@@ -169,7 +169,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b259b5f11fcf4495bd57a36d46629ae6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HomingArrow
-  damage: 10
+  damage: 40
   speed: 3
   rotateSpeed: 500
   lifeTime: 10
@@ -189,10 +189,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b64a98d5334841aa92c90ba9b2e0bed9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AfterimageEffect
-  afterimagePrefab: {fileID: 6608624498905167473, guid: 2f616c83af5f64b8cbbbf5174b0b5cb8, type: 3}
-  _sourceVisualsRoot: {fileID: 0}
-  _afterimageColor: {r: 0.5, g: 0.8, b: 1, a: 1}
-  _spawnInterval: 0.1
-  _fadeDuration: 0.5
-  _overrideSortingOrder: 0
-  _sortingOrderOverrideValue: 20
+  m_afterimagePrefab: {fileID: 6608624498905167473, guid: 2f616c83af5f64b8cbbbf5174b0b5cb8, type: 3}
+  m_sourceVisualsRoot: {fileID: 0}
+  m_afterimageColor: {r: 0.5, g: 0.8, b: 1, a: 1}
+  m_spawnInterval: 0.1
+  m_fadeDuration: 0.5
+  m_overrideSortingOrder: 0
+  m_sortingOrderOverrideValue: 20

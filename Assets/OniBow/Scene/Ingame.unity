@@ -708,13 +708,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b64a98d5334841aa92c90ba9b2e0bed9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AfterimageEffect
-  afterimagePrefab: {fileID: 6608624498905167473, guid: 2f616c83af5f64b8cbbbf5174b0b5cb8, type: 3}
-  _sourceVisualsRoot: {fileID: 0}
-  _afterimageColor: {r: 0.5, g: 0.8, b: 1, a: 1}
-  _spawnInterval: 0.05
-  _fadeDuration: 0.5
-  _overrideSortingOrder: 1
-  _sortingOrderOverrideValue: 20
+  m_afterimagePrefab: {fileID: 6608624498905167473, guid: 2f616c83af5f64b8cbbbf5174b0b5cb8, type: 3}
+  m_sourceVisualsRoot: {fileID: 0}
+  m_afterimageColor: {r: 0.5, g: 0.8, b: 1, a: 1}
+  m_spawnInterval: 0.05
+  m_fadeDuration: 0.5
+  m_overrideSortingOrder: 1
+  m_sortingOrderOverrideValue: 20
 --- !u!1001 &320094553
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1271,13 +1271,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b64a98d5334841aa92c90ba9b2e0bed9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AfterimageEffect
-  afterimagePrefab: {fileID: 6608624498905167473, guid: 2f616c83af5f64b8cbbbf5174b0b5cb8, type: 3}
-  _sourceVisualsRoot: {fileID: 0}
-  _afterimageColor: {r: 0.5, g: 0.8, b: 1, a: 1}
-  _spawnInterval: 0.05
-  _fadeDuration: 0.5
-  _overrideSortingOrder: 1
-  _sortingOrderOverrideValue: 20
+  m_afterimagePrefab: {fileID: 6608624498905167473, guid: 2f616c83af5f64b8cbbbf5174b0b5cb8, type: 3}
+  m_sourceVisualsRoot: {fileID: 0}
+  m_afterimageColor: {r: 0.5, g: 0.8, b: 1, a: 1}
+  m_spawnInterval: 0.05
+  m_fadeDuration: 0.5
+  m_overrideSortingOrder: 1
+  m_sortingOrderOverrideValue: 20
 --- !u!1 &354094714
 GameObject:
   m_ObjectHideFlags: 0
@@ -1423,18 +1423,18 @@ MonoBehaviour:
   m_enemyTempHpBar: {fileID: 1968983026}
   m_enemyHpText: {fileID: 983606455}
   m_skillUIElements:
-  - Button: {fileID: 1490241341}
-    CooldownText: {fileID: 1524735923}
-    CooldownMask: {fileID: 1177273139}
-  - Button: {fileID: 387423166}
-    CooldownText: {fileID: 2001671920}
-    CooldownMask: {fileID: 1238673170}
-  - Button: {fileID: 1290394407}
-    CooldownText: {fileID: 1079098692}
-    CooldownMask: {fileID: 1971587197}
-  - Button: {fileID: 1633692434}
-    CooldownText: {fileID: 907125137}
-    CooldownMask: {fileID: 938808009}
+  - <Button>k__BackingField: {fileID: 1490241341}
+    <CooldownText>k__BackingField: {fileID: 1524735923}
+    <CooldownMask>k__BackingField: {fileID: 1177273139}
+  - <Button>k__BackingField: {fileID: 387423166}
+    <CooldownText>k__BackingField: {fileID: 2001671920}
+    <CooldownMask>k__BackingField: {fileID: 1238673170}
+  - <Button>k__BackingField: {fileID: 1290394407}
+    <CooldownText>k__BackingField: {fileID: 1079098692}
+    <CooldownMask>k__BackingField: {fileID: 1971587197}
+  - <Button>k__BackingField: {fileID: 1633692434}
+    <CooldownText>k__BackingField: {fileID: 907125137}
+    <CooldownMask>k__BackingField: {fileID: 938808009}
   m_rightMoveButton: {fileID: 769236669}
   m_leftMoveButton: {fileID: 716095771}
   m_settingsPopup: {fileID: 679253163}
@@ -2568,8 +2568,8 @@ MonoBehaviour:
     normalScale: 1
     criticalScale: 1.5
     criticalThreshold: 50
-    normalColor: {r: 1, g: 1, b: 1, a: 1}
-    criticalColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+    normalColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+    criticalColor: {r: 1, g: 0.262, b: 0.015686275, a: 1}
 --- !u!4 &651444264
 Transform:
   m_ObjectHideFlags: 0
@@ -5683,9 +5683,9 @@ Camera:
   m_NormalizedViewPortRect:
     serializedVersion: 2
     x: 0
-    y: 0.13876651
+    y: 0.2115869
     width: 1
-    height: 0.72232926
+    height: 0.5759603
   near clip plane: 0.3
   far clip plane: 1000
   field of view: 60

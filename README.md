@@ -192,6 +192,7 @@ UniTask를 사용하여 적(Enemy)의 AI 로직을 비동기 루프로 구현했
 public class Enemy : MonoBehaviour
 {
     private CancellationTokenSource m_aiTaskCts;
+    private Rigidbody2D m_rigidbody2D;
     private bool m_isDead;
     public EnemyState CurrentState { get; private set; }
 
@@ -210,7 +211,7 @@ public class Enemy : MonoBehaviour
 
     public async void TakeDamage(int damage)
     {
-        if (m_isDead || CurrentState == EnemyState.Evading || CurrentState == EnemyState.Damaged) return;
+        if (m_isDead || CurrentState == EnemyState.Evading || CurrentState == EnemyState.Damaged) { return; }
 
         // ... (회피 로직)
 
@@ -229,7 +230,7 @@ public class Enemy : MonoBehaviour
 
     private async UniTaskVoid AI_LoopAsync(CancellationToken token)
     {
-        while (!token.IsCancellationRequested && !m_isDead)
+        while (!token.IsCancellationRequested && !m_isDead) // 루프 시작
         {
             switch (CurrentState)
             {
@@ -241,24 +242,36 @@ public class Enemy : MonoBehaviour
                     break;
                 // ... (기타 상태 처리)
             }
-            await UniTask.Yield(PlayerLoopTiming.Update, token).SuppressCancellationThrow();
+            // 상태에 따른 비동기 작업이 끝난 후 다음 프레임까지 대기
+            await UniTask.Yield(PlayerLoopTiming.FixedUpdate, token).SuppressCancellationThrow();
         }
     }
 
     private async UniTaskVoid PlayDamagedAnimationAsync()
     {
-        if (m_isDead) return;
+        if (m_isDead || m_enemyAnimation == null) { return; }
 
         // 현재 진행 중인 AI 행동(이동, 공격 등)을 즉시 취소
         m_aiTaskCts?.Cancel();
         SetState(EnemyState.Damaged);
+        m_rigidbody2D.linearVelocity = Vector2.zero;
         
-        // ... (피격 애니메이션 재생)
-        var damagedClip = m_enemyAnimation.DAMAGED_List[0];
-        await UniTask.Delay(TimeSpan.FromSeconds(damagedClip.length), cancellationToken: this.GetCancellationTokenOnDestroy());
+        var damagedClip = m_enemyAnimation.DAMAGED_List.Count > 0 ? m_enemyAnimation.DAMAGED_List[0] : null;
+        if (damagedClip != null)
+        {
+            try
+            {
+                // 애니메이션 길이만큼 대기. 이 시간 동안 다른 AI 로직은 정지됨.
+                await UniTask.Delay(TimeSpan.FromSeconds(damagedClip.length), cancellationToken: this.GetCancellationTokenOnDestroy()).SuppressCancellationThrow();
+            }
+            catch (OperationCanceledException)
+            {
+                return; // 오브젝트 파괴 시 예외 처리
+            }
+        }
 
-        // 피격 애니메이션이 끝난 후, 사망 상태가 아니라면 새로운 토큰으로 AI 루프를 다시 시작
-        if (!m_isDead)
+        // 피격 애니메이션이 끝난 후, 사망 상태가 아니라면 새로운 CancellationToken으로 AI 루프를 다시 시작
+        if (!m_isDead) 
         {
             SetState(EnemyState.Idle);
             m_aiTaskCts = new CancellationTokenSource();
@@ -420,7 +433,7 @@ public class BuildScript
             scenes = EditorBuildSettings.scenes.Where(s => s.enabled).Select(s => s.path).ToArray(),
             locationPathName = outputPath,
             target = buildTarget,
-            options = BuildOptions.None // CleanBuildCache는 더 이상 권장되지 않음
+            options = BuildOptions.None 
         };
 
         // 빌드 실행 및 리포트 분석
@@ -454,5 +467,3 @@ public class BuildScript
 ```
 </details>
 ---
-
-Copyright © 2025 [Your Name/Organization]. All rights reserved.

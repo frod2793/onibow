@@ -4,6 +4,7 @@ using DG.Tweening;
 using Cysharp.Threading.Tasks;
 using System.Linq;
 using System.Threading;
+using UnityEngine.InputSystem;
 using UnityEngine.Serialization;
 
 /// <summary>
@@ -80,6 +81,12 @@ public class PlayerControl : MonoBehaviour
     private bool m_isInvulnerable = false; // 무적 상태인지 확인하는 플래그
     private bool m_isMovementAllowedWhileSkill = false; // 스킬 사용 중 이동이 허용되는지 확인하는 플래그
     
+    // 입력 처리를 위한 변수
+    private float m_leftInputTime = -1f;
+    private float m_rightInputTime = -1f;
+    private const float k_DoubleClickTime = 0.3f;
+
+
     // 카메라 경계
     private float m_cameraMinX;
     private float m_cameraMaxX;
@@ -145,6 +152,12 @@ public class PlayerControl : MonoBehaviour
     {
         CalculateCameraBoundaries();
         ForceUpdateHpUI();
+    }
+    
+    private void Update()
+    {
+        // 키보드 입력은 Update에서 처리하여 프레임 드랍에 관계없이 입력을 감지합니다.
+        HandleKeyboardInput();
     }
 
     private void OnTriggerEnter2D(Collider2D other)
@@ -304,6 +317,84 @@ public class PlayerControl : MonoBehaviour
                 SetState(PlayerState.IDLE);
                 StartRepeatingFire();
             }
+        }
+    }
+
+    /// <summary>
+    /// UI 이동 버튼 클릭 시 호출됩니다.
+    /// </summary>
+    public void OnMoveButtonDown(float direction)
+    {
+        if (SoundManager.Instance != null)
+        {
+            SoundManager.Instance.PlaySFX(SoundManager.Instance.GenericButtonClickSfx);
+        }
+
+        if (direction > 0)
+        {
+            if (Time.time - m_rightInputTime < k_DoubleClickTime)
+            {
+                Dash(direction);
+                m_rightInputTime = -1f; // 더블 클릭 후 타이머 초기화
+            }
+            else
+            {
+                StartMoving(direction);
+                m_rightInputTime = Time.time;
+            }
+        }
+        else
+        {
+            if (Time.time - m_leftInputTime < k_DoubleClickTime)
+            {
+                Dash(direction);
+                m_leftInputTime = -1f; // 더블 클릭 후 타이머 초기화
+            }
+            else
+            {
+                StartMoving(direction);
+                m_leftInputTime = Time.time;
+            }
+        }
+    }
+
+    /// <summary>
+    /// UI 이동 버튼에서 손을 뗐을 때 호출됩니다.
+    /// </summary>
+    public void OnMoveButtonUp()
+    {
+        StopMoving();
+    }
+
+    /// <summary>
+    /// 키보드 입력을 처리하여 플레이어의 이동 및 대쉬를 제어합니다.
+    /// </summary>
+    private void HandleKeyboardInput()
+    {
+        var keyboard = Keyboard.current;
+        if (keyboard == null) return;
+
+        // 오른쪽 이동 (D 또는 오른쪽 화살표)
+        if (keyboard.dKey.wasPressedThisFrame || keyboard.rightArrowKey.wasPressedThisFrame)
+        {
+            OnMoveButtonDown(1);
+        }
+
+        // 왼쪽 이동 (A 또는 왼쪽 화살표)
+        if (keyboard.aKey.wasPressedThisFrame || keyboard.leftArrowKey.wasPressedThisFrame)
+        {
+            OnMoveButtonDown(-1);
+        }
+
+        // 키를 뗐을 때 정지 (양쪽 키가 모두 떼어졌을 때만 정지)
+        bool anyKeyReleased = keyboard.dKey.wasReleasedThisFrame || keyboard.rightArrowKey.wasReleasedThisFrame ||
+                              keyboard.aKey.wasReleasedThisFrame || keyboard.leftArrowKey.wasReleasedThisFrame;
+        bool anyKeyPressed = keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed ||
+                             keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed;
+
+        if (anyKeyReleased && !anyKeyPressed)
+        {
+            OnMoveButtonUp();
         }
     }
 
