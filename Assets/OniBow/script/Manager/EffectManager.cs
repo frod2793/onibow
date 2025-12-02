@@ -24,7 +24,6 @@ public struct DamageTextStyleSettings
 
 /// <summary>
 /// 게임 내 모든 시각 효과(VFX)를 중앙에서 관리하는 싱글턴 클래스입니다.
-/// 이펙트의 생성과 자동 파괴를 담당합니다.
 /// </summary>
 public class EffectManager : MonoBehaviour
 {
@@ -52,8 +51,8 @@ public class EffectManager : MonoBehaviour
     [Header("오브젝트 풀 설정")]
     [SerializeField] private int damageTextPoolSize = 20;
 
-    [Header("대미지 텍스트용 캔버스 ")] [SerializeField]
-    private Canvas DamagedTextCanvas;
+    [Header("대미지 텍스트용 캔버스 ")]
+    [SerializeField] private Canvas DamagedTextCanvas;
 
     [Header("데미지 텍스트 위치 오프셋")]
     [Tooltip("캐릭터 머리 위로 텍스트가 표시될 추가 높이입니다.")]
@@ -76,6 +75,7 @@ public class EffectManager : MonoBehaviour
 
     private Tween _vignetteTween;
     private IObjectPool<GameObject> _damageTextPool;
+
     private void Awake()
     {
         if (Instance == null)
@@ -101,12 +101,13 @@ public class EffectManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 데미지 텍스트를 위한 오브젝트 풀을 초기화합니다.
+    /// </summary>
     private void InitializePool()
     {
         _damageTextPool = new ObjectPool<GameObject>(
-            createFunc: () => {
-                return Instantiate(damageTextPrefab);
-            },
+            createFunc: () => Instantiate(damageTextPrefab),
             actionOnGet: (obj) => {
                 obj.transform.SetParent(DamagedTextCanvas.transform, false);
                 obj.SetActive(true);
@@ -115,9 +116,7 @@ public class EffectManager : MonoBehaviour
                 obj.transform.SetParent(transform, false);
                 obj.SetActive(false);
             },
-            actionOnDestroy: (obj) => {
-                Destroy(obj);
-            },
+            actionOnDestroy: (obj) => Destroy(obj),
             collectionCheck: true, defaultCapacity: damageTextPoolSize, maxSize: damageTextPoolSize * 2
         );
 
@@ -135,16 +134,13 @@ public class EffectManager : MonoBehaviour
     /// <param name="effectPrefab">재생할 이펙트 프리팹</param>
     /// <param name="position">이펙트가 생성될 월드 위치</param>
     /// <param name="rotation">이펙트의 초기 회전값</param>
+    /// <param name="scale">이펙트의 크기</param>
+    /// <param name="sortingOrder">이펙트의 Sprite Renderer 정렬 순서</param>
     public void PlayEffect(GameObject effectPrefab, Vector3 position, Quaternion rotation, float scale = 1f, int? sortingOrder = null)
     {
-        if (effectPrefab == null)
-        {
-            Debug.LogWarning("재생할 이펙트 프리팹이 null입니다.");
-            return;
-        }
+        if (effectPrefab == null) return;
 
         GameObject effectInstance = Instantiate(effectPrefab, position, rotation);
-        
         effectInstance.transform.localScale = Vector3.one * scale;
 
         if (sortingOrder.HasValue && effectInstance.TryGetComponent<SpriteRenderer>(out var renderer))
@@ -160,8 +156,7 @@ public class EffectManager : MonoBehaviour
         {
             if (animator.runtimeAnimatorController != null && animator.runtimeAnimatorController.animationClips.Length > 0)
             {
-                float clipLength = animator.runtimeAnimatorController.animationClips[0].length;
-                Destroy(effectInstance, clipLength);
+                Destroy(effectInstance, animator.runtimeAnimatorController.animationClips[0].length);
             }
             else
             {
@@ -170,7 +165,6 @@ public class EffectManager : MonoBehaviour
         }
         else
         {
-            Debug.LogWarning($"'{effectPrefab.name}'에 ParticleSystem 또는 Animator 컴포넌트가 없어 기본 시간 후 파괴됩니다.");
             Destroy(effectInstance, 1.5f);
         }
     }
@@ -178,7 +172,6 @@ public class EffectManager : MonoBehaviour
     /// <summary>
     /// 지정된 위치에 로켓 폭발 이펙트를 재생합니다.
     /// </summary>
-    /// <param name="position">폭발이 일어날 월드 위치</param>
     public void PlayExplosionEffect(Vector3 position)
     {
         PlayEffect(rocketExplosionEffectPrefab, position, Quaternion.identity, 1.5f, 30);
@@ -187,7 +180,6 @@ public class EffectManager : MonoBehaviour
     /// <summary>
     /// 지정된 위치에 호밍 미사일 폭발 이펙트를 재생합니다.
     /// </summary>
-    /// <param name="position">폭발이 일어날 월드 위치</param>
     public void PlayHomingMissileExplosion(Vector3 position)
     {
         PlayEffect(HomingMissileExplosionEffectPrefab, position, Quaternion.identity);
@@ -196,7 +188,6 @@ public class EffectManager : MonoBehaviour
     /// <summary>
     /// 지정된 위치에 AK 총알 착탄 이펙트를 재생합니다.
     /// </summary>
-    /// <param name="position">이펙트가 생성될 월드 위치</param>
     public void PlayBulletHitEffect(Vector3 position)
     {
         PlayEffect(akBulletHitEffectPrefab, position, Quaternion.Euler(0, 0, -90));
@@ -205,7 +196,6 @@ public class EffectManager : MonoBehaviour
     /// <summary>
     /// 지정된 위치에 힐 이펙트를 재생합니다.
     /// </summary>
-    /// <param name="position">이펙트가 생성될 월드 위치</param>
     public void PlayHealEffect(Vector3 position)
     {
         PlayEffect(HealEffectPrefab, position, Quaternion.identity);
@@ -225,7 +215,6 @@ public class EffectManager : MonoBehaviour
             if (_vignetteTween == null || !_vignetteTween.IsActive())
             {
                 lowHealthVignette.gameObject.SetActive(true);
-             
                 _vignetteTween = lowHealthVignette.DOFade(vignetteMaxIntensity, vignettePulseDuration)
                     .SetEase(Ease.InOutSine)
                     .SetLoops(-1, LoopType.Yoyo);
@@ -243,6 +232,7 @@ public class EffectManager : MonoBehaviour
             });
         }
     }
+    
     /// <summary>
     /// 지정된 위치에 데미지 텍스트를 표시합니다.
     /// </summary>
@@ -250,29 +240,11 @@ public class EffectManager : MonoBehaviour
     /// <param name="damage">표시할 데미지 수치</param>
     public void ShowDamageText(GameObject target, int damage)
     {
-        if (damageTextPrefab == null)
-        {
-            Debug.LogWarning("데미지 텍스트 프리팹이 EffectManager에 할당되지 않았습니다.");
-            return;
-        }
-        if (DamagedTextCanvas == null)
-        {
-            Debug.LogWarning("데미지 텍스트용 캔버스가 EffectManager에 할당되지 않았습니다.");
-            return;
-        }
-
-        if (target == null)
-        {
-            Debug.LogWarning("데미지 텍스트를 표시할 대상(target)이 null입니다.");
-            return;
-        }
+        if (damageTextPrefab == null || DamagedTextCanvas == null || target == null) return;
 
         Collider2D targetCollider = target.GetComponent<Collider2D>();
-        if (targetCollider == null)
-        {
-            Debug.LogWarning($"데미지 텍스트를 표시할 대상 '{target.name}'에 Collider2D가 없습니다.");
-            return;
-        }
+        if (targetCollider == null) return;
+        
         Vector3 position = targetCollider.bounds.center + Vector3.up * (targetCollider.bounds.extents.y + damageTextYOffset);
 
         GameObject textInstance = _damageTextPool.Get();
@@ -280,7 +252,6 @@ public class EffectManager : MonoBehaviour
         RectTransform textRectTransform = textInstance.GetComponent<RectTransform>();
         if (textRectTransform == null)
         {
-            Debug.LogError($"데미지 텍스트 프리팹 '{damageTextPrefab.name}'에 RectTransform 컴포넌트가 없습니다. UI 요소여야 합니다.");
             Destroy(textInstance);
             return;
         }
@@ -305,7 +276,6 @@ public class EffectManager : MonoBehaviour
     /// <summary>
     /// 사용이 끝난 데미지 텍스트 오브젝트를 풀로 반환합니다.
     /// </summary>
-    /// <param name="textObject">반환할 게임 오브젝트</param>
     public void ReturnDamageTextToPool(GameObject textObject)
     {
         _damageTextPool.Release(textObject);
@@ -327,12 +297,10 @@ public class EffectManager : MonoBehaviour
 
         if (_isTestingLowHealthEffect)
         {
-            Debug.Log("<color=cyan>[TEST]</color> 체력 경고 효과 시작");
             UpdateLowHealthEffect(1, 100);
         }
         else
         {
-            Debug.Log("<color=cyan>[TEST]</color> 체력 경고 효과 중지");
             UpdateLowHealthEffect(100, 100);
         }
     }

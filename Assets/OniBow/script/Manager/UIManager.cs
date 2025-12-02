@@ -85,16 +85,16 @@ public class UIManager : MonoBehaviour
         BindEvents();
     }
 
+
+
     private void OnDisable()
     {
-        // 메모리 누수 방지를 위해 이벤트 구독 해지
         if (m_playerControl != null)
         {
             m_playerControl.OnHealthUpdated -= UpdatePlayerHpUI;
         }
         if (m_enemy != null) m_enemy.OnHpChanged -= UpdateEnemyHpUI;
 
-        // GameManager는 DontDestroyOnLoad일 수 있으므로, 인스턴스가 살아있는지 확인
         if (GameManager.Instance != null)
         {
             GameManager.Instance.OnGameOver -= HandleGameOver;
@@ -105,13 +105,15 @@ public class UIManager : MonoBehaviour
         m_cooldownCts?.Dispose();
     }
 
+    /// <summary>
+    /// 인스펙터에서 할당된 UI 컴포넌트들의 유효성을 검사합니다.
+    /// </summary>
     private void InitializeUIComponents()
     {
         if (m_playerControl == null) Debug.LogError("PlayerControl 참조가 UIManager에 할당되지 않았습니다!", this);
         if (m_skillManager == null) Debug.LogError("SkillManager 참조가 UIManager에 할당되지 않았습니다!", this);
         if (m_enemy == null) Debug.LogError("Enemy 참조가 UIManager에 할당되지 않았습니다!", this);
 
-        // 인스펙터에서 할당된 스킬 UI 요소들의 유효성을 검사합니다.
         for (int i = 0; i < m_skillUIElements.Length; i++)
         {
             if (m_skillUIElements[i].Button == null)
@@ -124,19 +126,19 @@ public class UIManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 각종 이벤트들을 구독합니다.
+    /// 다른 매니저 및 컨트롤러의 이벤트를 구독하여 UI를 업데이트하도록 설정합니다.
     /// </summary>
     private void BindEvents()
     {
         if (m_playerControl != null)
         {
             m_playerControl.OnHealthUpdated += UpdatePlayerHpUI;
-            m_playerControl.ForceUpdateHpUI(); // 초기값 설정
+            m_playerControl.ForceUpdateHpUI();
         }
         if (m_enemy != null)
         {
             m_enemy.OnHpChanged += UpdateEnemyHpUI;
-            m_enemy.ForceUpdateHpUI(); // 초기값 설정
+            m_enemy.ForceUpdateHpUI();
         }
 
         if (GameManager.Instance != null)
@@ -147,21 +149,27 @@ public class UIManager : MonoBehaviour
 
         m_cooldownCts = new CancellationTokenSource();
         UpdateAllCooldownsUIAsync(m_cooldownCts.Token).Forget();
-
     }
 
+    /// <summary>
+    /// 게임 오버 시 호출되어 UI를 비활성화합니다.
+    /// </summary>
     private void HandleGameOver()
     {
-        // 모든 스킬 및 이동 버튼 비활성화
         SetAllButtonsInteractable(false);
     }
 
+    /// <summary>
+    /// 게임 클리어 시 호출되어 UI를 비활성화합니다.
+    /// </summary>
     private void HandleGameClear()
     {
-        // 게임 클리어 시에도 모든 버튼 비활성화
         SetAllButtonsInteractable(false);
     }
 
+    /// <summary>
+    /// 모든 주요 UI 버튼의 상호작용 가능 상태를 설정합니다.
+    /// </summary>
     private void SetAllButtonsInteractable(bool isInteractable)
     {
         foreach (var ui in m_skillUIElements)
@@ -173,9 +181,11 @@ public class UIManager : MonoBehaviour
         if (m_openSettingsButton != null) m_openSettingsButton.interactable = isInteractable;
     }
 
+    /// <summary>
+    /// 플레이어의 체력 UI(메인 바, 예비 바, 텍스트)를 업데이트합니다.
+    /// </summary>
     private void UpdatePlayerHpUI(int currentHp, int tempHp, int maxHp)
     {
-        // 진행 중인 예비 체력 감소 시퀀스가 있다면 중단합니다.
         m_playerTempHpSequence?.Kill();
 
         float currentHpRatio = (float)currentHp / maxHp;
@@ -183,19 +193,16 @@ public class UIManager : MonoBehaviour
 
         if (m_playerHpBar != null)
         {
-            // 메인 체력 바는 즉시 업데이트하여 피격감을 줍니다.
             m_playerHpBar.value = currentHpRatio;
         }
 
         if (m_playerTempHpBar != null)
         {
-            // 예비 체력 바는 먼저 데미지 입기 전 체력으로 즉시 업데이트됩니다.
             m_playerTempHpBar.value = tempHpRatio;
 
             float diffRatio = tempHpRatio - currentHpRatio;
             if (diffRatio > 0.001f)
             {
-                // 지속 시간 = 거리 / 속도. 일정한 속도로 체력 바가 줄어들도록 합니다.
                 float duration = diffRatio / m_tempHpDecreaseSpeed;
                 m_playerTempHpSequence = DOTween.Sequence();
                 m_playerTempHpSequence.AppendInterval(m_tempHpDecreaseDelay)
@@ -208,13 +215,15 @@ public class UIManager : MonoBehaviour
             m_playerHpText.text = $"{currentHp}";
         }
 
-        // 체력 상태에 따라 화면 효과를 업데이트하도록 EffectManager에 알립니다.
         if (EffectManager.Instance != null)
         {
             EffectManager.Instance.UpdateLowHealthEffect(currentHp, maxHp);
         }
     }
 
+    /// <summary>
+    /// 적의 체력 UI(메인 바, 예비 바, 텍스트)를 업데이트합니다.
+    /// </summary>
     private void UpdateEnemyHpUI(int currentHp, int tempHp, int maxHp)
     {
         m_enemyTempHpSequence?.Kill();
@@ -246,6 +255,9 @@ public class UIManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 이동 및 스킬 버튼에 대한 클릭 이벤트를 바인딩합니다.
+    /// </summary>
     private void BindButtonEvents()
     {
         if (m_rightMoveButton != null && m_playerControl != null)
@@ -270,57 +282,58 @@ public class UIManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 모든 스킬의 쿨다운 UI를 비동기적으로 업데이트하는 루프를 시작합니다.
+    /// </summary>
     private async UniTaskVoid UpdateAllCooldownsUIAsync(CancellationToken token)
     {
         if (m_skillManager == null) return;
 
-        // 각 스킬의 쿨다운 UI를 비동기적으로 업데이트하는 UniTask들을 생성합니다.
         var skill1_Task = UpdateCooldownUIAsync(m_skillUIElements[0], () => m_skillManager.Skill1_RemainingCooldown, m_skillManager.PlayerSkill1_Cooldown, token);
         var skill2_Task = UpdateCooldownUIAsync(m_skillUIElements[1], () => m_skillManager.Skill2_RemainingCooldown, m_skillManager.PlayerSkill2_Cooldown, token);
         var skill3_Task = UpdateCooldownUIAsync(m_skillUIElements[2], () => m_skillManager.Skill3_RemainingCooldown, m_skillManager.PlayerSkill3_Cooldown, token);
         var skill4_Task = UpdateCooldownUIAsync(m_skillUIElements[3], () => m_skillManager.Skill4_RemainingCooldown, m_skillManager.PlayerSkill4_Cooldown, token);
 
-        // 모든 쿨다운 UI 업데이트가 완료될 때까지 기다립니다. (실질적으로는 게임 오브젝트가 파괴될 때까지)
         await UniTask.WhenAll(skill1_Task, skill2_Task, skill3_Task, skill4_Task);
     }
 
+    /// <summary>
+    /// 단일 스킬의 쿨다운 UI(텍스트, 마스크)를 지속적으로 업데이트합니다.
+    /// </summary>
     private async UniTask UpdateCooldownUIAsync(SkillUIElements ui, System.Func<float> getRemainingTime, float totalCooldown, CancellationToken token)
     {
         while (!token.IsCancellationRequested)
         {
-            // 쿨다운이 끝날 때까지 매 프레임 기다립니다.
             await UniTask.WaitUntil(() => getRemainingTime() > 0, cancellationToken: token);
 
-            // 쿨다운이 시작되면 UI를 활성화하고 업데이트 루프를 시작합니다.
             while (getRemainingTime() > 0 && !token.IsCancellationRequested)
             {
                 UpdateSingleSkillUI(ui, getRemainingTime(), totalCooldown);
                 await UniTask.Yield(PlayerLoopTiming.Update, token);
             }
 
-            // 쿨다운이 종료되면 UI를 비활성화합니다.
             UpdateSingleSkillUI(ui, 0, totalCooldown);
         }
     }
 
+    /// <summary>
+    /// 단일 스킬 UI 요소(텍스트, 마스크)의 현재 상태를 업데이트합니다.
+    /// </summary>
     private void UpdateSingleSkillUI(SkillUIElements ui, float remainingTime, float totalCooldown)
     {
         bool isOnCooldown = remainingTime > 0;
 
         if (ui.CooldownText != null)
         {
-            // UI 요소를 먼저 활성화/비활성화하고 값을 설정합니다.
             ui.CooldownText.gameObject.SetActive(isOnCooldown);
             if (isOnCooldown)
             {
-                // 쿨타임 텍스트를 소수점 첫째 자리까지 표시합니다. (예: "5.3")
                 ui.CooldownText.text = remainingTime.ToString("F1");
             }
         }
 
         if (ui.CooldownMask != null)
         {
-            // UI 요소를 먼저 활성화/비활성화하고 값을 설정합니다.
             ui.CooldownMask.gameObject.SetActive(isOnCooldown);
             if (isOnCooldown && totalCooldown > 0)
             {
@@ -331,6 +344,9 @@ public class UIManager : MonoBehaviour
 
     #region 설정 팝업 관련 로직
 
+    /// <summary>
+    /// 설정 팝업 UI의 초기 상태를 설정하고 이벤트를 바인딩합니다.
+    /// </summary>
     private void InitializeSettingsPopup()
     {
         if (m_settingsPopup != null) m_settingsPopup.SetActive(false);
@@ -353,33 +369,41 @@ public class UIManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 설정 팝업을 열고 게임을 일시 정지합니다.
+    /// </summary>
     public void OpenSettingsPopup()
     {
         if (m_settingsPopup == null || SoundManager.Instance == null) return;
 
         m_settingsPopup.SetActive(true);
-        Time.timeScale = 0f; // 게임 일시 정지
+        Time.timeScale = 0f;
         PlaySfx(SoundManager.Instance.PopupOpenSfx);
 
-        // 현재 설정 값으로 UI 초기화
         m_bgmVolumeSlider.value = SoundManager.Instance.GetBGMVolume();
         m_sfxVolumeSlider.value = SoundManager.Instance.GetSFXVolume();
         m_bgmMuteToggle.isOn = SoundManager.Instance.IsBGMMuted();
         m_sfxMuteToggle.isOn = SoundManager.Instance.IsSFXMuted();
     }
 
+    /// <summary>
+    /// 설정 팝업을 닫고 게임을 재개합니다.
+    /// </summary>
     public void CloseSettingsPopup()
     {
         if (m_settingsPopup == null) return;
 
         m_settingsPopup.SetActive(false);
-        Time.timeScale = 1f; // 게임 재개
+        Time.timeScale = 1f;
         PlaySfx(SoundManager.Instance.PopupCloseSfx);
     }
 
     #endregion
 
     #region 유틸리티 메서드
+    /// <summary>
+    /// UI 버튼에 PointerDown, PointerUp, PointerExit 이벤트를 동적으로 추가합니다.
+    /// </summary>
     private void AddEventTrigger(GameObject target, System.Action onPointerDown, System.Action onPointerUp)
     {
         EventTrigger trigger = target.GetComponent<EventTrigger>() ?? target.AddComponent<EventTrigger>();
@@ -400,6 +424,9 @@ public class UIManager : MonoBehaviour
 
     #endregion
 
+    /// <summary>
+    /// 지정된 이름의 SFX를 재생합니다.
+    /// </summary>
     private void PlaySfx(string sfxName)
     {
         if (SoundManager.Instance != null && !string.IsNullOrEmpty(sfxName))

@@ -1,6 +1,4 @@
 using UnityEngine;
-using Cysharp.Threading.Tasks;
-using System;
 
 /// <summary>
 /// 충돌 시 주변에 광역 피해를 입히는 폭발 화살 클래스입니다.
@@ -29,28 +27,9 @@ public class Roket : MonoBehaviour
         _rigidbody2D.gravityScale = 0;
     }
 
-    /// <summary>
-    /// 지정된 방향으로 화살을 발사합니다.
-    /// </summary>
-    public void Launch(Vector2 direction)
-    {
-        transform.right = direction;
-        
-        if (SoundManager.Instance != null && !string.IsNullOrEmpty(SoundManager.Instance.RoketLaunchSfx))
-        {
-            SoundManager.Instance.PlaySFX(SoundManager.Instance.RoketLaunchSfx);
-        }
-        _rigidbody2D.linearVelocity = direction.normalized * speed;
-    }
-
     private void OnTriggerEnter2D(Collider2D other)
     {
-        if (_hasExploded) return;
-
-        if (other.CompareTag("Player"))
-        {
-            return;
-        }
+        if (_hasExploded || other.CompareTag("Player")) return;
 
         foreach (string tag in collisionTags)
         {
@@ -63,8 +42,24 @@ public class Roket : MonoBehaviour
     }
 
     /// <summary>
-    /// 폭발을 실행하여 주변의 적에게 피해를 줍니다.
+    /// 지정된 방향으로 로켓을 발사합니다.
     /// </summary>
+    /// <param name="direction">발사 방향</param>
+    public void Launch(Vector2 direction)
+    {
+        transform.right = direction;
+        
+        if (SoundManager.Instance != null && !string.IsNullOrEmpty(SoundManager.Instance.RoketLaunchSfx))
+        {
+            SoundManager.Instance.PlaySFX(SoundManager.Instance.RoketLaunchSfx);
+        }
+        _rigidbody2D.linearVelocity = direction.normalized * speed;
+    }
+
+    /// <summary>
+    /// 폭발을 실행하여 이펙트를 재생하고, 직접 충돌한 대상에게 데미지를 줍니다.
+    /// </summary>
+    /// <param name="directHit">직접 충돌한 대상의 Collider2D</param>
     private void Explode(Collider2D directHit = null)
     {
         if (_hasExploded) return;
@@ -81,7 +76,6 @@ public class Roket : MonoBehaviour
 
         if (directHit != null && directHit.TryGetComponent<Enemy>(out var enemy))
         {
-            Debug.Log(enemy.name + "에게 직접 타격 데미지를 입혔습니다!");
             enemy.TakeDamage(explosionDamage);
         }
        

@@ -2,6 +2,9 @@ using UnityEngine;
 using DG.Tweening;
 using System.Collections.Generic;
 
+/// <summary>
+/// 패럴랙스 스크롤링 및 배경 테마 전환을 관리하는 클래스입니다.
+/// </summary>
 public class BackgroundManager  : MonoBehaviour
 {
     #region 직렬화 가능 클래스
@@ -47,7 +50,6 @@ public class BackgroundManager  : MonoBehaviour
     private static Texture2D _placeholderTexture;
     private bool m_isSwitching = false;
 
-    // 셰이더 프로퍼티 ID를 캐싱하여 성능을 향상시킵니다.
     private int m_mainTexId;
     private int m_secondTexId;
     private int m_blendId;
@@ -62,16 +64,8 @@ public class BackgroundManager  : MonoBehaviour
 
     void Start()
     {
-        if (sceneLayers.Count == 0)
-        {
-            Debug.LogError("Scene Layers가 설정되지 않았습니다.");
-            return;
-        }
-        if (backgroundThemes.Count == 0)
-        {
-            Debug.LogError("Background Themes가 설정되지 않았습니다.");
-            return;
-        }
+        if (sceneLayers.Count == 0) return;
+        if (backgroundThemes.Count == 0) return;
 
         if (m_camera == null)
         {
@@ -93,6 +87,10 @@ public class BackgroundManager  : MonoBehaviour
     #endregion
 
     #region 공개 메서드
+    /// <summary>
+    /// 지정된 인덱스의 배경 테마로 부드럽게 전환합니다.
+    /// </summary>
+    /// <param name="newIndex">전환할 배경 테마의 인덱스</param>
     public void SwitchBackground(int newIndex)
     {
         if (newIndex < 0 || newIndex >= backgroundThemes.Count || newIndex == _currentBackgroundIndex || m_isSwitching)
@@ -105,8 +103,7 @@ public class BackgroundManager  : MonoBehaviour
 
         if (newTheme.layerTextures.Count != sceneLayers.Count)
         {
-            Debug.LogError($"배경 테마 '{newTheme.name}'의 텍스처 개수({newTheme.layerTextures.Count})가 " +
-                           $"씬 레이어 개수({sceneLayers.Count})와 일치하지 않습니다.");
+            Debug.LogError($"배경 테마 '{newTheme.name}'의 텍스처 개수가 씬 레이어 개수와 일치하지 않습니다.");
             m_isSwitching = false;
             return;
         }
@@ -126,7 +123,7 @@ public class BackgroundManager  : MonoBehaviour
                 {
                     var layer = sceneLayers[i];
                     var completedTheme = backgroundThemes[newIndex];
-                    var newTex = completedTheme.layerTextures[i] ?? GetPlaceholderTexture(); // null 체크 강화
+                    var newTex = completedTheme.layerTextures[i] ?? GetPlaceholderTexture();
                     layer.materialInstance.SetTexture(m_mainTexId, newTex);
                 }
                 SetBlend(0f);
@@ -138,16 +135,11 @@ public class BackgroundManager  : MonoBehaviour
 
     #region 비공개 메서드
     /// <summary>
-    /// 화면 해상도와 카메라 뷰포트에 맞춰 모든 배경 레이어의 크기를 조절합니다.
-    /// Pixel Perfect Camera 및 ScreenResolutionManager에 의해 조정된 최종 뷰포트를 기준으로 크기를 계산하여 안정성을 높입니다.
+    /// 화면 해상도에 맞춰 모든 배경 레이어의 크기를 조절합니다.
     /// </summary>
     private void ResizeBackgroundsToFitScreen()
     {
-        if (m_camera == null)
-        {
-            Debug.LogError("카메라가 할당되지 않아 배경 크기를 조절할 수 없습니다.", this);
-            return;
-        }
+        if (m_camera == null) return;
     
         Vector3 bottomLeft = m_camera.ViewportToWorldPoint(new Vector3(0, 0, m_camera.nearClipPlane));
         Vector3 topRight = m_camera.ViewportToWorldPoint(new Vector3(1, 1, m_camera.nearClipPlane));
@@ -163,22 +155,22 @@ public class BackgroundManager  : MonoBehaviour
             }
         }
     }
+
+    /// <summary>
+    /// 각 배경 레이어의 머티리얼 인스턴스를 생성하고 초기화합니다.
+    /// </summary>
     private void InitializeLayers()
     {
         foreach (var layer in sceneLayers)
         {
-            if (layer.meshRenderer == null)
-            {
-                Debug.LogError("Scene Layers에 할당되지 않은 Mesh Renderer가 있습니다. 이 레이어는 무시됩니다.");
-                continue;
-            }
+            if (layer.meshRenderer == null) continue;
 
             layer.materialInstance = layer.meshRenderer.material;
             layer.currentOffset = Vector2.zero;
 
             if (!layer.materialInstance.HasProperty(m_blendId))
             {
-                Debug.LogError($"'{layer.meshRenderer.gameObject.name}'의 머티리얼이 'Custom/Crossfade' 셰이더를 사용하지 않습니다. 배경 전환이 작동하지 않습니다.", layer.meshRenderer.gameObject);
+                Debug.LogError($"'{layer.meshRenderer.gameObject.name}'의 머티리얼이 'Custom/Crossfade' 셰이더를 사용하지 않습니다.", layer.meshRenderer.gameObject);
             }
         }
     }
@@ -194,21 +186,17 @@ public class BackgroundManager  : MonoBehaviour
         m_colorId = Shader.PropertyToID("_Color");
     }
 
+    /// <summary>
+    /// 인스펙터에서 설정된 시작 인덱스에 해당하는 배경 테마를 설정합니다.
+    /// </summary>
     private void SetInitialBackground()
     {
         _currentBackgroundIndex = startBackgroundIndex;
-        if (_currentBackgroundIndex >= backgroundThemes.Count) {
-            Debug.LogError("시작 인덱스가 배경 테마 개수보다 큽니다.");
-            return;
-        }
+        if (_currentBackgroundIndex >= backgroundThemes.Count) return;
+        
         var initialTheme = backgroundThemes[_currentBackgroundIndex];
 
-        if (initialTheme.layerTextures.Count != sceneLayers.Count)
-        {
-            Debug.LogError($"시작 배경 테마 '{initialTheme.name}'의 텍스처 개수({initialTheme.layerTextures.Count})가 " +
-                           $"씬 레이어 개수({sceneLayers.Count})와 일치하지 않습니다.");
-            return;
-        }
+        if (initialTheme.layerTextures.Count != sceneLayers.Count) return;
 
         for (int i = 0; i < sceneLayers.Count; i++)
         {
@@ -226,6 +214,9 @@ public class BackgroundManager  : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 지정된 레이어를 설정된 속도에 따라 스크롤합니다.
+    /// </summary>
     private void ScrollLayer(SceneLayer layer)
     {
         if (layer.materialInstance == null) return;
@@ -239,6 +230,9 @@ public class BackgroundManager  : MonoBehaviour
         layer.materialInstance.SetTextureOffset(m_secondTexId, layer.currentOffset);
     }
 
+    /// <summary>
+    /// 모든 레이어의 셰이더 블렌드 값을 설정합니다.
+    /// </summary>
     private void SetBlend(float value)
     {
         foreach (var layer in sceneLayers)
@@ -250,6 +244,9 @@ public class BackgroundManager  : MonoBehaviour
         }
     }
     
+    /// <summary>
+    /// 지정된 레이어의 알파(투명도) 값을 설정합니다.
+    /// </summary>
     private void SetLayerAlpha(SceneLayer layer, float alpha)
     {
         if (layer.materialInstance != null && layer.materialInstance.HasProperty(m_colorId))
@@ -259,6 +256,9 @@ public class BackgroundManager  : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 텍스처가 할당되지 않았을 경우 사용할 기본 흰색 텍스처를 생성하거나 가져옵니다.
+    /// </summary>
     private static Texture2D GetPlaceholderTexture()
     {
         if (_placeholderTexture != null) return _placeholderTexture;

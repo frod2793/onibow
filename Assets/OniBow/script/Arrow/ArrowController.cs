@@ -3,7 +3,6 @@ using DG.Tweening;
 
 /// <summary>
 /// 화살의 포물선 이동과 생명 주기를 관리합니다.
-/// Enemy 또는 Player가 이 스크립트의 Launch 메서드를 호출하여 발사합니다.
 /// </summary>
 public class ArrowController : MonoBehaviour
 {
@@ -13,8 +12,12 @@ public class ArrowController : MonoBehaviour
     private Tween _moveTween;
 
     /// <summary>
-    /// 지정된 궤적을 따라 화살을 발사합니다. (포물선)
+    /// 2차 베지에 곡선을 따라 포물선 궤적으로 화살을 발사합니다.
     /// </summary>
+    /// <param name="startPos">시작 위치</param>
+    /// <param name="controlPoint">곡선의 제어점</param>
+    /// <param name="endPos">목표 위치</param>
+    /// <param name="duration">이동에 걸리는 시간</param>
     public void Launch(Vector3 startPos, Vector3 controlPoint, Vector3 endPos, float duration)
     {
         _moveTween?.Kill();
@@ -47,8 +50,12 @@ public class ArrowController : MonoBehaviour
     }
 
     /// <summary>
-    /// 지정된 방향으로 화살을 직선 발사합니다. (스킬용)
+    /// 지정된 방향으로 화살을 직선 발사합니다.
     /// </summary>
+    /// <param name="startPos">시작 위치</param>
+    /// <param name="direction">발사 방향</param>
+    /// <param name="distance">최대 사거리</param>
+    /// <param name="duration">이동에 걸리는 시간</param>
     public void LaunchStraight(Vector3 startPos, Vector2 direction, float distance, float duration)
     {
         _moveTween?.Kill();
@@ -66,22 +73,22 @@ public class ArrowController : MonoBehaviour
 
     private void OnTriggerEnter2D(Collider2D other)
     {
-        // 화살의 소유자에 따라 충돌 대상을 확인하고 풀로 반환
         if ((Owner == ArrowOwner.Player && other.CompareTag("Enemy")) || (Owner == ArrowOwner.Enemy && other.CompareTag("Player")))
         {
             ReturnToPool();
         }
     }
 
+    /// <summary>
+    /// 이 오브젝트를 오브젝트 풀로 반환합니다.
+    /// </summary>
     private void ReturnToPool()
     {
-        if (ObjectPoolManager.Instance != null)
+        if (ObjectPoolManager.Instance != null && gameObject.activeInHierarchy)
         {
-            // 중복 반환을 막기 위해 오브젝트가 아직 활성 상태일 때만 반환합니다.
-            if(gameObject.activeInHierarchy)
-                ObjectPoolManager.Instance.Return(gameObject);
+            ObjectPoolManager.Instance.Return(gameObject);
         }
-        else // 풀 매니저가 없다면(씬 종료 등) 오브젝트를 파괴하여 메모리 누수를 방지합니다.
+        else
         {
             Destroy(gameObject);
         }

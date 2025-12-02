@@ -7,6 +7,9 @@ using System;
 using System.Linq;
 using UnityEngine.SceneManagement;
 
+/// <summary>
+/// 게임의 전반적인 상태(시작, 진행, 종료)와 흐름을 관리하는 싱글턴 클래스입니다.
+/// </summary>
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
@@ -126,7 +129,7 @@ public class GameManager : MonoBehaviour
             MainCamera.transform.DOKill(true);
 
             MainCamera.transform.DOShakePosition(duration, strength, vibrato, randomness)
-                .SetLoops(1, LoopType.Restart) // 쉐이크가 한 번 완료되면 OnComplete를 호출하도록 설정
+                .SetLoops(1, LoopType.Restart)
                 .OnComplete(() =>
                 {
                     if (MainCamera.transform.position != m_initialCameraPosition)
@@ -147,13 +150,14 @@ public class GameManager : MonoBehaviour
         if (m_currentGameState != GameState.Title) return;
 
         m_startButton.interactable = false;
-
         FadeOutButton(m_startButton, 0.2f);
-
         m_currentGameState = GameState.Transitioning;
         StartGameSequenceAsync().Forget();
     }
 
+    /// <summary>
+    /// UI 버튼의 모든 자식 이미지들을 점차 투명하게 만듭니다.
+    /// </summary>
     private void FadeOutButton(Button button, float duration)
     {
         if (button == null) return;
@@ -166,11 +170,17 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 게임에 필요한 주요 컴포넌트 참조를 초기화합니다.
+    /// </summary>
     private void InitializeReferences()
     {
         if (m_playerObject != null) m_playerControl = m_playerObject.GetComponent<PlayerControl>();
     }
 
+    /// <summary>
+    /// 개발자 모드로 게임을 즉시 시작하도록 설정합니다.
+    /// </summary>
     private void SetupForDeveloperMode()
     {
         if (m_titleScreen != null) 
@@ -186,6 +196,9 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 일반 모드로 게임을 설정하고 타이틀 화면을 표시합니다.
+    /// </summary>
     private void SetupForNormalMode()
     {
         SetGameActive(false);
@@ -214,12 +227,13 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 게임 시작 시퀀스(전환 효과, 카운트다운 등)를 비동기적으로 실행합니다.
+    /// </summary>
     private async UniTaskVoid StartGameSequenceAsync()
     {
         await UniTask.Delay(TimeSpan.FromSeconds(m_initialDelay));
-
         await TransitionToGameAsync();
-
         await RunCountdownAsync();
 
         SetGameActive(true);
@@ -232,6 +246,9 @@ public class GameManager : MonoBehaviour
         Debug.Log("게임 시작!");
     }
 
+    /// <summary>
+    /// 타이틀 화면에서 게임 플레이 화면으로 전환하는 효과를 실행합니다.
+    /// </summary>
     private async UniTask TransitionToGameAsync()
     {
         var doorTask = AnimateDoorsAsync();
@@ -242,6 +259,9 @@ public class GameManager : MonoBehaviour
         if (m_titleScreen != null) m_titleScreen.SetActive(false);
     }
 
+    /// <summary>
+    /// 문이 열리는 애니메이션을 비동기적으로 실행합니다.
+    /// </summary>
     private async UniTask AnimateDoorsAsync()
     {
         if (SoundManager.Instance != null && !string.IsNullOrEmpty(SoundManager.Instance.DoorOpenSfx))
@@ -268,6 +288,9 @@ public class GameManager : MonoBehaviour
         if (m_rightDoorImage != null) m_rightDoorImage.gameObject.SetActive(false);
     }
 
+    /// <summary>
+    /// 타이틀 배경 이미지를 서서히 사라지게 합니다.
+    /// </summary>
     private async UniTask FadeOutTitleAsync()
     {
         if (m_titleBackground != null)
@@ -276,6 +299,9 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 게임 시작 전 카운트다운 효과를 실행합니다.
+    /// </summary>
     private async UniTask RunCountdownAsync()
     {
         if (m_countdownText != null)
@@ -308,17 +334,26 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 플레이어와 적 오브젝트의 활성화 상태를 설정합니다.
+    /// </summary>
     private void SetGameActive(bool isActive)
     {
         if (m_playerObject != null) m_playerObject.SetActive(isActive);
         if (m_enemyObject != null) m_enemyObject.SetActive(isActive);
     }
 
+    /// <summary>
+    /// 플레이어 사망 이벤트를 처리합니다.
+    /// </summary>
     private void HandlePlayerDeath()
     {
         EndGame(GameState.GameOver, "게임 오버!", OnGameOver);
     }
 
+    /// <summary>
+    /// 적 사망 이벤트를 처리합니다.
+    /// </summary>
     private void HandleEnemyDeath(Enemy enemy)
     {
         EndGame(GameState.GameClear, "게임 클리어!", OnGameClear);

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
@@ -10,45 +11,40 @@ using System.Threading;
 /// </summary>
 public class SkillManager : MonoBehaviour
 {
-    #region 싱글턴 패턴
     public static SkillManager Instance { get; private set; }
-    #endregion
 
     #region 플레이어 스킬 변수
 
     [Header("플레이어 스킬 쿨타임")]
-    [SerializeField] private float playerSkill1_Cooldown = 10f; //배리어
-    [SerializeField] private float playerSkill2_Cooldown = 15f;  // 힐
-    [SerializeField] private float playerSkill3_Cooldown = 15f; // 호밍 미사일 
-    [SerializeField] private float playerSkill4_Cooldown = 20f;// 바주카
+    [SerializeField] private float playerSkill1_Cooldown = 10f;
+    [SerializeField] private float playerSkill2_Cooldown = 15f;
+    [SerializeField] private float playerSkill3_Cooldown = 15f;
+    [SerializeField] private float playerSkill4_Cooldown = 20f;
   
     [Header("플레이어 스킬 설정")]
-    [SerializeField] private GameObject barrierEffectPrefab; // 배리어 이펙트 프리팹
-    [SerializeField] private float barrierDuration = 5f; // 배리어 지속 시간
-    [SerializeField] private GameObject homingMissilePrefab; // 추적 미사일 프리팹
-    [SerializeField] private GameObject explosiveArrowPrefab; // 폭발탄 프리팹
-    [SerializeField] private int homingMissileCount = 5; // 추적 미사일 발사 개수
-    [SerializeField] private float homingMissileSpawnInterval = 0.1f; // 추적 미사일 발사 간격
+    [SerializeField] private GameObject barrierEffectPrefab;
+    [SerializeField] private float barrierDuration = 5f;
+    [SerializeField] private GameObject homingMissilePrefab;
+    [SerializeField] private GameObject explosiveArrowPrefab;
+    [SerializeField] private int homingMissileCount = 5;
+    [SerializeField] private float homingMissileSpawnInterval = 0.1f;
 
     [Header("플레이어 참조 컴포넌트")]
-    [SerializeField] private PlayerControl playerControl; // 플레이어 컨트롤러
-    [SerializeField] private Transform playerFirePoint;   // 플레이어 발사 위치
+    [SerializeField] private PlayerControl playerControl;
+    [SerializeField] private Transform playerFirePoint;
 
-    [Header("스킬무기 가 장착될 위치")] [SerializeField]
-    private GameObject playerHand;
+    [Header("스킬무기 가 장착될 위치")]
+    [SerializeField] private GameObject playerHand;
     
-    [Header("스킬 무기")] [SerializeField] private GameObject BazookaPrefab;
-    [SerializeField] private GameObject AK47;// 적이 6연발 할떄 사용할무기 
+    [Header("스킬 무기")]
+    [SerializeField] private GameObject BazookaPrefab;
+    [SerializeField] private GameObject AK47;
     
-    
-    
-    // 각 스킬의 마지막 사용 시간
     private float _lastSkill1_Time = -999f;
     private float _lastSkill2_Time = -999f;
     private float _lastSkill3_Time = -999f;
     private float _lastSkill4_Time = -999f;
 
-    // 외부에서 남은 쿨타임을 확인할 수 있는 프로퍼티
     public float Skill1_RemainingCooldown => Mathf.Max(0f, _lastSkill1_Time + playerSkill1_Cooldown - Time.time);
     public float Skill2_RemainingCooldown => Mathf.Max(0f, _lastSkill2_Time + playerSkill2_Cooldown - Time.time);
     public float Skill3_RemainingCooldown => Mathf.Max(0f, _lastSkill3_Time + playerSkill3_Cooldown - Time.time);
@@ -65,34 +61,13 @@ public class SkillManager : MonoBehaviour
 
     [Header("적 스킬 설정")]
     [Tooltip("적이 다발 사격 시 사용할 총알 프리팹")]
-    [SerializeField]
-    private GameObject akBulletPrefab;
-    [SerializeField] private int enemyMultiShot_Count = 5; // 5연발
-    [SerializeField] private float enemyMultiShot_Interval = 0.15f; // 발사 간격
-    [SerializeField] private float akBulletSpeed = 30f; // AK 총알 속도
+    [SerializeField] private GameObject akBulletPrefab;
+    [SerializeField] private int enemyMultiShot_Count = 5;
+    [SerializeField] private float enemyMultiShot_Interval = 0.15f;
+    [SerializeField] private float akBulletSpeed = 30f;
 
     #endregion
 
-    #region 적 스킬 실행 (외부 호출용)
-
-    /// <summary>
-    /// 적 스킬: 지정된 대상을 향해 다발 사격을 가합니다.
-    /// 이 메서드는 쿨타임을 관리하지 않으므로, 호출하는 쪽(Enemy.cs)에서 관리해야 합니다.
-    /// </summary>
-    public async UniTask ExecuteEnemyMultiShot(Transform handPoint, Transform target)
-    {
-        if (AK47 == null || handPoint == null || ObjectPoolManager.Instance == null || target == null)
-        {
-            Debug.LogWarning("적 다발 사격 스킬의 설정이 올바르지 않습니다. (AK47, handPoint, ObjectPoolManager, target)");
-            return;
-        }
-
-        await EnemyAKSkillAsync(handPoint, target, this.GetCancellationTokenOnDestroy());
-    }
-
-    #endregion
-
-    #region Unity 생명주기
     private void Awake()
     {
         if (Instance == null)
@@ -104,94 +79,93 @@ public class SkillManager : MonoBehaviour
             Destroy(gameObject);
         }
     }
+
+    #region 적 스킬 실행
+    
+    /// <summary>
+    /// 적의 다발 사격 스킬을 실행합니다. Enemy.cs에서 호출됩니다.
+    /// </summary>
+    /// <param name="handPoint">무기가 생성될 위치</param>
+    /// <param name="target">공격 대상</param>
+    public async UniTask ExecuteEnemyMultiShot(Transform handPoint, Transform target)
+    {
+        if (AK47 == null || handPoint == null || ObjectPoolManager.Instance == null || target == null)
+        {
+            Debug.LogWarning("적 다발 사격 스킬의 설정이 올바르지 않습니다.");
+            return;
+        }
+        await EnemyAKSkillAsync(handPoint, target, this.GetCancellationTokenOnDestroy());
+    }
+
     #endregion
 
     #region 플레이어 스킬 (UI에서 호출)
 
     /// <summary>
-    /// 스킬 1: 배리어 사용
+    /// 스킬 1 (배리어)을 사용합니다.
     /// </summary>
     public void UseSkill1()
     {
-        if (Skill1_RemainingCooldown > 0) return; // 쿨타임 체크
+        if (Skill1_RemainingCooldown > 0) return;
         _lastSkill1_Time = Time.time;
-        Debug.Log("스킬 1: 배리어 사용!");
         PlayerSkill1_BarrierAsync(this.GetCancellationTokenOnDestroy()).Forget();
     }
 
     /// <summary>
-    /// 스킬 2: 힐 사용
+    /// 스킬 2 (힐)를 사용합니다.
     /// </summary>
     public void UseSkill2()
     {
-        if (Skill2_RemainingCooldown > 0) return; // 쿨타임 체크
-        if (playerControl == null) return;
-
+        if (Skill2_RemainingCooldown > 0 || playerControl == null) return;
         _lastSkill2_Time = Time.time;
-        Debug.Log("스킬 2: 힐 사용!");
-        // 새로운 비동기 힐 로직 호출
         PlayerSkill2_HealAsync(this.GetCancellationTokenOnDestroy()).Forget();
     }
 
     /// <summary>
-    /// 스킬 3: 추적 미사일 사용
+    /// 스킬 3 (추적 미사일)을 사용합니다.
     /// </summary>
     public void UseSkill3()
     {
-        if (Skill3_RemainingCooldown > 0) return;
-        if (playerControl == null || homingMissilePrefab == null || playerHand == null) return;
+        if (Skill3_RemainingCooldown > 0 || playerControl == null || homingMissilePrefab == null || playerHand == null) return;
 
         GameObject target = playerControl.FindNearestEnemy();
-        if (target == null)
-        {
-            Debug.Log("추적할 대상이 없습니다.");
-            return;
-        }
+        if (target == null) return;
 
         _lastSkill3_Time = Time.time;
-        Debug.Log("스킬 3: 추적 미사일 사용!");
         PlayerSkill3_HomingMissilesAsync(target.transform, this.GetCancellationTokenOnDestroy()).Forget();
     }
 
     /// <summary>
-    /// 스킬 4: 바주카 사용
+    /// 스킬 4 (바주카)를 사용합니다.
     /// </summary>
     public void UseSkill4()
     {
-        if (Skill4_RemainingCooldown > 0) return;
-        if (playerControl == null || explosiveArrowPrefab == null || BazookaPrefab == null || playerHand == null) return;
+        if (Skill4_RemainingCooldown > 0 || playerControl == null || explosiveArrowPrefab == null || BazookaPrefab == null || playerHand == null) return;
 
         GameObject target = playerControl.FindNearestEnemy();
-        if (target == null)
-        {
-            Debug.Log("조준할 대상이 없어 스킬을 사용하지 않습니다.");
-            return;
-        }
+        if (target == null) return;
 
         _lastSkill4_Time = Time.time;
-        Debug.Log("스킬 4: 폭발탄(바주카) 사용!");
-
         ExecuteBazookaSkillAsync(playerFirePoint, playerHand, target.transform, this.GetCancellationTokenOnDestroy()).Forget();
     }
 
     #endregion
 
-    #region 스킬 실행 로직 (공용/내부)
+    #region 스킬 실행 로직
 
     /// <summary>
-    /// 플레이어 스킬 1: 배리어를 생성합니다.
+    /// 지정된 시간 동안 플레이어에게 무적 배리어를 생성합니다.
     /// </summary>
     private async UniTaskVoid PlayerSkill1_BarrierAsync(CancellationToken token)
     {
-        playerControl.SetSkillUsageState(true, false); // 이동을 멈추지 않음
-        playerControl.SetInvulnerable(true); // 무적 상태 시작
+        playerControl.SetSkillUsageState(true, false);
+        playerControl.SetInvulnerable(true);
 
         GameObject barrierInstance = null;
         Animator barrierAnimator = null;
 
         try
         {
-            // 1. 배리어 이펙트 생성 및 애니메이터 준비
             if (playerControl == null || barrierEffectPrefab == null) return;
             barrierInstance = Instantiate(barrierEffectPrefab, playerControl.transform.position, Quaternion.identity, playerControl.transform);
             if (barrierInstance == null) return;
@@ -202,21 +176,12 @@ public class SkillManager : MonoBehaviour
             if (barrierAnimator != null)
             {
                 barrierAnimator.SetTrigger("Spawn");
-                
-                
                 barrierAnimator.SetTrigger("Stay");
             }
-            else
-            {
-                Debug.LogWarning("배리어 프리팹에 Animator 컴포넌트가 없습니다.");
-            }
-
+            
             await UniTask.Delay(TimeSpan.FromSeconds(barrierDuration), cancellationToken: token);
         }
-        catch (OperationCanceledException) 
-        { 
-            Debug.Log("배리어 스킬이 취소되었습니다.");
-        }
+        catch (OperationCanceledException) { }
         finally
         {
             if (barrierInstance != null)
@@ -224,13 +189,13 @@ public class SkillManager : MonoBehaviour
                 PopAndDestroyBarrierAsync(barrierInstance, barrierAnimator).Forget();
             }
             
-            playerControl.SetInvulnerable(false); // 무적 상태 해제
+            playerControl.SetInvulnerable(false);
             playerControl.SetSkillUsageState(false, false);
         }
     }
 
     /// <summary>
-    /// 배리어의 소멸 애니메이션을 재생하고, 애니메이션이 끝나면 오브젝트를 파괴합니다.
+    /// 배리어의 소멸 애니메이션을 재생하고 오브젝트를 파괴합니다.
     /// </summary>
     private async UniTaskVoid PopAndDestroyBarrierAsync(GameObject barrierInstance, Animator animator)
     {
@@ -245,17 +210,10 @@ public class SkillManager : MonoBehaviour
 
         try
         {
-          
-           
             await UniTask.WaitUntil(() => animator.GetCurrentAnimatorStateInfo(0).IsName("Pop"), cancellationToken: token);
-
-          
             await UniTask.WaitUntil(() => animator.GetCurrentAnimatorStateInfo(0).normalizedTime >= 1.0f, cancellationToken: token);
         }
-        catch (OperationCanceledException)
-        {
-            return; // 즉시 함수 종료
-        }
+        catch (OperationCanceledException) { return; }
 
         if (barrierInstance != null)
         {
@@ -264,31 +222,13 @@ public class SkillManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 애니메이터에서 특정 이름의 애니메이션 클립 길이를 찾아 반환하는 헬퍼 메서드입니다.
-    /// </summary>
-    private float GetAnimationClipLength(Animator animator, string clipName)
-    {
-        if (animator == null || animator.runtimeAnimatorController == null) return 0f;
-
-        foreach (var clip in animator.runtimeAnimatorController.animationClips)
-        {
-            if (clip.name.Equals(clipName, StringComparison.OrdinalIgnoreCase))
-            {
-                return clip.length;
-            }
-        }
-        Debug.LogWarning($"Animator에서 '{clipName}' 클립을 찾을 수 없습니다.");
-        return 0f; 
-    }
-
-    /// <summary>
-    /// 플레이어 스킬 2: 힐 스킬의 비동기 실행 로직입니다.
+    /// 플레이어의 체력을 회복하고 관련 이펙트를 재생합니다.
     /// </summary>
     private async UniTaskVoid PlayerSkill2_HealAsync(CancellationToken token)
     {
         if (playerControl == null) return;
 
-        playerControl.SetSkillUsageState(true, false); // 이동을 멈추지 않음
+        playerControl.SetSkillUsageState(true, false);
         GameObject healEffectInstance = null;
         
         try
@@ -303,15 +243,7 @@ public class SkillManager : MonoBehaviour
                 var spum = playerControl.GetComponentInChildren<SPUM_Prefabs>();
                 if (spum != null && spum._anim != null)
                 {
-                    int maxPlayerSortingOrder = 0;
-                    foreach (var playerRenderer in spum._anim.GetComponentsInChildren<SpriteRenderer>())
-                    {
-                        if (playerRenderer.sortingOrder > maxPlayerSortingOrder)
-                        {
-                            maxPlayerSortingOrder = playerRenderer.sortingOrder;
-                        }
-                    }
-
+                    int maxPlayerSortingOrder = spum._anim.GetComponentsInChildren<SpriteRenderer>().Max(r => r.sortingOrder);
                     foreach (var effectRenderer in healEffectInstance.GetComponentsInChildren<Renderer>())
                     {
                         effectRenderer.sortingOrder = maxPlayerSortingOrder + 1;
@@ -319,12 +251,11 @@ public class SkillManager : MonoBehaviour
                 }
             }
             ApplyPlayerTintAsync(new Color(0.7f, 1f, 0.7f, 1f), 3f, token).Forget();
-
-            // 3초에 걸쳐 체력의 30%를 서서히 회복합니다.
+            
             float healAmount = playerControl.GetMaxHp() * 0.3f;
             await playerControl.GradualHeal(healAmount, 3f, token);
         }
-        catch (OperationCanceledException) { /* 스킬이 중간에 취소된 경우 */ }
+        catch (OperationCanceledException) { }
         finally
         {
             if (healEffectInstance != null) Destroy(healEffectInstance);
@@ -332,6 +263,9 @@ public class SkillManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 지정된 시간 동안 플레이어 캐릭터에 틴트 색상을 적용합니다.
+    /// </summary>
     private async UniTaskVoid ApplyPlayerTintAsync(Color tintColor, float duration, CancellationToken token)
     {
         if (playerControl == null) return;
@@ -366,12 +300,12 @@ public class SkillManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 플레이어 스킬 3: 추적 미사일을 비동기적으로 발사합니다.
+    /// 대상을 향해 여러 개의 추적 미사일을 순차적으로 발사합니다.
     /// </summary>
     private async UniTaskVoid PlayerSkill3_HomingMissilesAsync(Transform target, CancellationToken token)
     {
         if (playerControl == null) return;
-        playerControl.SetSkillUsageState(true, false); // 이동을 멈추지 않음
+        playerControl.SetSkillUsageState(true, false);
         try
         {
             for (int i = 0; i < homingMissileCount; i++)
@@ -396,8 +330,7 @@ public class SkillManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 적의 AK47 스킬을 실행하는 비동기 메서드.
-    /// AK47을 손에 들고, 5연발을 발사합니다.
+    /// 적의 AK47 다발 사격 스킬을 비동기적으로 실행합니다.
     /// </summary>
     private async UniTask EnemyAKSkillAsync(Transform handPoint, Transform target, CancellationToken token)
     {
@@ -406,14 +339,13 @@ public class SkillManager : MonoBehaviour
         Transform akFirePoint = akInstance.transform.Find("FirePoint");
         if (akFirePoint == null)
         {
-            Debug.LogError("AK47 프리팹에 'FirePoint' 자식 오브젝트가 없습니다.");
             Destroy(akInstance);
             return;
         }
 
         try
         {
-            float aimDuration = 0.3f; // 바주카와 유사하게 들어올리는 시간
+            float aimDuration = 0.3f;
             Vector2 directionToTarget = (target.position - handPoint.position).normalized;
             Vector3 localDirection = handPoint.InverseTransformDirection(directionToTarget);
             float finalLocalAngle = Mathf.Atan2(localDirection.y, localDirection.x) * Mathf.Rad2Deg;
@@ -425,7 +357,6 @@ public class SkillManager : MonoBehaviour
                 Vector3 akScale = akInstance.transform.localScale;
                 akScale.y *= -1;
                 akInstance.transform.localScale = akScale;
-
                 currentAngle *= -1;
                 finalLocalAngle *= -1;
             }
@@ -454,7 +385,7 @@ public class SkillManager : MonoBehaviour
                 bullet.transform.SetPositionAndRotation(akFirePoint.position, Quaternion.identity);
                 
                 Rigidbody2D rb = bullet.GetComponent<Rigidbody2D>();
-                if (rb != null) rb.linearVelocity = direction * akBulletSpeed; // 총알 속도
+                if (rb != null) rb.linearVelocity = direction * akBulletSpeed;
 
                 await UniTask.Delay(TimeSpan.FromSeconds(enemyMultiShot_Interval), cancellationToken: token);
             }
@@ -467,19 +398,15 @@ public class SkillManager : MonoBehaviour
             }
         }
     }
+    
     /// <summary>
-    /// 바주카 스킬을 실행하는 공용 비동기 메서드.
-    /// 바주카를 손에 들고, 발사 애니메이션을 재생한 후 폭발탄을 발사합니다.
+    /// 플레이어의 바주카 스킬을 비동기적으로 실행합니다.
     /// </summary>
-    /// <param name="firePoint">발사 위치</param>
-    /// <param name="hand">무기가 장착될 손</param>
-    /// <param name="target">조준 대상</param>
-    /// <param name="token">취소 토큰</param>
     private async UniTaskVoid ExecuteBazookaSkillAsync(Transform firePoint, GameObject hand, Transform target, CancellationToken token)
     {
         if (hand == null || BazookaPrefab == null || playerControl == null) return;
 
-        playerControl.SetSkillUsageState(true); // 스킬 사용 시작
+        playerControl.SetSkillUsageState(true);
 
         GameObject bazookaInstance = Instantiate(BazookaPrefab, hand.transform);
         bazookaInstance.transform.localRotation = Quaternion.Euler(0, 0, -90f);
@@ -487,7 +414,6 @@ public class SkillManager : MonoBehaviour
         Animator bazookaAnimator = bazookaInstance.GetComponent<Animator>();
         if (bazookaAnimator == null)
         {
-            Debug.LogError("바주카 프리팹에 Animator 컴포넌트가 없습니다.");
             Destroy(bazookaInstance);
             return;
         }
@@ -495,21 +421,18 @@ public class SkillManager : MonoBehaviour
         Transform bazookaFirePoint = bazookaInstance.transform.Find("FirePoint");
         if (bazookaFirePoint == null)
         {
-            Debug.LogError("바주카 프리팹에 'FirePoint' 자식 오브젝트가 없습니다.");
             Destroy(bazookaInstance);
             return;
         }
 
-        float shoulderAnimDuration = 0.3f; // 어깨에 얹는 회전 시간
-        float fireDelay = 0.2f; // 발사 애니메이션 시작 후 실제 발사까지의 딜레이
+        float shoulderAnimDuration = 0.3f;
+        float fireDelay = 0.2f;
         float totalFireAnimDuration = 1.2f;
 
         try
         {
             Vector2 directionToTarget = (target.position - hand.transform.position).normalized;
-            
             Vector3 localDirection = hand.transform.InverseTransformDirection(directionToTarget);
-
             float finalLocalAngle = Mathf.Atan2(localDirection.y, localDirection.x) * Mathf.Rad2Deg;
             
             float currentZ = -90f;
@@ -532,16 +455,14 @@ public class SkillManager : MonoBehaviour
             
             await UniTask.Delay(TimeSpan.FromSeconds(totalFireAnimDuration - fireDelay), cancellationToken: token);
         }
-        catch (OperationCanceledException)
-        {
-        }
+        catch (OperationCanceledException) { }
         finally
         {
             if (bazookaInstance != null)
             {
                 Destroy(bazookaInstance);
             }
-            playerControl.SetSkillUsageState(false); // 스킬 사용 종료
+            playerControl.SetSkillUsageState(false);
         }
     }
     #endregion

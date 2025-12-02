@@ -30,8 +30,10 @@ public class ObjectPoolManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 지정된 프리팹에 해당하는 오브젝트를 풀에서 가져옵니다.
+    /// 지정된 프리팹에 해당하는 오브젝트를 풀에서 가져옵니다. 해당 프리팹의 풀이 없으면 새로 생성합니다.
     /// </summary>
+    /// <param name="prefab">가져올 오브젝트의 프리팹</param>
+    /// <returns>활성화된 게임 오브젝트</returns>
     public GameObject Get(GameObject prefab)
     {
         if (prefab == null)
@@ -53,10 +55,13 @@ public class ObjectPoolManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 사용이 끝난 오브젝트를 풀로 반환합니다.
+    /// 사용이 끝난 게임 오브젝트를 원래의 풀로 반환합니다.
     /// </summary>
+    /// <param name="objectToReturn">반환할 게임 오브젝트</param>
     public void Return(GameObject objectToReturn)
     {
+        if (objectToReturn == null) return;
+        
         int instanceID = objectToReturn.GetInstanceID();
 
         if (_spawnedObjects.TryGetValue(instanceID, out var pool))
@@ -66,8 +71,13 @@ public class ObjectPoolManager : MonoBehaviour
         }
         else
         {
-            Debug.LogWarning($"'{objectToReturn.name}' 오브젝트는 풀에서 관리되지 않거나 이미 반환되었습니다. 오브젝트를 파괴합니다.");
-            Destroy(objectToReturn);
+            // 이미 반환되었거나 풀에서 관리되지 않는 오브젝트일 수 있습니다.
+            // 이 경우, 경고를 남기고 오브젝트를 파괴하여 메모리 누수를 방지합니다.
+            if (objectToReturn.activeSelf)
+            {
+                Debug.LogWarning($"'{objectToReturn.name}' 오브젝트는 풀에서 관리되지 않거나 이미 반환되었습니다. 오브젝트를 파괴합니다.");
+                Destroy(objectToReturn);
+            }
         }
     }
 
@@ -79,7 +89,6 @@ public class ObjectPoolManager : MonoBehaviour
     /// <returns>생성된 IObjectPool 인스턴스</returns>
     private IObjectPool<GameObject> CreateNewPoolForPrefab(GameObject prefab, int defaultCapacity = 10)
     {
-        Debug.Log($"ObjectPoolManager: '{prefab.name}' 프리팹에 대한 풀을 동적으로 생성합니다.");
         return new ObjectPool<GameObject>(
             createFunc: () => Instantiate(prefab),
             actionOnGet: (obj) => {

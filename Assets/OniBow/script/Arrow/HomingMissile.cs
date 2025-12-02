@@ -54,86 +54,10 @@ public class HomingMissile : MonoBehaviour
         DisableAfterDelay(_lifeTimeCts.Token).Forget();
     }
 
-    /// <summary>
-    /// 추적할 목표를 설정하고 발사를 시작합니다. 이 메서드는 SkillManager에서 호출됩니다.
-    /// </summary>
-    /// <param name="target">추적할 대상의 Transform</param>
-    public void Launch(Transform target, Transform firePoint)
-    {
-        if (transform.parent != null) transform.SetParent(null);
-        Quaternion identity = Quaternion.identity;
-        transform.position = firePoint.position;
-        transform.rotation = identity;
-        _randomStartTime = Random.Range(0f, 10f);
-
-        _target = target;
-
-        if (SoundManager.Instance != null && !string.IsNullOrEmpty(SoundManager.Instance.MissileLaunchSfx))
-        {
-            SoundManager.Instance.PlaySFX(SoundManager.Instance.MissileLaunchSfx);
-        }
-
-        if (_afterimageEffect != null)
-            _afterimageEffect.StartEffect(lifeTime);
-
-        Sequence launchSequence = DOTween.Sequence();
-
-        launchSequence.Append(transform.DORotate(new Vector3(0, 0, 90), 0.1f));
-        launchSequence.Append(transform.DOMoveY(transform.position.y + initialLaunchDistance, initialLaunchDuration).SetEase(Ease.OutSine));
-        launchSequence.OnComplete(() => {
-            _collider.enabled = true;
-            _isHoming = true;
-        });
-    }
-
-    private async UniTaskVoid DisableAfterDelay(CancellationToken token)
-    {
-        try
-        {
-            await UniTask.Delay(TimeSpan.FromSeconds(lifeTime), cancellationToken: token);
-            if (gameObject.activeSelf)
-            {
-                ObjectPoolManager.Instance.Return(gameObject);
-            }
-        }
-        catch (OperationCanceledException) { }
-    }
-
     private void FixedUpdate()
     {
-        if (!_isHoming)
-        {
-            return;
-        }
-        
+        if (!_isHoming) return;
         HandleHoming();
-    }
-
-    /// <summary>
-    /// 목표물을 향한 추적 및 이동 로직을 처리합니다.
-    /// </summary>
-    private void HandleHoming()
-    {
-        Vector2 moveDirection;
-        Vector2 currentRigidbodyPosition = _rigidbody2D.position;
-
-        if (_target != null && _target.gameObject.activeInHierarchy)
-        {
-            Vector2 targetPosition = _target.position;
-            Vector2 directionToTarget = targetPosition - currentRigidbodyPosition;
-            Vector2 perpendicular = Vector2.Perpendicular(directionToTarget).normalized;
-            float sineOffset = Mathf.Sin((Time.time + _randomStartTime) * waveFrequency) * waveAmplitude;
-
-            Vector2 aimPoint = targetPosition + perpendicular * sineOffset;
-            Vector2 finalDirection = (aimPoint - currentRigidbodyPosition).normalized;
-
-            float targetAngle = Mathf.Atan2(finalDirection.y, finalDirection.x) * Mathf.Rad2Deg;
-            Quaternion targetRotation = Quaternion.Euler(0, 0, targetAngle);
-            transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, rotateSpeed * Time.fixedDeltaTime);
-        }
-
-        moveDirection = transform.right;
-        _rigidbody2D.MovePosition(currentRigidbodyPosition + moveDirection * speed * Time.fixedDeltaTime);
     }
 
     private void OnTriggerEnter2D(Collider2D other)
@@ -147,11 +71,84 @@ public class HomingMissile : MonoBehaviour
     }
 
     /// <summary>
+    /// 추적할 목표를 설정하고 발사를 시작합니다.
+    /// </summary>
+    /// <param name="target">추적할 대상의 Transform</param>
+    /// <param name="firePoint">발사 위치</param>
+    public void Launch(Transform target, Transform firePoint)
+    {
+        if (transform.parent != null) transform.SetParent(null);
+        
+        transform.position = firePoint.position;
+        transform.rotation = Quaternion.identity;
+        _randomStartTime = Random.Range(0f, 10f);
+        _target = target;
+
+        if (SoundManager.Instance != null && !string.IsNullOrEmpty(SoundManager.Instance.MissileLaunchSfx))
+        {
+            SoundManager.Instance.PlaySFX(SoundManager.Instance.MissileLaunchSfx);
+        }
+
+        if (_afterimageEffect != null)
+            _afterimageEffect.StartEffect(lifeTime);
+
+        Sequence launchSequence = DOTween.Sequence();
+        launchSequence.Append(transform.DORotate(new Vector3(0, 0, 90), 0.1f));
+        launchSequence.Append(transform.DOMoveY(transform.position.y + initialLaunchDistance, initialLaunchDuration).SetEase(Ease.OutSine));
+        launchSequence.OnComplete(() => {
+            _collider.enabled = true;
+            _isHoming = true;
+        });
+    }
+
+    /// <summary>
+    /// 지정된 시간이 지나면 오브젝트를 풀로 반환합니다.
+    /// </summary>
+    private async UniTaskVoid DisableAfterDelay(CancellationToken token)
+    {
+        try
+        {
+            await UniTask.Delay(TimeSpan.FromSeconds(lifeTime), cancellationToken: token);
+            if (gameObject.activeSelf)
+            {
+                ObjectPoolManager.Instance.Return(gameObject);
+            }
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    /// <summary>
+    /// 목표물을 향한 추적 및 이동 로직을 처리합니다.
+    /// </summary>
+    private void HandleHoming()
+    {
+        if (_target != null && _target.gameObject.activeInHierarchy)
+        {
+            Vector2 targetPosition = _target.position;
+            Vector2 directionToTarget = targetPosition - _rigidbody2D.position;
+            Vector2 perpendicular = Vector2.Perpendicular(directionToTarget).normalized;
+            float sineOffset = Mathf.Sin((Time.time + _randomStartTime) * waveFrequency) * waveAmplitude;
+
+            Vector2 aimPoint = targetPosition + perpendicular * sineOffset;
+            Vector2 finalDirection = (aimPoint - _rigidbody2D.position).normalized;
+
+            float targetAngle = Mathf.Atan2(finalDirection.y, finalDirection.x) * Mathf.Rad2Deg;
+            Quaternion targetRotation = Quaternion.Euler(0, 0, targetAngle);
+            transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, rotateSpeed * Time.fixedDeltaTime);
+        }
+
+        Vector2 moveDirection = transform.right;
+        _rigidbody2D.MovePosition(_rigidbody2D.position + moveDirection * speed * Time.fixedDeltaTime);
+    }
+
+    /// <summary>
     /// 미사일 폭발 효과를 처리하고 오브젝트를 풀에 반환합니다.
     /// </summary>
     private void Explode(Collider2D hitTarget)
     {
+        if (_hasExploded) return;
         _hasExploded = true;
+
         if (EffectManager.Instance != null)
         {
             EffectManager.Instance.PlayHomingMissileExplosion(transform.position);

@@ -6,5 +6,4 @@ using UnityEngine;
 /// </summary>
 public class SoundNameAttribute : PropertyAttribute
 {
-    // 이 클래스는 속성을 정의하기만 
 }
