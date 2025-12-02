@@ -1,24 +1,28 @@
 using UnityEditor;
 using UnityEngine;
+using OniBow.Managers; 
 
-/// <summary>
-/// EffectManager 스크립트의 인스펙터를 커스터마이징하여 테스트 버튼을 추가합니다.
-/// </summary>
-[CustomEditor(typeof(EffectManager))]
-public class EffectManagerEditor : Editor
+namespace OniBow.Editor
 {
-    public override void OnInspectorGUI()
+    /// <summary>
+    /// EffectManager 스크립트의 인스펙터를 커스터마이징하여 테스트 버튼을 추가합니다.
+    /// </summary>
+    [CustomEditor(typeof(EffectManager))]
+    public class EffectManagerEditor : UnityEditor.Editor
     {
-        DrawDefaultInspector();
-
-        EffectManager effectManager = (EffectManager)target;
-
-        EditorGUILayout.Space(10);
-        EditorGUILayout.LabelField("에디터 테스트 도구", EditorStyles.boldLabel);
-
-        if (GUILayout.Button("테스트: 체력 경고 효과 토글"))
+        public override void OnInspectorGUI()
         {
-            effectManager.ToggleTestLowHealthEffect();
+            DrawDefaultInspector();
+
+            EffectManager effectManager = (EffectManager)target;
+
+            EditorGUILayout.Space(10);
+            EditorGUILayout.LabelField("에디터 테스트 도구", EditorStyles.boldLabel);
+
+            if (GUILayout.Button("테스트: 체력 경고 효과 토글"))
+            {
+                effectManager.ToggleTestLowHealthEffect();
+            }
         }
     }
 }

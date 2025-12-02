@@ -1,102 +1,105 @@
 using UnityEngine;
 
-/// <summary>
-/// 게임 화면의 해상도와 비율을 관리하는 싱글턴 클래스입니다.
-/// WebGL 빌드 등 다양한 화면 크기에서도 16:9 비율을 유지하고,
-/// 남는 공간은 검은색 레터박스로 처리합니다.
-/// </summary>
-public class ScreenResolutionManager : MonoBehaviour
+namespace OniBow.Managers
 {
-    public static ScreenResolutionManager Instance { get; private set; }
-
-    [Tooltip("비율을 고정할 메인 카메라. 할당하지 않으면 Camera.main을 사용합니다.")]
-    [SerializeField] private Camera m_mainCamera;
-
-    private const float k_TargetAspectRatio = 16.0f / 9.0f;
-
-    private Camera m_letterboxCamera;
-    private int m_lastScreenWidth = 0;
-    private int m_lastScreenHeight = 0;
-
-    private void Awake()
+    /// <summary>
+    /// 게임 화면의 해상도와 비율을 관리하는 싱글턴 클래스입니다.
+    /// WebGL 빌드 등 다양한 화면 크기에서도 16:9 비율을 유지하고,
+    /// 남는 공간은 검은색 레터박스로 처리합니다.
+    /// </summary>
+    public class ScreenResolutionManager : MonoBehaviour
     {
-        if (Instance == null)
-        {
-            Instance = this;
-            DontDestroyOnLoad(gameObject);
-        }
-        else
-        {
-            Destroy(gameObject);
-            return;
-        }
+        public static ScreenResolutionManager Instance { get; private set; }
 
-        if (m_mainCamera == null)
-        {
-            m_mainCamera = Camera.main;
-        }
+        [Tooltip("비율을 고정할 메인 카메라. 할당하지 않으면 Camera.main을 사용합니다.")]
+        [SerializeField] private Camera m_mainCamera;
 
-        if (m_mainCamera == null)
-        {
-            enabled = false;
-            return;
-        }
+        private const float k_TargetAspectRatio = 16.0f / 9.0f;
 
-        CreateLetterboxCamera();
-        UpdateAspectRatio();
-    }
+        private Camera m_letterboxCamera;
+        private int m_lastScreenWidth = 0;
+        private int m_lastScreenHeight = 0;
 
-    private void Update()
-    {
-        if (Screen.width != m_lastScreenWidth || Screen.height != m_lastScreenHeight)
+        private void Awake()
         {
+            if (Instance == null)
+            {
+                Instance = this;
+                DontDestroyOnLoad(gameObject);
+            }
+            else
+            {
+                Destroy(gameObject);
+                return;
+            }
+
+            if (m_mainCamera == null)
+            {
+                m_mainCamera = Camera.main;
+            }
+
+            if (m_mainCamera == null)
+            {
+                enabled = false;
+                return;
+            }
+
+            CreateLetterboxCamera();
             UpdateAspectRatio();
         }
-    }
 
-    /// <summary>
-    /// 현재 화면 비율을 계산하고, 목표 비율(16:9)에 맞게 카메라의 Viewport Rect를 조절합니다.
-    /// </summary>
-    private void UpdateAspectRatio()
-    {
-        m_lastScreenWidth = Screen.width;
-        m_lastScreenHeight = Screen.height;
-
-        float windowAspectRatio = (float)m_lastScreenWidth / m_lastScreenHeight;
-        float scaleHeight = windowAspectRatio / k_TargetAspectRatio;
-
-        Rect rect = m_mainCamera.rect;
-
-        if (scaleHeight < 1.0f) // 세로로 더 긴 경우 (Letterbox)
+        private void Update()
         {
-            rect.width = 1.0f;
-            rect.height = scaleHeight;
-            rect.x = 0;
-            rect.y = (1.0f - scaleHeight) / 2.0f;
-        }
-        else // 가로로 더 긴 경우 (Pillarbox)
-        {
-            float scaleWidth = 1.0f / scaleHeight;
-            rect.width = scaleWidth;
-            rect.height = 1.0f;
-            rect.x = (1.0f - scaleWidth) / 2.0f;
-            rect.y = 0;
+            if (Screen.width != m_lastScreenWidth || Screen.height != m_lastScreenHeight)
+            {
+                UpdateAspectRatio();
+            }
         }
 
-        m_mainCamera.rect = rect;
-    }
+        /// <summary>
+        /// 현재 화면 비율을 계산하고, 목표 비율(16:9)에 맞게 카메라의 Viewport Rect를 조절합니다.
+        /// </summary>
+        private void UpdateAspectRatio()
+        {
+            m_lastScreenWidth = Screen.width;
+            m_lastScreenHeight = Screen.height;
 
-    /// <summary>
-    /// 레터박스 영역을 검은색으로 채우기 위한 별도의 카메라를 생성하고 설정합니다.
-    /// </summary>
-    private void CreateLetterboxCamera()
-    {
-        GameObject letterboxCamGo = new GameObject("LetterboxCamera");
-        letterboxCamGo.transform.SetParent(transform);
-        m_letterboxCamera = letterboxCamGo.AddComponent<Camera>();
-        m_letterboxCamera.backgroundColor = Color.black;
-        m_letterboxCamera.cullingMask = 0;
-        m_letterboxCamera.depth = -100;
-        m_letterboxCamera.clearFlags = CameraClearFlags.SolidColor;
+            float windowAspectRatio = (float)m_lastScreenWidth / m_lastScreenHeight;
+            float scaleHeight = windowAspectRatio / k_TargetAspectRatio;
+
+            Rect rect = m_mainCamera.rect;
+
+            if (scaleHeight < 1.0f) // 세로로 더 긴 경우 (Letterbox)
+            {
+                rect.width = 1.0f;
+                rect.height = scaleHeight;
+                rect.x = 0;
+                rect.y = (1.0f - scaleHeight) / 2.0f;
+            }
+            else // 가로로 더 긴 경우 (Pillarbox)
+            {
+                float scaleWidth = 1.0f / scaleHeight;
+                rect.width = scaleWidth;
+                rect.height = 1.0f;
+                rect.x = (1.0f - scaleWidth) / 2.0f;
+                rect.y = 0;
+            }
+
+            m_mainCamera.rect = rect;
+        }
+
+        /// <summary>
+        /// 레터박스 영역을 검은색으로 채우기 위한 별도의 카메라를 생성하고 설정합니다.
+        /// </summary>
+        private void CreateLetterboxCamera()
+        {
+            GameObject letterboxCamGo = new GameObject("LetterboxCamera");
+            letterboxCamGo.transform.SetParent(transform);
+            m_letterboxCamera = letterboxCamGo.AddComponent<Camera>();
+            m_letterboxCamera.backgroundColor = Color.black;
+            m_letterboxCamera.cullingMask = 0;
+            m_letterboxCamera.depth = -100;
+            m_letterboxCamera.clearFlags = CameraClearFlags.SolidColor;
+        }
     }
 }
