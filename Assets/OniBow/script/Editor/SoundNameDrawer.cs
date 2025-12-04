@@ -17,6 +17,12 @@ namespace OniBow.Editor
         private static List<string> _soundNames;
         private static bool _isInitialized = false;
 
+        public static void Refresh()
+        {
+            _isInitialized = false;
+            _soundNames = null;
+        }
+
         public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
         {
             if (property.propertyType != SerializedPropertyType.String)

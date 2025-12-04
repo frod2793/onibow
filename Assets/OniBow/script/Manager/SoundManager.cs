@@ -23,6 +23,18 @@ namespace OniBow.Managers
     /// </summary>
     public class SoundManager : MonoBehaviour
     {
+        private class PooledSfxPlayer
+        {
+            public AudioSource audioSource;
+            public long lastPlayedFrame;
+
+            public PooledSfxPlayer(AudioSource source)
+            {
+                audioSource = source;
+                lastPlayedFrame = 0;
+            }
+        }
+
         public static SoundManager Instance { get; private set; }
 
         [Header("사운드 목록")]
@@ -36,7 +48,7 @@ namespace OniBow.Managers
         [Header("SFX 플레이어 풀")]
         [Tooltip("동시에 재생 가능한 최대 효과음 수")]
         [SerializeField] private int m_sfxPoolSize = 15;
-        private List<AudioSource> m_sfxPlayerPool;
+        private List<PooledSfxPlayer> m_sfxPlayerPool;
 
         private Dictionary<string, Sound> m_bgmDictionary;
         private Dictionary<string, Sound> m_sfxDictionary;
@@ -117,7 +129,7 @@ namespace OniBow.Managers
             m_bgmDictionary = m_bgmSounds.ToDictionary(sound => sound.name, sound => sound);
             m_sfxDictionary = m_sfxSounds.ToDictionary(sound => sound.name, sound => sound);
 
-            m_sfxPlayerPool = new List<AudioSource>(m_sfxPoolSize);
+            m_sfxPlayerPool = new List<PooledSfxPlayer>(m_sfxPoolSize);
             for (int i = 0; i < m_sfxPoolSize; i++)
             {
                 CreateSfxPlayer();
@@ -132,7 +144,7 @@ namespace OniBow.Managers
             sfxPlayerObject.transform.SetParent(transform);
             AudioSource source = sfxPlayerObject.AddComponent<AudioSource>();
             source.playOnAwake = false;
-            m_sfxPlayerPool.Add(source);
+            m_sfxPlayerPool.Add(new PooledSfxPlayer(source));
         }
 
         /// <summary>
@@ -184,21 +196,24 @@ namespace OniBow.Managers
 
             if (m_sfxDictionary.TryGetValue(name, out Sound sound))
             {
-                AudioSource sfxPlayer = m_sfxPlayerPool.FirstOrDefault(p => !p.isPlaying);
+                PooledSfxPlayer sfxPlayer = m_sfxPlayerPool.FirstOrDefault(p => !p.audioSource.isPlaying);
 
                 // 모든 플레이어가 사용 중이라면, 가장 오래된 플레이어를 재사용합니다.
                 if (sfxPlayer == null)
                 {
-                    sfxPlayer = m_sfxPlayerPool.FirstOrDefault();
-                    if (sfxPlayer == null)
-                    {
-                        // 예비 플레이어를 사용합니다.
-                        if (m_sfxPlayer != null)
-                            m_sfxPlayer.PlayOneShot(sound.clip, sound.volume * m_sfxVolume);
-                        return;
-                    }
+                    sfxPlayer = m_sfxPlayerPool.OrderBy(p => p.lastPlayedFrame).FirstOrDefault();
                 }
-                sfxPlayer.PlayOneShot(sound.clip, sound.volume * m_sfxVolume);
+
+                if (sfxPlayer == null)
+                {
+                    // 예비 플레이어를 사용합니다.
+                    if (m_sfxPlayer != null)
+                        m_sfxPlayer.PlayOneShot(sound.clip, sound.volume * m_sfxVolume);
+                    return;
+                }
+                
+                sfxPlayer.audioSource.PlayOneShot(sound.clip, sound.volume * m_sfxVolume);
+                sfxPlayer.lastPlayedFrame = Time.frameCount;
             }
             else
             {

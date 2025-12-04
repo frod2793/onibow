@@ -32,6 +32,9 @@ namespace OniBow.Editor
                 CacheSounds(soundManager, SfxPath, false);
 
                 EditorUtility.SetDirty(soundManager);
+                
+                SoundNameDrawer.Refresh();
+                
                 Debug.Log("<color=green>[SoundManagerEditor]</color> 리소스 폴더의 사운드를 성공적으로 캐싱했습니다.");
             }
         }

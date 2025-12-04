@@ -1,0 +1,21 @@
+{
+  "systemInstruction": "Use Context7. Use Sequential Thinking.\n\n[Primary Rules]\n1. Language: You MUST ALWAYS answer in Korean (모든 답변은 반드시 한국어로 하세요).\n2. Tool Mapping: If the user mentions '유니티 에디터' (or 'Unity Editor'), you MUST prioritize using the tools from the 'mcp-unity' server to inspect or modify the Unity project.",
+  "general": {
+    "previewFeatures": true
+  },
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@upstash/context7-mcp@latest"
+      ]
+    },
+    "mcp-unity": {
+      "command": "node",
+      "args": [
+        "/Users/woodenshield/Desktop/UNITY/Project/onibow/Packages/mcp-unity-1.2.0/Server~/build/index.js"
+      ]
+    }
+  }
+}
