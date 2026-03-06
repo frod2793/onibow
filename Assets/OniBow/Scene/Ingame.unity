@@ -1377,6 +1377,11 @@ GameObject:
   m_Component:
   - component: {fileID: 359000436}
   - component: {fileID: 359000437}
+  - component: {fileID: 359000442}
+  - component: {fileID: 359000441}
+  - component: {fileID: 359000440}
+  - component: {fileID: 359000439}
+  - component: {fileID: 359000438}
   m_Layer: 0
   m_Name: '[ - UI Manager - ]'
   m_TagString: Untagged
@@ -1408,42 +1413,102 @@ MonoBehaviour:
   m_GameObject: {fileID: 359000435}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 520d9820ce154d6439abd76fb53e66e1, type: 3}
+  m_Script: {fileID: 11500000, guid: e41222d835c714907a3a4b4430a81d3d, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::UIManager
-  m_playerControl: {fileID: 259783687}
-  m_skillManager: {fileID: 665154089}
-  m_enemy: {fileID: 320094556}
-  m_tempHpDecreaseDelay: 1
-  m_tempHpDecreaseSpeed: 0.5
+  m_EditorClassIdentifier: Assembly-CSharp::OniBow.UI.Views.UIManager
+  m_playerHUDView: {fileID: 359000439}
+  m_enemyHUDView: {fileID: 359000440}
+  m_skillHUDView: {fileID: 359000438}
+  m_settingsPopupView: {fileID: 359000442}
+--- !u!114 &359000438
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 359000435}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dc2ac647bbcc44f30874c8cbdb225b10, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::OniBow.UI.Views.SkillHUDView
+  m_skillButtons:
+  - {fileID: 1490241341}
+  - {fileID: 387423166}
+  - {fileID: 1290394407}
+  - {fileID: 1633692434}
+  m_cooldownImages:
+  - {fileID: 1177273139}
+  - {fileID: 1238673170}
+  - {fileID: 1971587197}
+  - {fileID: 938808009}
+--- !u!114 &359000439
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 359000435}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 956d5cbc456c6407586e95933c057ad7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::OniBow.UI.Views.PlayerHUDView
   m_playerHpBar: {fileID: 354094716}
   m_playerTempHpBar: {fileID: 1657190017}
   m_playerHpText: {fileID: 1337817345}
+  m_leftMoveButton: {fileID: 716095771}
+  m_rightMoveButton: {fileID: 769236669}
+--- !u!114 &359000440
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 359000435}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0fd0e66c6e63c40949b5de9c050dabe7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::OniBow.UI.Views.EnemyHUDView
   m_enemyHpBar: {fileID: 1370108823}
   m_enemyTempHpBar: {fileID: 1968983026}
   m_enemyHpText: {fileID: 983606455}
-  m_skillUIElements:
-  - <Button>k__BackingField: {fileID: 1490241341}
-    <CooldownText>k__BackingField: {fileID: 1524735923}
-    <CooldownMask>k__BackingField: {fileID: 1177273139}
-  - <Button>k__BackingField: {fileID: 387423166}
-    <CooldownText>k__BackingField: {fileID: 2001671920}
-    <CooldownMask>k__BackingField: {fileID: 1238673170}
-  - <Button>k__BackingField: {fileID: 1290394407}
-    <CooldownText>k__BackingField: {fileID: 1079098692}
-    <CooldownMask>k__BackingField: {fileID: 1971587197}
-  - <Button>k__BackingField: {fileID: 1633692434}
-    <CooldownText>k__BackingField: {fileID: 907125137}
-    <CooldownMask>k__BackingField: {fileID: 938808009}
-  m_rightMoveButton: {fileID: 769236669}
-  m_leftMoveButton: {fileID: 716095771}
-  m_settingsPopup: {fileID: 679253163}
-  m_openSettingsButton: {fileID: 112488818}
-  m_closeSettingsButton: {fileID: 618731263}
-  m_bgmVolumeSlider: {fileID: 35630455}
-  m_sfxVolumeSlider: {fileID: 1312884080}
-  m_bgmMuteToggle: {fileID: 1888937252}
-  m_sfxMuteToggle: {fileID: 245737706}
+--- !u!114 &359000441
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 359000435}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7bada199cde84f268fe5874d1cb6b36b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::OniBow.UI.DamageText
+  damageText: {fileID: 4314060513347292329, guid: 0f1f08041602e479f900460697e20112, type: 3}
+  moveAmountY: 50
+  duration: 1.5
+  easeType: 6
+--- !u!114 &359000442
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 359000435}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c449fe0f8b41546cabb16af2b62e7aa8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::OniBow.UI.Views.SettingsPopupView
+  m_bgmSlider: {fileID: 35630455}
+  m_bgmToggle: {fileID: 1888937252}
+  m_sfxSlider: {fileID: 1312884080}
+  m_sfxToggle: {fileID: 245737706}
+  m_settingsButton: {fileID: 112488818}
+  m_popupRoot: {fileID: 679253163}
+  m_closeButton: {fileID: 618731263}
 --- !u!1 &387423164
 GameObject:
   m_ObjectHideFlags: 0
@@ -2429,6 +2494,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &639961934
 GameObject:
@@ -3120,6 +3186,7 @@ TilemapCollider2D:
   m_UseDelaunayMesh: 0
 --- !u!483693784 &845231289
 TilemapRenderer:
+  serializedVersion: 2
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -3165,6 +3232,7 @@ TilemapRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_ChunkSize: {x: 32, y: 32, z: 32}
   m_ChunkCullingBounds: {x: 0.06544924, y: 0.06544602, z: 0}
   m_MaxChunkCount: 16
@@ -3172,7 +3240,6 @@ TilemapRenderer:
   m_SortOrder: 0
   m_Mode: 0
   m_DetectChunkCullingBounds: 0
-  m_MaskInteraction: 0
 --- !u!1839735485 &845231290
 Tilemap:
   m_ObjectHideFlags: 0
@@ -4075,6 +4142,7 @@ MonoBehaviour:
   m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
+  m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -4450,6 +4518,7 @@ MonoBehaviour:
   m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
+  m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -5051,6 +5120,7 @@ MonoBehaviour:
   m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
+  m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -5112,6 +5182,7 @@ GameObject:
   m_IsActive: 0
 --- !u!212 &1094369722
 SpriteRenderer:
+  serializedVersion: 2
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -5157,6 +5228,7 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_Sprite: {fileID: 7482667652216324306, guid: 311925a002f4447b3a28927169b83ea6, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
@@ -5166,7 +5238,6 @@ SpriteRenderer:
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
-  m_MaskInteraction: 0
   m_SpriteSortPoint: 0
 --- !u!4 &1094369723
 Transform:
@@ -5683,9 +5754,9 @@ Camera:
   m_NormalizedViewPortRect:
     serializedVersion: 2
     x: 0
-    y: 0.2115869
+    y: 0.13390313
     width: 1
-    height: 0.5759603
+    height: 0.7323718
   near clip plane: 0.3
   far clip plane: 1000
   field of view: 60
@@ -6218,6 +6289,7 @@ MonoBehaviour:
   m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
+  m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -6661,6 +6733,7 @@ MonoBehaviour:
   m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
+  m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -7206,6 +7279,7 @@ MonoBehaviour:
   m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
+  m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -7348,14 +7422,14 @@ Light:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1554586621}
   m_Enabled: 1
-  serializedVersion: 11
+  serializedVersion: 12
   m_Type: 1
   m_Color: {r: 1, g: 0.95686275, b: 0.8392157, a: 1}
   m_Intensity: 1
   m_Range: 10
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
-  m_CookieSize: 10
+  m_CookieSize2D: {x: 10, y: 10}
   m_Shadows:
     m_Type: 2
     m_Resolution: -1
@@ -8466,6 +8540,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &1952496492
 GameObject:
@@ -8976,6 +9051,7 @@ MonoBehaviour:
   m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
+  m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -9037,6 +9113,7 @@ GameObject:
   m_IsActive: 0
 --- !u!212 &2075038159
 SpriteRenderer:
+  serializedVersion: 2
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -9082,6 +9159,7 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_Sprite: {fileID: 7482667652216324306, guid: 311925a002f4447b3a28927169b83ea6, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
@@ -9091,7 +9169,6 @@ SpriteRenderer:
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
-  m_MaskInteraction: 0
   m_SpriteSortPoint: 0
 --- !u!4 &2075038160
 Transform:
@@ -9265,6 +9342,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &2099509045
 GameObject:
@@ -9332,6 +9410,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!64 &2099509047
 MeshCollider:
