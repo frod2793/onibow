@@ -1,6 +1,8 @@
 using UnityEngine;
 using System.Collections.Generic;
 using UnityEngine.Pool;
+using VContainer;
+using VContainer.Unity;
 
 namespace OniBow.Managers
 {
@@ -11,9 +13,16 @@ namespace OniBow.Managers
     public class ObjectPoolManager : MonoBehaviour
     {
         public static ObjectPoolManager Instance { get; private set; }
-
+        
+        private IObjectResolver _resolver;
         private Dictionary<GameObject, IObjectPool<GameObject>> _prefabPools;
         private Dictionary<int, IObjectPool<GameObject>> _spawnedObjects;
+
+        [Inject]
+        public void Construct(IObjectResolver resolver)
+        {
+            _resolver = resolver;
+        }
 
         private void Awake()
         {
@@ -92,7 +101,13 @@ namespace OniBow.Managers
         private IObjectPool<GameObject> CreateNewPoolForPrefab(GameObject prefab, int defaultCapacity = 10)
         {
             return new ObjectPool<GameObject>(
-                createFunc: () => Instantiate(prefab),
+                createFunc: () => {
+                    if (_resolver != null)
+                    {
+                        return _resolver.Instantiate(prefab);
+                    }
+                    return Instantiate(prefab);
+                },
                 actionOnGet: (obj) => {
                     obj.transform.SetParent(null);
                     obj.SetActive(true);

@@ -9,6 +9,10 @@ using UnityEngine.Serialization;
 using OniBow.FX;
 using OniBow.Managers;
 using OniBow.Projectiles;
+using OniBow.Logic;
+using OniBow.Presentation;
+using OniBow.Data;
+using VContainer;
 
 using OniBow.UI.Interfaces;
 
@@ -21,7 +25,7 @@ namespace OniBow
     [RequireComponent(typeof(Rigidbody2D))]
     public class PlayerControl : MonoBehaviour, IHealthProvider
     {
-        #region 변수 및 속성
+        #region 에디터 설정
 
         [Header("Health Settings")]
         [Tooltip("최대 체력")]
@@ -75,6 +79,20 @@ namespace OniBow
         [SerializeField] private float m_dashDuration = 0.2f;
         [Tooltip("대쉬 쿨다운 (초)")]
         [SerializeField] private float m_dashCooldown = 1f;
+        #endregion
+
+        #region 내부 필드
+        private GameFlowController m_gameFlowController;
+        private CameraEffectView m_cameraEffectView;
+        private GameSessionDTO m_sessionData;
+
+        [Inject]
+        public void Construct(GameFlowController gameFlowController, CameraEffectView cameraEffectView, GameSessionDTO sessionData)
+        {
+            m_gameFlowController = gameFlowController;
+            m_cameraEffectView = cameraEffectView;
+            m_sessionData = sessionData;
+        }
 
         private Rigidbody2D m_rigidbody2D;
         private Collider2D m_collider;
@@ -128,12 +146,18 @@ namespace OniBow
         
         private void Update()
         {
-            HandleKeyboardInput();
+            // 게임이 시작된(Playing) 상태일 때만 플레이어 입력을 처리합니다.
+            if (m_gameFlowController != null && m_gameFlowController.CurrentState == GameState.Playing)
+            {
+                HandleKeyboardInput();
+            }
         }
 
         private void OnTriggerEnter2D(Collider2D other)
         {
-            if (m_currentState != PlayerState.DEATH && other.CompareTag(k_EnemyArrowTag))
+            // 게임이 진행 중이고 사망 상태가 아닐 때만 적 투사체에 데미지를 입습니다.
+            bool isPlaying = m_gameFlowController != null && m_gameFlowController.CurrentState == GameState.Playing;
+            if (isPlaying && m_currentState != PlayerState.DEATH && other.CompareTag(k_EnemyArrowTag))
             {
                 TakeDamage(10);
             }
@@ -288,6 +312,8 @@ namespace OniBow
         /// <param name="direction">이동 방향 (-1 또는 1)</param>
         public void OnMoveButtonDown(float direction)
         {
+            if (m_gameFlowController != null && m_gameFlowController.CurrentState != GameState.Playing) return;
+
             if (SoundManager.Instance != null)
             {
                 SoundManager.Instance.PlaySFX(SoundManager.Instance.GenericButtonClickSfx);
@@ -515,9 +541,9 @@ namespace OniBow
         /// </summary>
         private void CalculateCameraBoundaries()
         {
-            if (GameManager.Instance != null && GameManager.Instance.MainCamera != null)
+            if (m_cameraEffectView != null)
             {
-                Camera cam = GameManager.Instance.MainCamera;
+                Camera cam = Camera.main;
                 m_cameraMinX = cam.ViewportToWorldPoint(new Vector3(0, 0, 0)).x;
                 m_cameraMaxX = cam.ViewportToWorldPoint(new Vector3(1, 0, 0)).x;
 
@@ -527,7 +553,7 @@ namespace OniBow
             }
             else
             {
-                Debug.LogError("카메라 경계를 계산할 수 없습니다. GameManager 또는 MainCamera를 찾을 수 없습니다.");
+                Debug.LogError("카메라 경계를 계산할 수 없습니다. CameraEffectView가 주입되지 않았습니다.");
                 m_cameraMinX = -Mathf.Infinity;
                 m_cameraMaxX = Mathf.Infinity;
             }
@@ -612,6 +638,7 @@ namespace OniBow
             m_currentHp = 0;
             m_tempHp = 0;
             OnHealthUpdated?.Invoke(m_currentHp, m_maxHp, m_tempHp, m_maxHp);
+            m_gameFlowController?.HandlePlayerDeath();
             OnPlayerDied?.Invoke();
         }
 

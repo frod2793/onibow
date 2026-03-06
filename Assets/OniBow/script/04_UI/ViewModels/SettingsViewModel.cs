@@ -5,55 +5,62 @@ namespace OniBow.UI.ViewModels
 {
     public class SettingsViewModel
     {
-        private SoundManager m_SoundManager;
+        private readonly SoundManager m_soundManager;
         public event Action<float, bool> OnBgmStateChanged;
         public event Action<float, bool> OnSfxStateChanged;
 
+        public SettingsViewModel(SoundManager soundManager)
+        {
+            m_soundManager = soundManager;
+        }
+
         public void Initialize(SoundManager soundManager)
         {
-            m_SoundManager = soundManager;
-            
-            // 초기 상태 전파
-            if (m_SoundManager != null)
+            // 호환성 유지용 (VContainer 사용 시 생성자 주입됨)
+        }
+
+        public void RequestInitialState()
+        {
+            if (m_soundManager != null)
             {
-                OnBgmStateChanged?.Invoke(m_SoundManager.GetBGMVolume(), m_SoundManager.IsBGMMuted());
-                OnSfxStateChanged?.Invoke(m_SoundManager.GetSFXVolume(), m_SoundManager.IsSFXMuted());
+                OnBgmStateChanged?.Invoke(m_soundManager.GetBGMVolume(), m_soundManager.IsBGMMuted());
+                OnSfxStateChanged?.Invoke(m_soundManager.GetSFXVolume(), m_soundManager.IsSFXMuted());
             }
         }
 
         public void SetBgmVolume(float value)
         {
-            if (m_SoundManager != null)
+            if (m_soundManager != null)
             {
-                m_SoundManager.SetBGMVolume(value);
-                OnBgmStateChanged?.Invoke(value, m_SoundManager.IsBGMMuted());
+                m_soundManager.SetBGMVolume(value);
+                OnBgmStateChanged?.Invoke(value, m_soundManager.IsBGMMuted());
             }
         }
 
         public void SetSfxVolume(float value)
         {
-            if (m_SoundManager != null)
+            if (m_soundManager != null)
             {
-                m_SoundManager.SetSFXVolume(value);
-                OnSfxStateChanged?.Invoke(value, m_SoundManager.IsSFXMuted());
+                m_soundManager.SetSFXVolume(value);
+                OnSfxStateChanged?.Invoke(value, m_soundManager.IsSFXMuted());
             }
         }
 
         public void SetBgmMute(bool mute)
         {
-            if (m_SoundManager != null)
+            if (m_soundManager != null)
             {
-                m_SoundManager.SetBGMMute(mute);
-                OnBgmStateChanged?.Invoke(m_SoundManager.GetBGMVolume(), mute);
+                m_soundManager.SetBGMMute(mute);
+                OnBgmStateChanged?.Invoke(m_soundManager.GetBGMVolume(), mute);
             }
         }
 
         public void SetSfxMute(bool mute)
         {
-            if (m_SoundManager != null)
+            if (m_soundManager != null)
             {
-                m_SoundManager.SetSFXMute(mute);
-                OnSfxStateChanged?.Invoke(m_SoundManager.GetSFXVolume(), mute);
+                m_soundManager.SetSFXMute(mute);
+                OnSfxStateChanged?.Invoke(m_soundManager.GetSFXVolume(), mute);
             }
         }
     }

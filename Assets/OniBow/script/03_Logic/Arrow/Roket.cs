@@ -1,6 +1,8 @@
 using UnityEngine;
 using OniBow.Managers;
 using OniBow;
+using OniBow.Presentation;
+using VContainer;
 
 namespace OniBow.Projectiles
 {
@@ -24,6 +26,13 @@ namespace OniBow.Projectiles
 
         private Rigidbody2D _rigidbody2D;
         private bool _hasExploded = false;
+        private CameraEffectView m_cameraEffectView;
+
+        [Inject]
+        public void Construct(CameraEffectView cameraEffectView)
+        {
+            m_cameraEffectView = cameraEffectView;
+        }
 
         private void Awake()
         {
@@ -76,7 +85,16 @@ namespace OniBow.Projectiles
                 SoundManager.Instance.PlaySFX(SoundManager.Instance.RoketExplosionSfx);
             }
 
-            GameManager.Instance.ShakeCamera(shakeDuration, shakeStrength);
+            if (m_cameraEffectView != null)
+            {
+                m_cameraEffectView.ShakeCamera(shakeDuration, shakeStrength);
+            }
+            else
+            {
+                // Fallback (풀링 객체 주입 실패 시)
+                var effectView = FindFirstObjectByType<CameraEffectView>();
+                if (effectView != null) effectView.ShakeCamera(shakeDuration, shakeStrength);
+            }
 
             if (directHit != null && directHit.TryGetComponent<Enemy>(out var enemy))
             {

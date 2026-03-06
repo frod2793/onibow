@@ -7,6 +7,9 @@ using UnityEngine.Serialization;
 using OniBow.FX;
 using OniBow.Managers;
 using OniBow.Projectiles;
+using OniBow.Logic;
+using OniBow.Presentation;
+using VContainer;
 
 using OniBow.UI.Interfaces;
 
@@ -97,6 +100,19 @@ namespace OniBow
         private Collider2D m_collider;
         private AfterimageEffect m_afterimageEffect;
         private CancellationTokenSource m_aiTaskCts;
+
+        private GameFlowController m_gameFlowController;
+        private CameraEffectView m_cameraEffectView;
+        private global::OniBow.Logic.EnemySpraySkill m_multiShotSkill;
+
+        [Inject]
+        public void Construct(GameFlowController gameFlowController, CameraEffectView cameraEffectView, global::OniBow.Logic.EnemySpraySkill multiShotSkill)
+        {
+            m_gameFlowController = gameFlowController;
+            m_cameraEffectView = cameraEffectView;
+            m_multiShotSkill = multiShotSkill;
+        }
+
         private bool m_isDead;
         public bool IsDead => m_isDead;
         
@@ -161,12 +177,18 @@ namespace OniBow
         {
             if (m_isDead) return;
 
-            CheckIfOffScreen();
+            // 게임 중일 때만 화면 밖 체크 등을 수행합니다.
+            if (m_gameFlowController != null && m_gameFlowController.CurrentState == GameState.Playing)
+            {
+                CheckIfOffScreen();
+            }
         }
 
         private void OnTriggerEnter2D(Collider2D other)
         {
-            if (!m_isDead && (other.CompareTag(k_ArrowTag)))
+            // 게임 중이고 사망 상태가 아닐 때만 플레이어 화살에 데미지를 입습니다.
+            bool isPlaying = m_gameFlowController != null && m_gameFlowController.CurrentState == GameState.Playing;
+            if (isPlaying && !m_isDead && (other.CompareTag(k_ArrowTag)))
             {
                 TakeDamage(10);
             }
@@ -269,6 +291,7 @@ namespace OniBow
             m_tempHp = 0;
             OnHealthUpdated?.Invoke(m_currentHp, m_maxHp, m_tempHp, m_maxHp);
             
+            m_gameFlowController?.HandleEnemyDeath();
             OnEnemyDestroyed?.Invoke(this);
             
             Destroy(gameObject, 3f);
@@ -279,26 +302,37 @@ namespace OniBow
         /// </summary>
         private async UniTaskVoid AI_LoopAsync(CancellationToken token)
         {
+            // 게임이 Playing 상태가 될 때까지(카운트다운 완료 등) 대기합니다.
+            if (m_gameFlowController != null && m_gameFlowController.CurrentState != GameState.Playing)
+            {
+                await UniTask.WaitUntil(() => m_gameFlowController.CurrentState == GameState.Playing, cancellationToken: token);
+            }
+
             while (!token.IsCancellationRequested && !m_isDead)
             {
-                switch (CurrentState)
+                // 루프 내부에서도 게임 상태가 Playing인 경우에만 로직을 수행합니다.
+                if (m_gameFlowController != null && m_gameFlowController.CurrentState == GameState.Playing)
                 {
-                    case EnemyState.Idle:
-                        await OnIdleStateAsync(token);
-                        break;
-                    case EnemyState.Moving:
-                        await OnMovingStateAsync(token);
-                        break;
-                    case EnemyState.Attacking:
-                        await OnAttackingStateAsync(token);
-                        break;
-                    case EnemyState.SkillAttacking:
-                        await OnSkillAttackingStateAsync(token);
-                        break;
-                    case EnemyState.Healing:
-                        await OnHealingStateAsync(token);
-                        break;
+                    switch (CurrentState)
+                    {
+                        case EnemyState.Idle:
+                            await OnIdleStateAsync(token);
+                            break;
+                        case EnemyState.Moving:
+                            await OnMovingStateAsync(token);
+                            break;
+                        case EnemyState.Attacking:
+                            await OnAttackingStateAsync(token);
+                            break;
+                        case EnemyState.SkillAttacking:
+                            await OnSkillAttackingStateAsync(token);
+                            break;
+                        case EnemyState.Healing:
+                            await OnHealingStateAsync(token);
+                            break;
+                    }
                 }
+                
                 await UniTask.Yield(PlayerLoopTiming.FixedUpdate, token).SuppressCancellationThrow();
             }
         }
@@ -316,7 +350,11 @@ namespace OniBow
                 if (useSkill)
                 {
                     m_lastSkillUseTime = Time.time;
-                    await SkillManager.Instance.ExecuteEnemyMultiShot(m_skillHandPoint, m_player);
+                    if (m_multiShotSkill != null)
+                    {
+                        var context = new SkillContext(transform, m_player, m_skillHandPoint);
+                        await m_multiShotSkill.ExecuteAsync(context, token);
+                    }
                 }
                 else
                 {
@@ -383,9 +421,10 @@ namespace OniBow
         /// </summary>
         private void CheckIfOffScreen()
         {
-            if (GameManager.Instance != null && GameManager.Instance.MainCamera != null)
+            if (m_cameraEffectView != null)
             {
-                float cameraBottom = GameManager.Instance.MainCamera.ViewportToWorldPoint(new Vector3(0, 0, 0)).y;
+                Camera cam = Camera.main;
+                float cameraBottom = cam.ViewportToWorldPoint(new Vector3(0, 0, 0)).y;
                 float destroyThreshold = cameraBottom - 2f;
 
                 if (transform.position.y < destroyThreshold)
@@ -483,9 +522,9 @@ namespace OniBow
             }
             m_minXPosition = leftEdgeX;
 
-            if (GameManager.Instance != null && GameManager.Instance.MainCamera != null)
+            if (m_cameraEffectView != null)
             {
-                Camera cam = GameManager.Instance.MainCamera;
+                Camera cam = Camera.main;
                 m_cameraMinX = cam.ViewportToWorldPoint(new Vector3(0, 0, 0)).x;
                 m_cameraMaxX = cam.ViewportToWorldPoint(new Vector3(1, 0, 0)).x;
             }
@@ -562,16 +601,17 @@ namespace OniBow
                 return;
             }
 
-            if (m_player == null || SkillManager.Instance == null)
+            if (m_player == null || m_multiShotSkill == null)
             {
-                Debug.LogError("스킬 테스트에 필요한 Player 또는 SkillManager 참조가 없습니다.");
+                Debug.LogError("스킬 테스트에 필요한 Player 또는 multiShotSkill 참조가 없습니다.");
                 return;
             }
 
             float directionToPlayer = m_player.position.x - transform.position.x;
             FlipCharacter(directionToPlayer);
 
-            await SkillManager.Instance.ExecuteEnemyMultiShot(m_skillHandPoint, m_player);
+            var context = new SkillContext(transform, m_player, m_skillHandPoint);
+            await m_multiShotSkill.ExecuteAsync(context, this.GetCancellationTokenOnDestroy());
         }
         
         /// <summary>

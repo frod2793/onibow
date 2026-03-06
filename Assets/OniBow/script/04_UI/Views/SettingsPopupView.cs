@@ -32,6 +32,7 @@ namespace OniBow.UI.Views
         #endregion
 
         #region 초기화
+        [VContainer.Inject]
         public void Initialize(SettingsViewModel viewModel)
         {
             m_viewModel = viewModel;
@@ -39,6 +40,7 @@ namespace OniBow.UI.Views
             {
                 m_viewModel.OnBgmStateChanged += UpdateBgmUI;
                 m_viewModel.OnSfxStateChanged += UpdateSfxUI;
+                m_viewModel.RequestInitialState();
             }
 
             BindUIEvents();

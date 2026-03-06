@@ -39,40 +39,12 @@ namespace OniBow.UI.Views
         /// </summary>
         private void InitializeAllUI()
         {
+            // VContainer (GameSceneLifetimeScope)를 통한 자동 주입으로 전환되었습니다.
+            // 이 클래스는 하위 호환성 또는 컴포넌트 참조 유지용으로만 남겨둡니다.
+            /*
             // 1. Player HUD 초기화
-            var player = GameObject.FindGameObjectWithTag("Player")?.GetComponent<PlayerControl>();
-            if (player != null)
-            {
-                m_playerHUDViewModel = new PlayerHUDViewModel();
-                m_playerHUDViewModel.Initialize(player);
-                if (m_playerHUDView != null) m_playerHUDView.Initialize(m_playerHUDViewModel);
-            }
-
-            // 2. Enemy HUD 초기화 (필요 시 타겟팅 시스템과 연동 가능)
-            // 현재는 씬의 첫 번째 적을 예시로 바인딩하거나, 비워둘 수 있습니다.
-            var enemy = GameObject.FindObjectOfType<Enemy>();
-            if (enemy != null)
-            {
-                m_enemyHUDViewModel = new EnemyHUDViewModel();
-                m_enemyHUDViewModel.Initialize(enemy);
-                if (m_enemyHUDView != null) m_enemyHUDView.Initialize(m_enemyHUDViewModel);
-            }
-
-            // 3. Skill HUD 초기화
-            if (SkillManager.Instance != null)
-            {
-                m_skillHUDViewModel = new SkillHUDViewModel();
-                m_skillHUDViewModel.Initialize(SkillManager.Instance);
-                if (m_skillHUDView != null) m_skillHUDView.Initialize(m_skillHUDViewModel);
-            }
-
-            // 4. Settings Popup 초기화
-            if (SoundManager.Instance != null)
-            {
-                m_settingsViewModel = new SettingsViewModel();
-                m_settingsViewModel.Initialize(SoundManager.Instance);
-                if (m_settingsPopupView != null) m_settingsPopupView.Initialize(m_settingsViewModel);
-            }
+            ...
+            */
         }
         #endregion
     }

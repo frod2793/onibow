@@ -3,41 +3,51 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using OniBow.Managers;
 
+using OniBow.Logic;
+
 namespace OniBow.UI.ViewModels
 {
     public class SkillHUDViewModel
     {
-        private SkillManager m_SkillManager;
+        private readonly PlayerSkillController m_skillController;
+        private readonly SkillConfiguration m_skillConfig;
+        private readonly GameFlowController m_gameFlowController;
         public event Action<int, float> OnCooldownChanged;
 
-        public void Initialize(SkillManager skillManager)
+        public SkillHUDViewModel(
+            PlayerSkillController skillController, 
+            SkillConfiguration skillConfig,
+            GameFlowController gameFlowController)
         {
-            m_SkillManager = skillManager;
+            m_skillController = skillController;
+            m_skillConfig = skillConfig;
+            m_gameFlowController = gameFlowController;
         }
 
         public void UseSkill(int slot)
         {
-            if (m_SkillManager == null) return;
+            if (m_gameFlowController != null && m_gameFlowController.CurrentState != GameState.Playing) return;
+            if (m_skillController == null || m_skillConfig == null) return;
 
-            switch (slot)
-            {
-                case 1: m_SkillManager.UseSkill1(); break;
-                case 2: m_SkillManager.UseSkill2(); break;
-                case 3: m_SkillManager.UseSkill3(); break;
-                case 4: m_SkillManager.UseSkill4(); break;
-            }
+            var context = new SkillContext(
+                m_skillConfig.Player.transform, 
+                m_skillConfig.Player.FindNearestEnemy()?.transform,
+                m_skillConfig.PlayerFirePoint,
+                m_skillConfig.PlayerHand);
+
+            m_skillController.UseSkill(slot, context, CancellationToken.None); // 실제로는 개별 CTS 관리 가능
         }
 
         public async UniTaskVoid MonitorCooldowns(CancellationToken ct)
         {
             while (!ct.IsCancellationRequested)
             {
-                if (m_SkillManager != null)
+                if (m_skillController != null)
                 {
-                    OnCooldownChanged?.Invoke(1, m_SkillManager.Skill1_RemainingCooldown / m_SkillManager.PlayerSkill1_Cooldown);
-                    OnCooldownChanged?.Invoke(2, m_SkillManager.Skill2_RemainingCooldown / m_SkillManager.PlayerSkill2_Cooldown);
-                    OnCooldownChanged?.Invoke(3, m_SkillManager.Skill3_RemainingCooldown / m_SkillManager.PlayerSkill3_Cooldown);
-                    OnCooldownChanged?.Invoke(4, m_SkillManager.Skill4_RemainingCooldown / m_SkillManager.PlayerSkill4_Cooldown);
+                    OnCooldownChanged?.Invoke(1, m_skillController.Skill1_RemainingCooldown / m_skillController.Skill1_TotalCooldown);
+                    OnCooldownChanged?.Invoke(2, m_skillController.Skill2_RemainingCooldown / m_skillController.Skill2_TotalCooldown);
+                    OnCooldownChanged?.Invoke(3, m_skillController.Skill3_RemainingCooldown / m_skillController.Skill3_TotalCooldown);
+                    OnCooldownChanged?.Invoke(4, m_skillController.Skill4_RemainingCooldown / m_skillController.Skill4_TotalCooldown);
                 }
                 await UniTask.Yield(ct);
             }

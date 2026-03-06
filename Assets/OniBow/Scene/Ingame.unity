@@ -2598,6 +2598,7 @@ GameObject:
   m_Component:
   - component: {fileID: 651444264}
   - component: {fileID: 651444263}
+  - component: {fileID: 651444265}
   m_Layer: 0
   m_Name: '[ - EffectManager - ]'
   m_TagString: Untagged
@@ -2651,6 +2652,19 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1096982691}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &651444265
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 651444262}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f22ba8f86df4f514bbbf7f5cd7d09e38, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::OniBow.Presentation.CameraEffectView
+  m_targetCamera: {fileID: 1268412190}
 --- !u!1 &665154087
 GameObject:
   m_ObjectHideFlags: 0
@@ -2661,6 +2675,7 @@ GameObject:
   m_Component:
   - component: {fileID: 665154088}
   - component: {fileID: 665154089}
+  - component: {fileID: 665154090}
   m_Layer: 0
   m_Name: '[ - SkillManager - ]'
   m_TagString: Untagged
@@ -2695,25 +2710,22 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d11ffc11894004ec8b20989209a2d10c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SkillManager
-  playerSkill1_Cooldown: 2
-  playerSkill2_Cooldown: 5
-  playerSkill3_Cooldown: 2
-  playerSkill4_Cooldown: 1
-  barrierEffectPrefab: {fileID: 7816015520213829031, guid: 5f04dc13a32ea453f81ec90b3b730c13, type: 3}
-  barrierDuration: 5
-  homingMissilePrefab: {fileID: 3648454559990431099, guid: 511f5d9df37e141d8a3c6efb81e47126, type: 3}
-  explosiveArrowPrefab: {fileID: 3648454559990431099, guid: b872c63d0a0454cb2aa18fc1c8727366, type: 3}
-  homingMissileCount: 5
-  homingMissileSpawnInterval: 0.1
-  playerControl: {fileID: 259783687}
-  playerFirePoint: {fileID: 566010277}
-  playerHand: {fileID: 1490588748}
-  BazookaPrefab: {fileID: 5558704956040872018, guid: 8c406574624fd46969b9c213dba241b1, type: 3}
-  AK47: {fileID: 2001271411453773655, guid: fb3b108b4925c4903851d7a265662caa, type: 3}
-  akBulletPrefab: {fileID: 3648454559990431099, guid: 723691a484eda49e4800ddc27b3c445f, type: 3}
-  enemyMultiShot_Count: 5
-  enemyMultiShot_Interval: 0.1
-  akBulletSpeed: 5
+--- !u!114 &665154090
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 665154087}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fdeaae198b489554f972fdef24ff0498, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::OniBow.Logic.SkillConfiguration
+  m_skillConfigData: {fileID: 11400000, guid: 60ce6fce0ad56b140b7ae75b3aebe00a, type: 2}
+  m_playerControl: {fileID: 259783687}
+  m_playerHand: {fileID: 1490588748}
+  m_playerFirePoint: {fileID: 566010277}
 --- !u!1 &665686216 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 7580384027448607784, guid: b37c35cb204c941ee8db4dded8f9b89b, type: 3}
@@ -3054,6 +3066,8 @@ GameObject:
   m_Component:
   - component: {fileID: 790451008}
   - component: {fileID: 790451009}
+  - component: {fileID: 790451011}
+  - component: {fileID: 790451010}
   m_Layer: 0
   m_Name: '[ - GameManager - ]'
   m_TagString: Untagged
@@ -3089,27 +3103,57 @@ MonoBehaviour:
   m_GameObject: {fileID: 790451007}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0a9f3849639fcd244b174ed267e6c42e, type: 3}
+  m_Script: {fileID: 11500000, guid: 22572d2fe95907648bbdfe3d16abc13c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameManager
-  m_mainCamera: {fileID: 1268412190}
-  m_titleScreen: {fileID: 104247250}
+  parentReference:
+    TypeName: 
+  autoRun: 1
+  autoInjectGameObjects:
+  - {fileID: 665154087}
+  m_sessionData:
+    DeveloperMode: 0
+    InitialDelay: 1
+    DoorOpenDuration: 1
+    BackgroundFadeDuration: 1
+    CountdownStart: 5
+  m_setupView: {fileID: 790451010}
+  m_resultView: {fileID: 790451011}
+  m_cameraEffectView: {fileID: 651444265}
+--- !u!114 &790451010
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 790451007}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e4b89903ebdf08f48a4ce6b71397d4b9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::OniBow.Presentation.GameSetupView
+  m_titleScreen: {fileID: 388802596}
   m_startButton: {fileID: 929581389}
   m_titleBackground: {fileID: 1420731297}
   m_leftDoorImage: {fileID: 1319969693}
   m_rightDoorImage: {fileID: 416975507}
   m_countdownText: {fileID: 1444581093}
+--- !u!114 &790451011
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 790451007}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b36a17592d991514191b8ada53d2ae53, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::OniBow.Presentation.GameResultView
   m_endGamePopup: {fileID: 1952496492}
   m_gameOverTitle: {fileID: 30002184}
   m_gameClearTitle: {fileID: 1425659839}
   m_restartButton: {fileID: 523935565}
-  m_playerObject: {fileID: 259783681}
-  m_enemyObject: {fileID: 320094555}
-  m_developerMode: 0
-  m_initialDelay: 1
-  m_doorOpenDuration: 1
-  m_backgroundFadeDuration: 1
-  m_countdownStart: 5
 --- !u!1 &845231286
 GameObject:
   m_ObjectHideFlags: 0
@@ -5754,9 +5798,9 @@ Camera:
   m_NormalizedViewPortRect:
     serializedVersion: 2
     x: 0
-    y: 0.13390313
-    width: 1
-    height: 0.7323718
+    y: 0.15106733
+    width: 0.99999994
+    height: 0.69827586
   near clip plane: 0.3
   far clip plane: 1000
   field of view: 60

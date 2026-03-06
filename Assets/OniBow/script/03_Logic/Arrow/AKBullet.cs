@@ -4,6 +4,8 @@ using System;
 using System.Threading;
 using OniBow.Managers;
 using OniBow;
+using OniBow.Presentation;
+using VContainer;
 
 namespace OniBow.Projectiles
 {
@@ -19,6 +21,13 @@ namespace OniBow.Projectiles
         [SerializeField] private float shakeStrength = 0.15f;
         
         private CancellationTokenSource _lifeTimeCts;
+        private CameraEffectView m_cameraEffectView;
+
+        [Inject]
+        public void Construct(CameraEffectView cameraEffectView)
+        {
+            m_cameraEffectView = cameraEffectView;
+        }
 
         private void OnEnable()
         {
@@ -43,9 +52,15 @@ namespace OniBow.Projectiles
                 {
                     SoundManager.Instance.PlaySFX(SoundManager.Instance.AKHitSfx);
                 }
-                if (GameManager.Instance != null)
+                if (m_cameraEffectView != null)
                 {
-                    GameManager.Instance.ShakeCamera(shakeDuration, shakeStrength);
+                    m_cameraEffectView.ShakeCamera(shakeDuration, shakeStrength);
+                }
+                else
+                {
+                    // Fallback
+                    var effectView = FindFirstObjectByType<CameraEffectView>();
+                    if (effectView != null) effectView.ShakeCamera(shakeDuration, shakeStrength);
                 }
                 if (other.TryGetComponent<PlayerControl>(out var player))
                 {

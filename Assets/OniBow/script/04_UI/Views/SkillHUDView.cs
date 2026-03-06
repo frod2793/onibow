@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using OniBow.UI.ViewModels;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using VContainer;
 
 namespace OniBow.UI.Views
 {
@@ -22,7 +23,8 @@ namespace OniBow.UI.Views
         #endregion
 
         #region 초기화
-        public void Initialize(SkillHUDViewModel viewModel)
+        [Inject]
+        public void Construct(SkillHUDViewModel viewModel)
         {
             m_viewModel = viewModel;
             if (m_viewModel != null)
@@ -32,7 +34,10 @@ namespace OniBow.UI.Views
                 for (int i = 0; i < m_skillButtons.Length; i++)
                 {
                     int index = i + 1; // Slot 1~4
-                    m_skillButtons[i].onClick.AddListener(() => OnSkillButtonClicked(index));
+                    if (m_skillButtons[i] != null)
+                    {
+                        m_skillButtons[i].onClick.AddListener(() => OnSkillButtonClicked(index));
+                    }
                 }
 
                 m_cts = new CancellationTokenSource();

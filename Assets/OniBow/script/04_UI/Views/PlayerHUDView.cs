@@ -21,7 +21,7 @@ namespace OniBow.UI.Views
 
         private PlayerHUDViewModel m_ViewModel;
 
-        // 들어오는 ViewModel 바인딩
+        [VContainer.Inject]
         public void Initialize(PlayerHUDViewModel viewModel)
         {
             m_ViewModel = viewModel;

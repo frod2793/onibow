@@ -14,6 +14,7 @@ namespace OniBow.UI.Views
 
         private EnemyHUDViewModel m_ViewModel;
 
+        [VContainer.Inject]
         public void Initialize(EnemyHUDViewModel viewModel)
         {
             m_ViewModel = viewModel;
