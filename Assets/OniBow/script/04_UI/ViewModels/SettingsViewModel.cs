@@ -6,6 +6,7 @@ namespace OniBow.UI.ViewModels
     public class SettingsViewModel
     {
         private readonly SoundManager m_soundManager;
+
         public event Action<float, bool> OnBgmStateChanged;
         public event Action<float, bool> OnSfxStateChanged;
 

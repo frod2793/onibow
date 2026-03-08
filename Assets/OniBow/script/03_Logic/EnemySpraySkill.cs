@@ -36,7 +36,8 @@ namespace OniBow.Logic
             try
             {
                 float aimDuration = 0.3f;
-                Vector2 directionToTarget = (context.Target.position - context.FirePoint.position).normalized;
+                Vector3 targetOffsetPos = context.Target.position + Vector3.up * m_config.EnemySpray_VerticalOffset;
+                Vector2 directionToTarget = (targetOffsetPos - context.FirePoint.position).normalized;
                 Vector3 localDirection = context.FirePoint.InverseTransformDirection(directionToTarget);
                 float finalLocalAngle = Mathf.Atan2(localDirection.y, localDirection.x) * Mathf.Rad2Deg;
 
@@ -62,7 +63,8 @@ namespace OniBow.Logic
                 {
                     if (token.IsCancellationRequested || context.Target == null) break;
 
-                    Vector2 direction = (context.Target.position - akFirePoint.position).normalized;
+                    targetOffsetPos = context.Target.position + Vector3.up * m_config.EnemySpray_VerticalOffset;
+                    Vector2 direction = (targetOffsetPos - akFirePoint.position).normalized;
 
                     GameObject bullet = ObjectPoolManager.Instance.Get(m_config.AkBulletPrefab);
                     if (bullet == null) continue;
@@ -72,10 +74,16 @@ namespace OniBow.Logic
                         SoundManager.Instance.PlaySFX(SoundManager.Instance.AKFireSfx);
                     }
 
-                    bullet.transform.SetPositionAndRotation(akFirePoint.position, Quaternion.identity);
+                    Vector3 spawnPos = akFirePoint.position;
+                    spawnPos.z = 1f; // 플레이어 Z축과 동기화 (기존 1.0)
+                    bullet.transform.SetPositionAndRotation(spawnPos, Quaternion.identity);
 
                     Rigidbody2D rb = bullet.GetComponent<Rigidbody2D>();
-                    if (rb != null) rb.linearVelocity = direction * m_config.AkBulletSpeed;
+                    if (rb != null)
+                    {
+                        Vector2 velocity = direction * m_config.AkBulletSpeed;
+                        rb.linearVelocity = velocity;
+                    }
 
                     await UniTask.Delay(TimeSpan.FromSeconds(m_config.EnemySpray_Interval), cancellationToken: token);
                 }

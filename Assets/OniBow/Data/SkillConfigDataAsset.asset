@@ -25,6 +25,7 @@ MonoBehaviour:
   BazookaPrefab: {fileID: 5558704956040872018, guid: 8c406574624fd46969b9c213dba241b1, type: 3}
   AK47Prefab: {fileID: 2001271411453773655, guid: fb3b108b4925c4903851d7a265662caa, type: 3}
   AkBulletPrefab: {fileID: 3648454559990431099, guid: 723691a484eda49e4800ddc27b3c445f, type: 3}
-  EnemySpray_Count: 30
+  EnemySpray_Count: 15
   EnemySpray_Interval: 0.1
+  EnemySpray_VerticalOffset: 0.1
   AkBulletSpeed: 20

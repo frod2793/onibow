@@ -7,6 +7,7 @@ using OniBow.Data;
 using OniBow.Managers;
 using OniBow.UI.Views;
 using OniBow.UI.ViewModels;
+using OniBow.UI.Interfaces;
 
 namespace OniBow
 {
@@ -46,6 +47,13 @@ namespace OniBow
             if (m_sessionData == null) m_sessionData = new GameSessionDTO();
             builder.RegisterInstance(m_sessionData);
 
+            // 1-1. SkillConfigData (ScriptableObject) 등록
+            var skillConfig = Object.FindAnyObjectByType<SkillConfiguration>();
+            if (skillConfig != null && skillConfig.ConfigData != null)
+            {
+                builder.RegisterInstance(skillConfig.ConfigData);
+            }
+
             // 2. Logic (POCO)
             builder.Register<GameFlowController>(Lifetime.Singleton).AsImplementedInterfaces().AsSelf();
             builder.Register<BarrierSkill>(Lifetime.Singleton);
@@ -72,8 +80,13 @@ namespace OniBow
 
             // 5. 씬 내 존재하는 주요 컴포넌트 명시적 등록 (주입 보장)
             builder.RegisterComponentInHierarchy<PlayerControl>();
+            builder.RegisterComponentInHierarchy<PlayerHealth>().As<IHealthProvider>().AsSelf();
+            builder.RegisterComponentInHierarchy<PlayerMovement>();
+            builder.RegisterComponentInHierarchy<PlayerCombat>();
             builder.RegisterComponentInHierarchy<Enemy>();
-            builder.RegisterComponentInHierarchy<CameraEffectView>();
+            builder.RegisterComponentInHierarchy<EnemyHealth>().As<IHealthProvider>().AsSelf();
+            builder.RegisterComponentInHierarchy<EnemyMovement>();
+            builder.RegisterComponentInHierarchy<EnemyCombat>();
             builder.RegisterComponentInHierarchy<SkillHUDView>();
             builder.RegisterComponentInHierarchy<SkillConfiguration>();
             builder.RegisterComponentInHierarchy<PlayerHUDView>();
@@ -82,6 +95,7 @@ namespace OniBow
 
             // 6. Infrastructure (ObjectPoolManager 등)
             builder.RegisterComponentInHierarchy<ObjectPoolManager>();
+            builder.RegisterComponentInHierarchy<SoundManager>();
 
             // 7. Entry Point (초기화 로직 실행)
             builder.RegisterEntryPoint<GameInitializer>();

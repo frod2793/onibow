@@ -624,9 +624,9 @@ Rigidbody2D:
   m_ExcludeLayers:
     serializedVersion: 2
     m_Bits: 0
-  m_Interpolate: 0
+  m_Interpolate: 1
   m_SleepingMode: 1
-  m_CollisionDetection: 0
+  m_CollisionDetection: 1
   m_Constraints: 0
 --- !u!70 &259783685
 CapsuleCollider2D:
@@ -677,25 +677,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b29989d784736e342a5d9f0fd68ab30f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerControl
-  m_maxHp: 1000
-  m_tempHpDecreaseDelay: 1.5
-  m_maxSpeed: 1
-  m_accelerationTime: 0.2
-  m_decelerationTime: 0.1
-  m_accelerationEase: 9
-  m_decelerationEase: 8
-  m_arrowPrefab: {fileID: 3648454559990431099, guid: 0ca035243b9f54f4da332d968017382e, type: 3}
-  m_firePoint: {fileID: 566010277}
-  m_fireDistance: 1.5
-  m_fireArcHeight: 1
-  m_fireDuration: 1
-  m_fireInterval: 1.5
-  groundLayer:
-    serializedVersion: 2
-    m_Bits: 64
-  m_dashSpeed: 3
-  m_dashDuration: 0.2
-  m_dashCooldown: 1
 --- !u!114 &259783689
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -709,12 +690,68 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AfterimageEffect
   m_afterimagePrefab: {fileID: 6608624498905167473, guid: 2f616c83af5f64b8cbbbf5174b0b5cb8, type: 3}
-  m_sourceVisualsRoot: {fileID: 0}
+  m_sourceVisualsRoot: {fileID: 259783682}
   m_afterimageColor: {r: 0.5, g: 0.8, b: 1, a: 1}
   m_spawnInterval: 0.05
   m_fadeDuration: 0.5
   m_overrideSortingOrder: 1
   m_sortingOrderOverrideValue: 20
+--- !u!114 &259783691
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 259783681}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cb78134476348de4cbac811068e772e2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::OniBow.PlayerCombat
+  m_arrowPrefab: {fileID: 3648454559990431099, guid: 0ca035243b9f54f4da332d968017382e, type: 3}
+  m_firePoint: {fileID: 566010277}
+  m_fireDistance: 2
+  m_fireArcHeight: 1
+  m_fireDuration: 1
+  m_fireInterval: 2
+  m_targetingRange: 15
+--- !u!114 &259783692
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 259783681}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: db18173f953275849a8425db163abf75, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::OniBow.PlayerMovement
+  m_maxSpeed: 1.5
+  m_accelerationTime: 0.2
+  m_decelerationTime: 0.1
+  m_accelerationEase: 9
+  m_decelerationEase: 8
+  m_dashSpeed: 4
+  m_dashDuration: 0.2
+  m_dashCooldown: 1
+  groundLayer:
+    serializedVersion: 2
+    m_Bits: 64
+--- !u!114 &259783693
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 259783681}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d18b298ed61204a4f806ea705753d3aa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::OniBow.PlayerHealth
+  m_maxHp: 1600
+  m_tempHpDecreaseDelay: 3
 --- !u!1001 &320094553
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -785,7 +822,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 445471051153458568, guid: 50daa6f369c7f494398b6b49d760ce93, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -0.04
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 445471051153458568, guid: 50daa6f369c7f494398b6b49d760ce93, type: 3}
       propertyPath: m_LocalRotation.w
@@ -1149,6 +1186,15 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 5413471331214899891, guid: 50daa6f369c7f494398b6b49d760ce93, type: 3}
       insertIndex: -1
       addedObject: {fileID: 320094560}
+    - targetCorrespondingSourceObject: {fileID: 5413471331214899891, guid: 50daa6f369c7f494398b6b49d760ce93, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 320094564}
+    - targetCorrespondingSourceObject: {fileID: 5413471331214899891, guid: 50daa6f369c7f494398b6b49d760ce93, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 320094563}
+    - targetCorrespondingSourceObject: {fileID: 5413471331214899891, guid: 50daa6f369c7f494398b6b49d760ce93, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 320094562}
   m_SourcePrefab: {fileID: 100100000, guid: 50daa6f369c7f494398b6b49d760ce93, type: 3}
 --- !u!224 &320094554 stripped
 RectTransform:
@@ -1172,29 +1218,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 185e0c4505358414b9dcb9fe274dde61, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Enemy
-  m_maxHp: 1500
-  m_tempHpDecreaseDelay: 1.5
+  m_moveSpeed: 1.5
   m_player: {fileID: 259783682}
-  m_moveSpeed: 1
-  m_distanceTolerance: 0.1
-  m_groundLayer:
-    serializedVersion: 2
-    m_Bits: 64
-  m_arrowPrefab: {fileID: 3648454559990431099, guid: 271a3f3ff35f84149904bb762893c0a5, type: 3}
-  m_firePoint: {fileID: 982385855}
-  m_fireDistance: 1.5
-  m_fireArcHeight: 1
-  m_fireDuration: 1
-  m_attackCooldown: 1.5
-  m_skillCooldown: 10
-  m_skillChance: 0.3
-  m_skillHandPoint: {fileID: 584370943}
-  m_healSkillCooldown: 20
-  m_healHealthThreshold: 0.4
-  m_evadeChance: 0.2
-  m_evadeDashSpeed: 3
-  m_evadeDashDuration: 0.3
-  m_minEvadeDistance: 0.3
 --- !u!70 &320094557
 CapsuleCollider2D:
   m_ObjectHideFlags: 0
@@ -1278,6 +1303,66 @@ MonoBehaviour:
   m_fadeDuration: 0.5
   m_overrideSortingOrder: 1
   m_sortingOrderOverrideValue: 20
+--- !u!114 &320094562
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 320094555}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 56d6c1fcda8c18d44a4e424249bf389f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::OniBow.EnemyCombat
+  m_arrowPrefab: {fileID: 3648454559990431099, guid: 0ca035243b9f54f4da332d968017382e, type: 3}
+  m_firePoint: {fileID: 982385855}
+  m_attackRange: 2
+  m_optimalDistance: 2
+  m_retreatDistance: 2
+  m_fireArcHeight: 1
+  m_fireDuration: 1
+  m_attackCooldown: 2
+  m_skillCooldown: 10
+  m_skillChance: 0.3
+  m_skillHandPoint: {fileID: 584370943}
+  m_healSkillCooldown: 20
+  m_healHealthThreshold: 0.4
+  m_evadeChance: 0.3
+  m_evadeDashSpeed: 4
+  m_evadeDashDuration: 0.25
+  m_minEvadeDistance: 2
+--- !u!114 &320094563
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 320094555}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 56940b03dcb7d054590a72c0219f62e5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::OniBow.EnemyMovement
+  m_moveSpeed: 3
+  m_distanceTolerance: 0.5
+  m_groundLayer:
+    serializedVersion: 2
+    m_Bits: 64
+--- !u!114 &320094564
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 320094555}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ab2f363f30512af45b03fe5ce211cf9e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::OniBow.EnemyHealth
+  m_maxHp: 1500
+  m_tempHpDecreaseDelay: 1
 --- !u!1 &354094714
 GameObject:
   m_ObjectHideFlags: 0
@@ -2637,6 +2722,8 @@ MonoBehaviour:
     criticalThreshold: 50
     normalColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
     criticalColor: {r: 1, g: 0.262, b: 0.015686275, a: 1}
+  akBulletHitXOffset: 0.19
+  akBulletHitZOffset: 1
 --- !u!4 &651444264
 Transform:
   m_ObjectHideFlags: 0
@@ -3112,7 +3199,7 @@ MonoBehaviour:
   autoInjectGameObjects:
   - {fileID: 665154087}
   m_sessionData:
-    DeveloperMode: 0
+    DeveloperMode: 1
     InitialDelay: 1
     DoorOpenDuration: 1
     BackgroundFadeDuration: 1
@@ -4780,7 +4867,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2338054484328446240, guid: 2e7e3e2ed842e4891863422b591a343f, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -0.000074685
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2338054484328446240, guid: 2e7e3e2ed842e4891863422b591a343f, type: 3}
       propertyPath: m_LocalRotation.w
@@ -4841,6 +4928,10 @@ PrefabInstance:
     - target: {fileID: 2506316787288808240, guid: 2e7e3e2ed842e4891863422b591a343f, type: 3}
       propertyPath: m_Layer
       value: 7
+      objectReference: {fileID: 0}
+    - target: {fileID: 2506316787288808240, guid: 2e7e3e2ed842e4891863422b591a343f, type: 3}
+      propertyPath: m_IsActive
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 2506316787288808240, guid: 2e7e3e2ed842e4891863422b591a343f, type: 3}
       propertyPath: m_TagString
@@ -5068,6 +5159,15 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 2506316787288808240, guid: 2e7e3e2ed842e4891863422b591a343f, type: 3}
       insertIndex: -1
       addedObject: {fileID: 259783689}
+    - targetCorrespondingSourceObject: {fileID: 2506316787288808240, guid: 2e7e3e2ed842e4891863422b591a343f, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 259783693}
+    - targetCorrespondingSourceObject: {fileID: 2506316787288808240, guid: 2e7e3e2ed842e4891863422b591a343f, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 259783692}
+    - targetCorrespondingSourceObject: {fileID: 2506316787288808240, guid: 2e7e3e2ed842e4891863422b591a343f, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 259783691}
   m_SourcePrefab: {fileID: 100100000, guid: 2e7e3e2ed842e4891863422b591a343f, type: 3}
 --- !u!1 &1079098690
 GameObject:
@@ -5798,9 +5898,9 @@ Camera:
   m_NormalizedViewPortRect:
     serializedVersion: 2
     x: 0
-    y: 0.15106733
-    width: 0.99999994
-    height: 0.69827586
+    y: 0.21346469
+    width: 1
+    height: 0.57173645
   near clip plane: 0.3
   far clip plane: 1000
   field of view: 60
@@ -8083,7 +8183,7 @@ Transform:
   m_GameObject: {fileID: 1738059836}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: -0.46}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 0.2, y: 0.2, z: 0.2}
   m_ConstrainProportionsScale: 1
   m_Children:

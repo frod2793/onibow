@@ -68,11 +68,20 @@ namespace OniBow.Presentation
         {
             if (state == GameState.Playing)
             {
+                // [설명]: 개발 모드 등에서 즉시 Playing 상태로 진입할 경우를 대비하여 모든 연출 UI를 즉시 끕니다.
                 if (m_titleScreen != null) m_titleScreen.SetActive(false);
-                // 혹시 모를 레이캐스트 방해 방지를 위해 배경과 문의 레이캐스트 타겟을 비활성화합니다.
+                if (m_leftDoorImage != null) m_leftDoorImage.gameObject.SetActive(false);
+                if (m_rightDoorImage != null) m_rightDoorImage.gameObject.SetActive(false);
+                if (m_countdownText != null) m_countdownText.gameObject.SetActive(false);
+                if (m_startButton != null) m_startButton.gameObject.SetActive(false);
+          
+                
+                // 혹시 모를 레이캐스트 방해 방지를 위해 레이캐스트 타겟을 비활성화하고 뷰 자체를 끕니다.
                 if (m_titleBackground != null) m_titleBackground.raycastTarget = false;
-                if (m_leftDoorImage != null) m_leftDoorImage.raycastTarget = false;
-                if (m_rightDoorImage != null) m_rightDoorImage.raycastTarget = false;
+                if (m_titleBackground != null) m_titleBackground.gameObject.SetActive(false);
+                
+                
+                gameObject.SetActive(false);
             }
         }
         #endregion

@@ -24,7 +24,7 @@ namespace OniBow.UI.Views
 
         #region 초기화
         [Inject]
-        public void Construct(SkillHUDViewModel viewModel)
+        public void Initialize(SkillHUDViewModel viewModel)
         {
             m_viewModel = viewModel;
             if (m_viewModel != null)

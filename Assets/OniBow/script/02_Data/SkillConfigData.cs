@@ -35,6 +35,7 @@ namespace OniBow.Data
         public GameObject AkBulletPrefab;
         public int EnemySpray_Count = 5;
         public float EnemySpray_Interval = 0.15f;
+        public float EnemySpray_VerticalOffset = 1.5f;
         public float AkBulletSpeed = 30f;
         #endregion
     }

@@ -76,7 +76,31 @@ namespace OniBow.Projectiles
 
         private void OnTriggerEnter2D(Collider2D other)
         {
-            if ((Owner == ArrowOwner.Player && other.CompareTag("Enemy")) || (Owner == ArrowOwner.Enemy && other.CompareTag("Player")))
+            // 발사 주체에 따라 적대적 대상을 판단합니다.
+            bool isEnemyHit = Owner == ArrowOwner.Player && other.CompareTag("Enemy");
+            bool isPlayerHit = Owner == ArrowOwner.Enemy && other.CompareTag("Player");
+
+            if (isEnemyHit || isPlayerHit)
+            {
+                // [SRP]: 화살이 직접 피격 대상에게 데미지를 가합니다.
+                if (other.TryGetComponent<IDamageable>(out var damageable))
+                {
+                    damageable.TakeDamage(10);
+                }
+                else
+                {
+                    // 자식 콜라이더일 경우 부모에서 인터페이스를 찾습니다.
+                    var parentDamageable = other.GetComponentInParent<IDamageable>();
+                    if (parentDamageable != null)
+                    {
+                        parentDamageable.TakeDamage(10);
+                    }
+                }
+                
+                ReturnToPool();
+            }
+            // 그 외 지형 충돌 시 처리 (추후 확장 가능)
+            else if (other.CompareTag("Ground"))
             {
                 ReturnToPool();
             }

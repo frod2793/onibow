@@ -72,6 +72,10 @@ namespace OniBow.Managers
             criticalColor = Color.yellow
         };
 
+        [Header("AK 총알 피격 이펙트 설정")]
+        [SerializeField] private float akBulletHitXOffset = 0.1f;
+        [SerializeField] private float akBulletHitZOffset = 1.0f;
+
         #if UNITY_EDITOR
         private bool _isTestingLowHealthEffect = false;
         #endif
@@ -193,7 +197,9 @@ namespace OniBow.Managers
         /// </summary>
         public void PlayBulletHitEffect(Vector3 position)
         {
-            PlayEffect(akBulletHitEffectPrefab, position, Quaternion.Euler(0, 0, -90));
+            position.x += akBulletHitXOffset; // 상위 설정된 오프셋 적용
+            position.z = akBulletHitZOffset;  // 상위 설정된 Z값 적용
+            PlayEffect(akBulletHitEffectPrefab, position, Quaternion.Euler(0, 0, -90), 1f, 30);
         }
 
         /// <summary>
