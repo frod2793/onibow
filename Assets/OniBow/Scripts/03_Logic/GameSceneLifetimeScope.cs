@@ -23,7 +23,10 @@ namespace OniBow
         [Header("뷰 컴포넌트 (Scene)")]
         [SerializeField] private GameSetupView m_setupView;
         [SerializeField] private GameResultView m_resultView;
-        [SerializeField] private CameraEffectView m_cameraEffectView;
+        [SerializeField] private PlayerHUDView m_playerHUDView;
+        [SerializeField] private EnemyHUDView m_enemyHUDView;
+        [SerializeField] private SkillHUDView m_skillHUDView;
+        [SerializeField] private SettingsPopupView m_settingsPopupView;
         #endregion
 
         protected override void Awake()
@@ -73,10 +76,13 @@ namespace OniBow
             // 4. Views (인스펙터에서 할당된 컴포넌트 등록)
             if (m_setupView != null) builder.RegisterComponent(m_setupView);
             if (m_resultView != null) builder.RegisterComponent(m_resultView);
+            if (m_playerHUDView != null) builder.RegisterComponent(m_playerHUDView);
+            if (m_enemyHUDView != null) builder.RegisterComponent(m_enemyHUDView);
+            if (m_skillHUDView != null) builder.RegisterComponent(m_skillHUDView);
+            if (m_settingsPopupView != null) builder.RegisterComponent(m_settingsPopupView);
             
-            // CameraEffectView 강제 검색 및 등록
-            if (m_cameraEffectView == null) m_cameraEffectView = Object.FindAnyObjectByType<CameraEffectView>();
-            if (m_cameraEffectView != null) builder.RegisterComponent(m_cameraEffectView);
+            // CameraEffectView 등록 (기존의 수동 할당 방식 대신 Hierarchy에서 자동 검색 및 등록)
+            builder.RegisterComponentInHierarchy<CameraEffectView>();
 
             // 5. 씬 내 존재하는 주요 컴포넌트 명시적 등록 (주입 보장)
             builder.RegisterComponentInHierarchy<PlayerControl>();
@@ -87,11 +93,7 @@ namespace OniBow
             builder.RegisterComponentInHierarchy<EnemyHealth>().As<IHealthProvider>().AsSelf();
             builder.RegisterComponentInHierarchy<EnemyMovement>();
             builder.RegisterComponentInHierarchy<EnemyCombat>();
-            builder.RegisterComponentInHierarchy<SkillHUDView>();
             builder.RegisterComponentInHierarchy<SkillConfiguration>();
-            builder.RegisterComponentInHierarchy<PlayerHUDView>();
-            builder.RegisterComponentInHierarchy<EnemyHUDView>();
-            builder.RegisterComponentInHierarchy<SettingsPopupView>();
 
             // 6. Infrastructure (ObjectPoolManager 등)
             builder.RegisterComponentInHierarchy<ObjectPoolManager>();

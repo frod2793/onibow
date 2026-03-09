@@ -79,6 +79,10 @@ namespace OniBow
         private GameFlowController m_gameFlowController;
         private CameraEffectView m_cameraEffectView;
 
+        [Header("이동 대기 설정")]
+        private float m_moveDelayStartTime = -1f;
+        private float m_currentMoveDelay = 0f;
+
         [Header("AI 설정")]
         [SerializeField] private float m_moveSpeed = 3f;
         public EnemyState CurrentState { get; private set; } = EnemyState.Idle;
@@ -106,7 +110,13 @@ namespace OniBow
             
             if (Movement != null)
             {
+                // [Safety]: EnemyMovement 내부에서 컴포넌트를 직접 찾아 초기화하도록 보장합니다.
                 Movement.Initialize(m_moveSpeed, Movement.DistanceTolerance, LayerMask.GetMask("Ground"));
+                Movement.DetectBoundaries();
+            }
+            else
+            {
+                Debug.LogError($"[Enemy] {gameObject.name}에 EnemyMovement 컴포넌트가 없습니다!");
             }
 
             if (Health != null) Health.OnEnemyDied += Die;
@@ -120,7 +130,18 @@ namespace OniBow
                 m_enemyAnimation.OverrideControllerInit();
             }
 
+            SetupHealth();
             SetupBehaviorTree();
+        }
+
+        private void SetupHealth()
+        {
+            if (Health != null)
+            {
+                // [수정]: 인스펙터 설정을 유지하기 위해 Initialize(하드코딩)를 제거하고 
+                // 초기 UI 동기화를 위한 ForceUpdateHpUI만 호출합니다.
+                Health.ForceUpdateHpUI();
+            }
         }
 
         void Start()
@@ -134,6 +155,9 @@ namespace OniBow
             // 초기 배치 위치 기준 경계 감지 (스폰 지점 준수)
             if (Movement != null) Movement.DetectBoundaries();
 
+            // [추가]: Start 시점에 UI가 최종적으로 동기화되도록 한 번 더 호출합니다.
+            if (Health != null) Health.ForceUpdateHpUI();
+
             m_aiTaskCts = new CancellationTokenSource();
             AI_LoopAsync(m_aiTaskCts.Token).Forget();
         }
@@ -145,6 +169,20 @@ namespace OniBow
             if (m_gameFlowController != null && m_gameFlowController.CurrentState == GameState.Playing)
             {
                 CheckIfOffScreen();
+            }
+
+            // [개선]: 이동 상태일 때 실제 이동 속도에 비례하여 애니메이션 재생 속도를 조절합니다.
+            if (CurrentState == EnemyState.Moving && m_enemyAnimation != null && m_enemyAnimation._anim != null && Movement != null)
+            {
+                float speedRatio = Movement.ActualSpeed / Mathf.Max(0.1f, Movement.MoveSpeed);
+                m_enemyAnimation._anim.speed = Mathf.Clamp(speedRatio, 0.1f, 3f);
+            }
+
+            // [추가]: 모든 상태에서 적이 경계 밖으로 벗어나지 않도록 강제로 Clamp를 수행합니다.
+            // 이는 피격이나 물리적 충돌로 밀려나는 상황에서도 안전성을 확보합니다.
+            if (!IsDead && Movement != null)
+            {
+                Movement.ClampPosition();
             }
         }
 
@@ -365,8 +403,12 @@ namespace OniBow
 
         private void SetState(EnemyState newState)
         {
-            if (CurrentState == newState) return;
-            
+            // [추가]: 이동 상태에서 다른 상태로 벗어날 때만 다음 이동 지연 타이머를 초기화합니다.
+            if (CurrentState == EnemyState.Moving && newState != EnemyState.Moving)
+            {
+                m_moveDelayStartTime = -1f;
+            }
+
             CurrentState = newState;
 
             if (m_enemyAnimation == null) return;
@@ -398,6 +440,12 @@ namespace OniBow
             }
             
             m_enemyAnimation.PlayAnimation(animState, 0);
+
+            // [개선]: 이동 상태가 아닐 때는 애니메이션 속도를 기본값(1.0)으로 복구합니다.
+            if (newState != EnemyState.Moving && m_enemyAnimation._anim != null)
+            {
+                m_enemyAnimation._anim.speed = 1f;
+            }
         }
 
         #if UNITY_EDITOR
@@ -421,8 +469,13 @@ namespace OniBow
         {
             var root = new Selector();
 
-            // 1. 피격/사망/회피 중에는 대기 (Priority 0)
-            var busyCheck = new ConditionNode(() => CurrentState == EnemyState.Damaged || CurrentState == EnemyState.Dead || CurrentState == EnemyState.Evading);
+            // 1. 피격/사망/회피/스킬 중에는 대기 (Priority 0)
+            var busyCheck = new ConditionNode(() => 
+                CurrentState == EnemyState.Damaged || 
+                CurrentState == EnemyState.Dead || 
+                CurrentState == EnemyState.Evading ||
+                CurrentState == EnemyState.SkillAttacking);
+            
             root.AddChild(new Sequence()
                 .AddChild(busyCheck)
                 .AddChild(new ActionNode(() => NodeState.Success)));
@@ -484,6 +537,13 @@ namespace OniBow
         {
             if (IsDead || m_player == null) return;
 
+            // [추가]: 스킬 사용 중에는 이동하지 않도록 차단합니다.
+            if (CurrentState == EnemyState.SkillAttacking)
+            {
+                StopAndIdle();
+                return;
+            }
+
             float horizontalDistanceToPlayer = Mathf.Abs(m_player.position.x - transform.position.x);
             float xDirection = Mathf.Sign(m_player.position.x - transform.position.x);
             
@@ -512,6 +572,26 @@ namespace OniBow
 
             if (Movement != null)
             {
+                // [개선]: 정지 상태에서 이동 상태로 전환될 때만 0~3초의 랜덤 딜레이를 부여합니다.
+                if (CurrentState != EnemyState.Moving)
+                {
+                    if (m_moveDelayStartTime < 0f)
+                    {
+                        m_moveDelayStartTime = Time.time;
+                        m_currentMoveDelay = UnityEngine.Random.Range(0f, 1f);
+                    }
+
+                    if (Time.time < m_moveDelayStartTime + m_currentMoveDelay)
+                    {
+                        // 아직 딜레이 시간이 지나지 않았으면 이동 명령을 내리지 않고 유지
+                        StopAndIdle();
+                        return;
+                    }
+                }
+
+                // 딜레이가 끝나고 실제 이동을 시작할 때 초기화
+                m_moveDelayStartTime = -1f;
+
                 // Movement 컴포넌트 내부에서 이미 IsGroundAhead 및 경계 체크를 수행함
                 float actualVelocity = Movement.Move(targetXVelocity);
                 

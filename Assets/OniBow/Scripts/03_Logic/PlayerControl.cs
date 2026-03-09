@@ -133,6 +133,9 @@ namespace OniBow
             {
                 SetState(PlayerState.IDLE);
                 StartAutoAttack();
+                
+                // [추가]: 게임 시작 시 UI가 최신 체력 상태를 반영하도록 강제 업데이트합니다.
+                ForceUpdateHpUI();
             }
             else
             {

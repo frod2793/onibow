@@ -1317,9 +1317,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::OniBow.EnemyCombat
   m_arrowPrefab: {fileID: 3648454559990431099, guid: 0ca035243b9f54f4da332d968017382e, type: 3}
   m_firePoint: {fileID: 982385855}
-  m_attackRange: 2
-  m_optimalDistance: 2
-  m_retreatDistance: 2
+  m_fireDistance: 2
   m_fireArcHeight: 1
   m_fireDuration: 1
   m_attackCooldown: 2
@@ -3206,7 +3204,6 @@ MonoBehaviour:
     CountdownStart: 5
   m_setupView: {fileID: 790451010}
   m_resultView: {fileID: 790451011}
-  m_cameraEffectView: {fileID: 651444265}
 --- !u!114 &790451010
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5898,9 +5895,9 @@ Camera:
   m_NormalizedViewPortRect:
     serializedVersion: 2
     x: 0
-    y: 0.21346469
+    y: 0.13390313
     width: 1
-    height: 0.57173645
+    height: 0.7323718
   near clip plane: 0.3
   far clip plane: 1000
   field of view: 60

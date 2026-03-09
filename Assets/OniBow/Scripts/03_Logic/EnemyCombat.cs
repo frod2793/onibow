@@ -145,6 +145,7 @@ namespace OniBow
             float maxDashDistance = m_evadeDashSpeed * m_evadeDashDuration;
             Bounds enemyBounds = m_collider.bounds;
             
+            // [개선]: 벽 감지
             RaycastHit2D wallHit = Physics2D.BoxCast(
                 (Vector2)transform.position + m_collider.offset,
                 new Vector2(enemyBounds.size.x, enemyBounds.size.y * 0.9f),
@@ -152,25 +153,27 @@ namespace OniBow
             
             float wallLimitedDistance = wallHit.collider != null ? wallHit.distance : maxDashDistance;
 
+            // [수정]: 대쉬 경로 각 지점에서 지면 존재 여부를 위치 기반 BoxCast로 검증합니다.
+            // 기존 IsGroundAhead는 현재 적 위치 기준으로만 체크하여 대쉬 경로상의 낭떠러지를 감지하지 못했습니다.
             float finalDashDistance = wallLimitedDistance;
             int steps = 10;
             float stepDistance = wallLimitedDistance / steps;
+            float feetY = enemyBounds.min.y;
 
             for (int i = 1; i <= steps; i++)
             {
                 float checkDistance = i * stepDistance;
-                Vector2 checkPos = new Vector2(currentX + direction * checkDistance, enemyBounds.center.y);
-                if (!movement.IsGroundAhead(direction)) // This is a bit simplified, but movement component has the logic
+                Vector2 checkPos = new Vector2(currentX + direction * checkDistance, feetY + 0.1f);
+                
+                // 대쉬 경로의 각 지점에서 아래로 지면을 확인
+                RaycastHit2D groundUnderneath = Physics2D.BoxCast(
+                    checkPos, new Vector2(enemyBounds.size.x * 0.9f, 0.1f),
+                    0f, Vector2.down, 0.5f, m_groundLayer);
+                
+                if (groundUnderneath.collider == null)
                 {
-                    // More precise ground check for dashing
-                     RaycastHit2D groundUnderneath = Physics2D.BoxCast(
-                        checkPos, new Vector2(enemyBounds.size.x * 0.9f, 0.1f),
-                        0f, Vector2.down, enemyBounds.extents.y + 0.5f, m_groundLayer);
-                    if (groundUnderneath.collider == null)
-                    {
-                        finalDashDistance = (i - 1) * stepDistance;
-                        break;
-                    }
+                    finalDashDistance = (i - 1) * stepDistance;
+                    break;
                 }
             }
 
@@ -203,6 +206,8 @@ namespace OniBow
                 if (m_rigidbody2D != null)
                 {
                     m_rigidbody2D.linearVelocity = new Vector2(0, m_rigidbody2D.linearVelocity.y);
+                    // [수정]: 대쉬 종료 후 경계 내로 위치를 강제 보정합니다.
+                    movement.ClampPosition();
                 }
             }
 

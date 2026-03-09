@@ -37,12 +37,22 @@ namespace OniBow
         #region 유니티 생명주기
         private void Awake()
         {
-            m_currentHp = m_maxHp;
-            m_tempHp = m_maxHp;
+            EnsureInitialized();
         }
         #endregion
 
         #region 공개 메서드
+        /// <summary>
+        /// [추가]: Awake 호출 전에도 내부 필드가 올바른 값을 가지도록 보장합니다.
+        /// </summary>
+        private void EnsureInitialized()
+        {
+            if (m_currentHp <= 0 && !m_isDead)
+            {
+                m_currentHp = m_maxHp;
+                m_tempHp = m_maxHp;
+            }
+        }
         public void Initialize(int maxHp, float tempHpDelay)
         {
             m_maxHp = maxHp;
@@ -86,6 +96,7 @@ namespace OniBow
 
         public void ForceUpdateHpUI()
         {
+            EnsureInitialized();
             OnHealthUpdated?.Invoke(m_currentHp, m_maxHp, m_tempHp, m_maxHp);
         }
         #endregion

@@ -57,6 +57,10 @@ namespace OniBow
         #region 공개 메서드
         public void Initialize(float moveSpeed, float tolerance, LayerMask groundLayer)
         {
+            // [Safety]: 의존성 컴포넌트 강제 초기화 (Awake 보다 먼저 호출될 경우 대비)
+            if (m_collider == null) m_collider = GetComponent<Collider2D>();
+            if (m_rigidbody2D == null) m_rigidbody2D = GetComponent<Rigidbody2D>();
+
             m_moveSpeed = moveSpeed;
             m_distanceTolerance = tolerance;
             m_groundLayer = groundLayer;
@@ -73,9 +77,10 @@ namespace OniBow
                 m_cameraMaxX = cam.ViewportToWorldPoint(new Vector3(1, 0, 0)).x;
             }
 
-            // 지형 끝이나 벽에 반쯤 걸쳐도 자연스럽게 서 있게 조절 (50% 폭만 적용)
-            m_effectiveMinX = Mathf.Max(m_minXPosition, m_cameraMinX) + enemyWidth * 0.5f;
-            m_effectiveMaxX = Mathf.Min(m_maxXPosition, m_cameraMaxX) - enemyWidth * 0.5f;
+            // [수정]: 낭떠러지 추락을 방지하기 위해 캐릭터의 절반 너비(enemyWidth)만큼 안쪽에서 멈추도록 합니다.
+            // 지형 끝(m_minXPosition)에서 발끝이 0.05만큼 안쪽에 위치하도록 계산합니다.
+            m_effectiveMinX = Mathf.Max(m_minXPosition + enemyWidth + 0.05f, m_cameraMinX + enemyWidth);
+            m_effectiveMaxX = Mathf.Min(m_maxXPosition - enemyWidth - 0.05f, m_cameraMaxX - enemyWidth);
         }
 
         public float Move(float targetXVelocity)
@@ -107,6 +112,13 @@ namespace OniBow
 
         public void DetectBoundaries()
         {
+            if (m_collider == null) m_collider = GetComponent<Collider2D>();
+            if (m_collider == null)
+            {
+                Debug.LogWarning($"[EnemyMovement] {gameObject.name}에 Collider2D가 없습니다. 경계 감지를 건너뜁니다.");
+                return;
+            }
+
             Bounds enemyBounds = m_collider.bounds;
             float enemyWidth = enemyBounds.extents.x;
 
@@ -114,15 +126,15 @@ namespace OniBow
             int probeSteps = 100;
             float stepDistance = maxProbeDistance / probeSteps;
             
-            Vector2 characterFeet = (Vector2)transform.position - new Vector2(0, enemyBounds.extents.y);
+            Vector2 characterFeet = new Vector2(transform.position.x, enemyBounds.min.y);
             Vector2 boxCastSize = new Vector2(stepDistance, 0.1f);
 
             // Right edge
             float rightEdgeX = transform.position.x;
             for (int i = 1; i <= probeSteps; i++)
             {
-                Vector2 probeOrigin = new Vector2(transform.position.x + i * stepDistance, characterFeet.y);
-                RaycastHit2D hit = Physics2D.BoxCast(probeOrigin, boxCastSize, 0f, Vector2.down, 0.2f, m_groundLayer);
+                Vector2 probeOrigin = new Vector2(transform.position.x + i * stepDistance, characterFeet.y + 0.1f);
+                RaycastHit2D hit = Physics2D.BoxCast(probeOrigin, boxCastSize, 0f, Vector2.down, 0.3f, m_groundLayer);
                 if (hit.collider == null)
                 {
                     rightEdgeX = transform.position.x + (i - 1) * stepDistance;
@@ -136,8 +148,8 @@ namespace OniBow
             float leftEdgeX = transform.position.x;
             for (int i = 1; i <= probeSteps; i++)
             {
-                Vector2 probeOrigin = new Vector2(transform.position.x - i * stepDistance, characterFeet.y);
-                RaycastHit2D hit = Physics2D.BoxCast(probeOrigin, boxCastSize, 0f, Vector2.down, 0.2f, m_groundLayer);
+                Vector2 probeOrigin = new Vector2(transform.position.x - i * stepDistance, characterFeet.y + 0.1f);
+                RaycastHit2D hit = Physics2D.BoxCast(probeOrigin, boxCastSize, 0f, Vector2.down, 0.3f, m_groundLayer);
                 if (hit.collider == null)
                 {
                     leftEdgeX = transform.position.x - (i - 1) * stepDistance;
@@ -159,8 +171,9 @@ namespace OniBow
                 m_cameraMaxX = Mathf.Infinity;
             }
 
-            m_effectiveMinX = Mathf.Max(m_minXPosition, m_cameraMinX) + enemyWidth;
-            m_effectiveMaxX = Mathf.Min(m_maxXPosition, m_cameraMaxX) - enemyWidth;
+            // [수정]: 지형 안쪽으로 캐릭터 너비 + 0.05만큼 여유 공간 확보 (UpdateEffectiveBounds와 동일 로직)
+            m_effectiveMinX = Mathf.Max(m_minXPosition + enemyWidth + 0.05f, m_cameraMinX + enemyWidth);
+            m_effectiveMaxX = Mathf.Min(m_maxXPosition - enemyWidth - 0.05f, m_cameraMaxX - enemyWidth);
         }
 
         public bool IsGroundAhead(float direction)
