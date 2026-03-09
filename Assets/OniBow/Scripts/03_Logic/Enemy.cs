@@ -24,7 +24,7 @@ namespace OniBow
     [RequireComponent(typeof(Rigidbody2D))]
     public class Enemy : MonoBehaviour, IHealthProvider, IDamageable
     {
-        #region 변수
+        #region 내부 변수
         public static event Action<Enemy> OnEnemyDestroyed;
      
         public enum EnemyState
@@ -39,36 +39,9 @@ namespace OniBow
             Dead
         }
 
-        [Header("컴포넌트 참조")]
         private EnemyHealth m_health;
-        private EnemyHealth Health
-        {
-            get
-            {
-                if (m_health == null) m_health = GetComponent<EnemyHealth>();
-                return m_health;
-            }
-        }
-
         private EnemyMovement m_movement;
-        private EnemyMovement Movement
-        {
-            get
-            {
-                if (m_movement == null) m_movement = GetComponent<EnemyMovement>();
-                return m_movement;
-            }
-        }
-
         private EnemyCombat m_combat;
-        private EnemyCombat Combat
-        {
-            get
-            {
-                if (m_combat == null) m_combat = GetComponent<EnemyCombat>();
-                return m_combat;
-            }
-        }
 
         private SPUM_Prefabs m_enemyAnimation;
         private Rigidbody2D m_rigidbody2D;
@@ -79,14 +52,53 @@ namespace OniBow
         private GameFlowController m_gameFlowController;
         private CameraEffectView m_cameraEffectView;
 
-        [Header("이동 대기 설정")]
         private float m_moveDelayStartTime = -1f;
         private float m_currentMoveDelay = 0f;
 
+        private const string k_PlayerTag = "Player";
+        private const string k_ArrowTag = "Arrow";
+        #endregion
+
+        #region 에디터 설정
         [Header("AI 설정")]
         [SerializeField] private float m_moveSpeed = 3f;
-        public EnemyState CurrentState { get; private set; } = EnemyState.Idle;
         [SerializeField] private Transform m_player;
+        #endregion
+
+        #region 프로퍼티
+        public EnemyState CurrentState { get; private set; } = EnemyState.Idle;
+
+        private EnemyHealth Health
+        {
+            get
+            {
+                if (m_health == null) m_health = GetComponent<EnemyHealth>();
+                return m_health;
+            }
+        }
+
+        private EnemyMovement Movement
+        {
+            get
+            {
+                if (m_movement == null) m_movement = GetComponent<EnemyMovement>();
+                return m_movement;
+            }
+        }
+
+        private EnemyCombat Combat
+        {
+            get
+            {
+                if (m_combat == null) m_combat = GetComponent<EnemyCombat>();
+                return m_combat;
+            }
+        }
+
+        public bool IsDead => Health != null && Health.IsDead;
+        #endregion
+
+        #region 초기화
         [Inject]
         public void Construct(GameFlowController gameFlowController, CameraEffectView cameraEffectView)
         {
@@ -94,13 +106,9 @@ namespace OniBow
             m_cameraEffectView = cameraEffectView;
         }
 
-        public bool IsDead => Health != null && Health.IsDead;
-        
-        private const string k_PlayerTag = "Player";
-        private const string k_ArrowTag = "Arrow";
         #endregion
 
-        #region MonoBehaviour 콜백
+        #region 유니티 생명주기
         private void Awake()
         {
             m_rigidbody2D = GetComponent<Rigidbody2D>();
@@ -196,6 +204,21 @@ namespace OniBow
         }
         #endregion
 
+        #region 내부 로직
+        /// <summary>
+        /// [설명]: 피격 시 사운드 및 이펙트 처리를 담당하는 콜백입니다. (GC 최적화)
+        /// </summary>
+        /// <param name="actualDamage">실제 적용된 데미지</param>
+        private void OnTakeDamageCallback(int actualDamage)
+        {
+            if (SoundManager.Instance != null && !string.IsNullOrEmpty(SoundManager.Instance.EnemyDamagedSfx))
+            {
+                SoundManager.Instance.PlaySFX(SoundManager.Instance.EnemyDamagedSfx);
+            }
+            EffectManager.Instance.ShowDamageText(gameObject, actualDamage);
+        }
+        #endregion
+
         #region 공개 메서드
         /// <summary>
         /// 적에게 데미지를 적용하고, 확률적으로 회피를 시도합니다.
@@ -214,13 +237,8 @@ namespace OniBow
 
             if (Health != null)
             {
-                Health.TakeDamage(damage, (actualDamage) => {
-                    if (SoundManager.Instance != null && !string.IsNullOrEmpty(SoundManager.Instance.EnemyDamagedSfx))
-                    {
-                        SoundManager.Instance.PlaySFX(SoundManager.Instance.EnemyDamagedSfx);
-                    }
-                    EffectManager.Instance.ShowDamageText(gameObject, actualDamage);
-                });
+                // [개선]: 람다 할당을 피하기 위해 미리 정의된 메서드를 콜백으로 전달 (Zero Allocation)
+                Health.TakeDamage(damage, OnTakeDamageCallback);
             }
 
             if (!IsDead)
@@ -246,7 +264,8 @@ namespace OniBow
         }
         #endregion
 
-        #region AI 핵심 로직
+
+        #region 비즈니스 로직
 
         /// <summary>
         /// 적의 사망 처리를 담당합니다.
@@ -372,7 +391,7 @@ namespace OniBow
 
         #endregion
 
-        #region 보조 메소드
+        #region 내부 로직
 
         /// <summary>
         /// 적이 화면 밖으로 떨어졌는지 확인하고, 그렇다면 오브젝트를 파괴합니다.
@@ -464,7 +483,8 @@ namespace OniBow
         #endif
         #endregion
 
-        #region BT 구성
+
+        #region 비즈니스 로직
         private void SetupBehaviorTree()
         {
             var root = new Selector();
@@ -532,7 +552,8 @@ namespace OniBow
 
         #endregion
 
-        #region AI 상태별 로직 (BT 노드에서 호출됨)
+
+        #region 비즈니스 로직
         private async UniTask OnMovingStateAsync(CancellationToken token)
         {
             if (IsDead || m_player == null) return;
@@ -690,7 +711,8 @@ namespace OniBow
         }
         #endregion
 
-        #region 회피 로직
+
+        #region 비즈니스 로직
 
         /// <summary>
         /// 공격 회피를 위한 비동기 대쉬 로직을 실행합니다.

@@ -31,14 +31,21 @@ namespace OniBow
 
         protected override void Awake()
         {
-            // 씬 내에 이미 존재하는 모든 오브젝트(PlayerControl, Enemy 등)에 대해 자동 주입 활성화
-            if (autoInjectGameObjects == null) autoInjectGameObjects = new System.Collections.Generic.List<GameObject>();
-            
+            // [최적화]: 씬 내 모든 루트 오브젝트에 대해 자동 주입을 활성화하여 의존성 주입 누락을 방지합니다.
+            // 리스트 할당 및 중복 체크 로직을 효율적으로 구성합니다.
             var rootObjects = gameObject.scene.GetRootGameObjects();
-            foreach (var root in rootObjects)
+            
+            if (autoInjectGameObjects == null)
             {
-                if (!autoInjectGameObjects.Contains(root))
-                    autoInjectGameObjects.Add(root);
+                autoInjectGameObjects = new System.Collections.Generic.List<GameObject>(rootObjects);
+            }
+            else
+            {
+                foreach (var root in rootObjects)
+                {
+                    if (!autoInjectGameObjects.Contains(root))
+                        autoInjectGameObjects.Add(root);
+                }
             }
 
             base.Awake();
@@ -101,6 +108,7 @@ namespace OniBow
 
             // 7. Entry Point (초기화 로직 실행)
             builder.RegisterEntryPoint<GameInitializer>();
+            builder.RegisterEntryPoint<GameAudioPresenter>();
         }
     }
 

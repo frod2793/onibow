@@ -19,68 +19,17 @@ namespace OniBow
     [RequireComponent(typeof(Rigidbody2D))]
     public class PlayerControl : MonoBehaviour, IHealthProvider, IDamageable
     {
-        #region 내부 필드 (컴포넌트 참조)
+        #region 내부 변수
         private PlayerMovement m_movement;
-        private PlayerMovement Movement
-        {
-            get
-            {
-                if (m_movement == null)
-                {
-                    m_movement = GetComponent<PlayerMovement>();
-                    if (m_movement == null) m_movement = gameObject.AddComponent<PlayerMovement>();
-                }
-                return m_movement;
-            }
-        }
-
         private PlayerCombat m_combat;
-        private PlayerCombat Combat
-        {
-            get
-            {
-                if (m_combat == null)
-                {
-                    m_combat = GetComponent<PlayerCombat>();
-                    if (m_combat == null) m_combat = gameObject.AddComponent<PlayerCombat>();
-                }
-                return m_combat;
-            }
-        }
-
         private PlayerHealth m_health;
-        private PlayerHealth Health
-        {
-            get
-            {
-                if (m_health == null)
-                {
-                    m_health = GetComponent<PlayerHealth>();
-                    if (m_health == null) m_health = gameObject.AddComponent<PlayerHealth>();
-                }
-                return m_health;
-            }
-        }
         private SPUM_Prefabs m_spum;
-        #endregion
 
-        #region 의존성 주입
+        private PlayerState m_currentState = PlayerState.IDLE;
+        private CancellationTokenSource m_actionCts;
         private GameFlowController m_gameFlow;
         private CameraEffectView m_cameraEffect;
         private GameSessionDTO m_session;
-
-        [Inject]
-        public void Construct(GameFlowController gameFlow, CameraEffectView cameraEffect, GameSessionDTO session)
-        {
-            m_gameFlow = gameFlow;
-            m_cameraEffect = cameraEffect;
-            m_session = session;
-        }
-        #endregion
-
-        #region 내부 상태
-        private PlayerState m_currentState = PlayerState.IDLE;
-        private CancellationTokenSource m_actionCts;
         
         // 더블 클릭(대쉬)용 입력 타이머
         private float m_lastClickTime = -1f;
@@ -89,6 +38,48 @@ namespace OniBow
         private const string k_EnemyArrowTag = "EnemyArrow";
         #endregion
 
+        #region 에디터 설정 (필요 시 추가)
+        #endregion
+
+        #region 프로퍼티
+        private PlayerMovement Movement
+        {
+            get
+            {
+                if (m_movement == null) m_movement = GetComponent<PlayerMovement>();
+                return m_movement;
+            }
+        }
+
+        private PlayerCombat Combat
+        {
+            get
+            {
+                if (m_combat == null) m_combat = GetComponent<PlayerCombat>();
+                return m_combat;
+            }
+        }
+
+        private PlayerHealth Health
+        {
+            get
+            {
+                if (m_health == null) m_health = GetComponent<PlayerHealth>();
+                return m_health;
+            }
+        }
+        #endregion
+
+
+        #region 초기화
+        [Inject]
+        public void Construct(GameFlowController gameFlow, CameraEffectView cameraEffect, GameSessionDTO session)
+        {
+            m_gameFlow = gameFlow;
+            m_cameraEffect = cameraEffect;
+            m_session = session;
+        }
+
         #region IHealthProvider 구현 (위임)
         public event Action<float, float, float, float> OnHealthUpdated
         {
@@ -96,17 +87,24 @@ namespace OniBow
             remove => Health.OnHealthUpdated -= value;
         }
         #endregion
+        #endregion
 
         #region 유니티 생명주기
         private void Awake()
         {
-            // 하위 시스템 지연 초기화 프로퍼티를 통해 사전 접근
-            _ = Movement;
-            _ = Combat;
+            // [개선]: 속성 접근을 통한 지연 로딩 대신 Awake에서 명시적으로 컴포넌트를 캐싱합니다.
+            m_movement = GetComponent<PlayerMovement>();
+            if (m_movement == null) m_movement = gameObject.AddComponent<PlayerMovement>();
+            
+            m_combat = GetComponent<PlayerCombat>();
+            if (m_combat == null) m_combat = gameObject.AddComponent<PlayerCombat>();
+            
+            m_health = GetComponent<PlayerHealth>();
+            if (m_health == null) m_health = gameObject.AddComponent<PlayerHealth>();
 
             m_spum = GetComponentInChildren<SPUM_Prefabs>();
 
-            Health.OnPlayerDied += Die;
+            if (Health != null) Health.OnPlayerDied += Die;
         }
 
         private void Start()
@@ -127,6 +125,9 @@ namespace OniBow
             }
         }
 
+        #endregion
+
+        #region 내부 로직
         private void HandleGameStateChanged(GameState newState)
         {
             if (newState == GameState.Playing)
@@ -274,6 +275,9 @@ namespace OniBow
             ).Forget();
         }
 
+        #endregion
+
+        #region 비즈니스 로직
         private void StartAutoAttack()
         {
             if (m_currentState == PlayerState.DEATH || m_currentState == PlayerState.DAMAGED) return;
@@ -322,7 +326,6 @@ namespace OniBow
         }
         #endregion
 
-        #region 공개 인터페이스 (Facade)
         public event Action OnPlayerDied;
 
         public void ForceUpdateHpUI() => Health.ForceUpdateHpUI();
@@ -413,6 +416,5 @@ namespace OniBow
                 }
             }
         }
-        #endregion
     }
 }

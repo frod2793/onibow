@@ -67,6 +67,7 @@ namespace OniBow
             DetectBoundaries();
         }
 
+        #region 내부 로직
         private void UpdateEffectiveBounds()
         {
             float enemyWidth = m_collider.bounds.extents.x;
@@ -82,6 +83,8 @@ namespace OniBow
             m_effectiveMinX = Mathf.Max(m_minXPosition + enemyWidth + 0.05f, m_cameraMinX + enemyWidth);
             m_effectiveMaxX = Mathf.Min(m_maxXPosition - enemyWidth - 0.05f, m_cameraMaxX - enemyWidth);
         }
+
+        #endregion
 
         public float Move(float targetXVelocity)
         {
@@ -187,8 +190,11 @@ namespace OniBow
             Vector2 rayOrigin = new Vector2(enemyBounds.center.x + checkOffsetX, enemyBounds.min.y + 0.1f);
             RaycastHit2D groundHit = Physics2D.Raycast(rayOrigin, Vector2.down, 0.5f, m_groundLayer);
             
+            
             // 디버그 레이 (에디터에서 확인용)
+#if UNITY_EDITOR
             Debug.DrawRay(rayOrigin, Vector2.down * 0.5f, groundHit.collider != null ? Color.green : Color.red);
+#endif
             
             return groundHit.collider != null;
         }

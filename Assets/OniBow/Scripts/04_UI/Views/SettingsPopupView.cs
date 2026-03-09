@@ -35,13 +35,16 @@ namespace OniBow.UI.Views
         [VContainer.Inject]
         public void Initialize(SettingsViewModel viewModel)
         {
-            m_viewModel = viewModel;
-            if (m_viewModel != null)
+            if (viewModel == null)
             {
-                m_viewModel.OnBgmStateChanged += UpdateBgmUI;
-                m_viewModel.OnSfxStateChanged += UpdateSfxUI;
-                m_viewModel.RequestInitialState();
+                Debug.LogError("ViewModel is null!");
+                return;
             }
+
+            m_viewModel = viewModel;
+            m_viewModel.OnBgmStateChanged += UpdateBgmUI;
+            m_viewModel.OnSfxStateChanged += UpdateSfxUI;
+            m_viewModel.RequestInitialState();
 
             BindUIEvents();
         }
@@ -53,8 +56,17 @@ namespace OniBow.UI.Views
             if (m_sfxSlider != null) m_sfxSlider.onValueChanged.AddListener(OnSfxSliderChanged);
             if (m_sfxToggle != null) m_sfxToggle.onValueChanged.AddListener(OnSfxMuteChanged);
 
-            if (m_settingsButton != null) m_settingsButton.onClick.AddListener(TogglePopup);
-            if (m_closeButton != null) m_closeButton.onClick.AddListener(ClosePopup);
+            if (m_settingsButton != null)
+            {
+                // 중복 등록 방지를 위해 기존 리스너 제거 (만약의 경우)
+                m_settingsButton.onClick.RemoveListener(TogglePopup);
+                m_settingsButton.onClick.AddListener(TogglePopup);
+            }
+            if (m_closeButton != null) 
+            {
+                m_closeButton.onClick.RemoveListener(ClosePopup);
+                m_closeButton.onClick.AddListener(ClosePopup);
+            }
         }
         #endregion
 
@@ -62,12 +74,17 @@ namespace OniBow.UI.Views
         /// <summary>
         /// [설명]: 팝업의 활성 상태를 토글합니다.
         /// </summary>
-        public void TogglePopup()
+        private void TogglePopup()
         {
             if (m_popupRoot == null) return;
 
             bool isActive = !m_popupRoot.activeSelf;
             m_popupRoot.SetActive(isActive);
+
+            if (isActive && m_viewModel != null)
+            {
+                m_viewModel.RequestInitialState();
+            }
 
             // 팝업이 열릴 때 게임 일시 정지 (선택 사항)
             Time.timeScale = isActive ? 0f : 1f;

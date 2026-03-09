@@ -3197,13 +3197,17 @@ MonoBehaviour:
   autoInjectGameObjects:
   - {fileID: 665154087}
   m_sessionData:
-    DeveloperMode: 1
+    DeveloperMode: 0
     InitialDelay: 1
     DoorOpenDuration: 1
     BackgroundFadeDuration: 1
     CountdownStart: 5
   m_setupView: {fileID: 790451010}
   m_resultView: {fileID: 790451011}
+  m_playerHUDView: {fileID: 359000439}
+  m_enemyHUDView: {fileID: 359000440}
+  m_skillHUDView: {fileID: 359000438}
+  m_settingsPopupView: {fileID: 359000442}
 --- !u!114 &790451010
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5895,9 +5899,9 @@ Camera:
   m_NormalizedViewPortRect:
     serializedVersion: 2
     x: 0
-    y: 0.13390313
+    y: 0.13105413
     width: 1
-    height: 0.7323718
+    height: 0.7355769
   near clip plane: 0.3
   far clip plane: 1000
   field of view: 60

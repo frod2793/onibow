@@ -1,15 +1,21 @@
 using System;
+using UnityEngine;
 using OniBow.Managers;
 
 namespace OniBow.UI.ViewModels
 {
     public class SettingsViewModel
     {
+        #region 내부 필드
         private readonly SoundManager m_soundManager;
+        #endregion
 
+        #region 프로퍼티
         public event Action<float, bool> OnBgmStateChanged;
         public event Action<float, bool> OnSfxStateChanged;
+        #endregion
 
+        #region 초기화
         public SettingsViewModel(SoundManager soundManager)
         {
             m_soundManager = soundManager;
@@ -19,7 +25,9 @@ namespace OniBow.UI.ViewModels
         {
             // 호환성 유지용 (VContainer 사용 시 생성자 주입됨)
         }
+        #endregion
 
+        #region 공개 메서드
         public void RequestInitialState()
         {
             if (m_soundManager != null)
@@ -64,6 +72,6 @@ namespace OniBow.UI.ViewModels
                 OnSfxStateChanged?.Invoke(m_soundManager.GetSFXVolume(), mute);
             }
         }
+        #endregion
     }
 }
-
